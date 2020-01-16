@@ -1,9 +1,8 @@
-package main
+package helpers
 
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
 	"log"
 	"net/http"
@@ -11,25 +10,26 @@ import (
 	"strconv"
 )
 
-func WriteJsonContent(content interface{}, w http.ResponseWriter, statusCode int) error {
+func WriteJsonContent(content interface{}, w http.ResponseWriter, statusCode int) {
 	contentBytes, marshalErr := json.Marshal(content)
 	if marshalErr != nil {
-		return marshalErr
+		log.Printf("Could not marshal content for json write: %s", marshalErr)
+		return
 	}
 
 	w.Header().Add("Content-Type", "application/json")
 	w.Header().Add("Content-Length", strconv.FormatInt(int64(len(contentBytes)), 10))
 	w.WriteHeader(statusCode)
 	_, writeErr := w.Write(contentBytes)
-	return writeErr
+	if writeErr != nil {
+		log.Printf("Could not write content to HTTP socket: %s", writeErr)
+	}
 }
 
 func AssertHttpMethod(request *http.Request, w http.ResponseWriter, method string) bool {
 	if request.Method != method {
 		log.Printf("Got a %s request, expecting %s", request.Method, method)
-		w.Header().Add("Content-Type", "text/plain")
-		w.WriteHeader(405)
-		w.Write([]byte(fmt.Sprintf("Invalid method, expecting %s", method)))
+		WriteJsonContent(GenericErrorResponse{"error", "wrong method type"}, w, 405)
 		return false
 	} else {
 		return true

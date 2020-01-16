@@ -1,4 +1,4 @@
-package main
+package helpers
 
 type GenericErrorResponse struct {
 	Status string `json:"status"`

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/webapp/helpers"
 	"log"
 	"net/http"
 )
@@ -17,10 +18,10 @@ func (h HealthcheckHandler) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		w.WriteHeader(200)
 	} else {
 		log.Printf("HEALTHCHECK FAILED: %s connecting to Redis", err)
-		response := GenericErrorResponse{
+		response := helpers.GenericErrorResponse{
 			Status: "error",
 			Detail: "could not contact redis db",
 		}
-		WriteJsonContent(response, w, 500)
+		helpers.WriteJsonContent(response, w, 500)
 	}
 }
