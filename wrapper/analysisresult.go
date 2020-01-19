@@ -3,15 +3,15 @@ package main
 import "strconv"
 
 type FormatAnalysis struct {
-	StreamCount    int16   `mapstructure:"nb_streams"`
-	ProgCount      int16   `mapstructure:"nb_programs"`
-	FormatName     string  `mapstructure:"format_name"`
-	FormatLongName string  `mapstructure:"format_long_name"`
-	StartTimeCode  float64 `mapstructure:"start_time"`
-	Duration       float64 `mapstructure:"duration"`
-	Size           int64   `mapstructure:"size"`
-	BitRate        float64 `mapstructure:"bit_rate"`
-	ProbeScore     int32   `mapstructure:"probe_score"`
+	StreamCount    int16   `json:"nb_streams"`
+	ProgCount      int16   `json:"nb_programs"`
+	FormatName     string  `json:"format_name"`
+	FormatLongName string  `json:"format_long_name"`
+	StartTimeCode  float64 `json:"start_time"`
+	Duration       float64 `json:"duration"`
+	Size           int64   `json:"size"`
+	BitRate        float64 `json:"bit_rate"`
+	ProbeScore     int32   `json:"probe_score"`
 }
 
 /**

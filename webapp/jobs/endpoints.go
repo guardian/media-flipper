@@ -128,7 +128,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var result []*JobEntry
+	result := make([]*JobEntry, 0)
 
 	for _, cmd := range cmds {
 		content, getErr := cmd.Result()
