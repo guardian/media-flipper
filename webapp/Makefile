@@ -1,5 +1,9 @@
 all: webapp
 GOFILES := $(wildcard *.go)
+GOOS := linux
 
 webapp: $(GOFILES)
-	go build && cp webapp ../docker && cp -r config/ ../docker && cp -r && cp -r static/ ../docker
+	GOOS=linux go build && cp webapp ../docker && tar c config/ > ../docker/config.tar && tar c static/ > ../docker/static.tar
+
+clean:
+	rm -f webapp
