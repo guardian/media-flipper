@@ -38,10 +38,12 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 		time.Sleep(1 * time.Second)
 		return SendToWebapp(forUrl, data, attempt+1, maxTries)
 	case 200:
+		fallthrough
 	case 201:
 		return nil
 	default:
-		log.Printf("ERROR: Webapp returned a fatal error (got a %d response)")
+		log.Printf("ERROR: Webapp returned a fatal error (got a %d response)", response.StatusCode)
+		log.Printf("ERROR: Server said %s", responseContent)
 	}
 	return errors.New("Got a fatal error, see logs")
 }

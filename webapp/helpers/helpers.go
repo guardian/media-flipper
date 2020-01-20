@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -24,6 +26,16 @@ func WriteJsonContent(content interface{}, w http.ResponseWriter, statusCode int
 	if writeErr != nil {
 		log.Printf("Could not write content to HTTP socket: %s", writeErr)
 	}
+}
+
+func ReadJsonBody(from io.Reader, to interface{}) error {
+	byteContent, readErr := ioutil.ReadAll(from)
+	if readErr != nil {
+		return readErr
+	}
+
+	marshalErr := json.Unmarshal(byteContent, to)
+	return marshalErr
 }
 
 func AssertHttpMethod(request *http.Request, w http.ResponseWriter, method string) bool {

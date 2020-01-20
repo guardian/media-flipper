@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/webapp/analysis"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobs"
@@ -15,6 +16,7 @@ type MyHttpApp struct {
 	static      StaticFilesHandler
 	initiators  initiator.InitiatorEndpoints
 	jobs        jobs.JobsEndpoints
+	analysers   analysis.AnalysisEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -61,6 +63,7 @@ func main() {
 	app.static.uriTrim = 2
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient)
 	app.jobs = jobs.NewJobsEndpoints(redisClient)
+	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 
 	http.Handle("/default", http.NotFoundHandler())
 	http.Handle("/", app.index)
@@ -69,6 +72,7 @@ func main() {
 
 	app.initiators.WireUp("/api/flip")
 	app.jobs.WireUp("/api/job")
+	app.analysers.WireUp("/api/analysis")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
