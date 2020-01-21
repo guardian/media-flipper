@@ -5,7 +5,9 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"io/ioutil"
+	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
 	"net/url"
@@ -15,19 +17,22 @@ type JobsEndpoints struct {
 	GetHandler    GetJobHandler
 	CreateHandler CreateJobHandler
 	ListHandler   ListJobHandler
+	StatusHandler StatusJobHandler
 }
 
-func NewJobsEndpoints(redisClient *redis.Client) JobsEndpoints {
+func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset) JobsEndpoints {
 	return JobsEndpoints{
 		GetHandler:    GetJobHandler{redisClient},
 		CreateHandler: CreateJobHandler{redisClient},
 		ListHandler:   ListJobHandler{redisClient},
+		StatusHandler: StatusJobHandler{k8client},
 	}
 }
 
 func (e JobsEndpoints) WireUp(baseUrlPath string) {
 	http.Handle(baseUrlPath+"/get", e.GetHandler)
 	http.Handle(baseUrlPath+"/new", e.CreateHandler)
+	http.Handle(baseUrlPath+"/status", e.StatusHandler)
 	http.Handle(baseUrlPath+"", e.ListHandler)
 }
 
@@ -150,5 +155,37 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	helpers.WriteJsonContent(map[string]interface{}{"status": "ok", "entries": result}, w, 200)
+}
 
+type StatusJobHandler struct {
+	k8client *kubernetes.Clientset
+}
+
+func (h StatusJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !helpers.AssertHttpMethod(r, w, "GET") {
+		return
+	}
+
+	requestUrl, _ := url.ParseRequestURI(r.RequestURI)
+
+	jobIdString := requestUrl.Query().Get("jobId")
+	jobId, uuidErr := uuid.Parse(jobIdString)
+	if uuidErr != nil {
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Not a valid UUID"}, w, 400)
+		return
+	}
+
+	jobResults, k8err := jobrunner.FindRunnerFor(jobId, h.k8client)
+	if k8err != nil {
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{
+			Status: "error",
+			Detail: "Could not retrieve job data from cluster",
+		}, w, 500)
+		return
+	}
+
+	helpers.WriteJsonContent(map[string]interface{}{
+		"status":  "ok",
+		"entries": *jobResults,
+	}, w, 200)
 }

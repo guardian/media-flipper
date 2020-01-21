@@ -58,7 +58,8 @@ func main() {
 
 	k8Client, _ := jobrunner.InClusterClient()
 
-	log.Print("Got k8client: ", k8Client)
+	log.Print("Got k8client.")
+
 	app.index.filePath = "public/index.html"
 	app.index.contentType = "text/html"
 	app.index.exactMatchPath = "/"
@@ -66,7 +67,7 @@ func main() {
 	app.static.basePath = "public"
 	app.static.uriTrim = 2
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient)
-	app.jobs = jobs.NewJobsEndpoints(redisClient)
+	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 
 	http.Handle("/default", http.NotFoundHandler())

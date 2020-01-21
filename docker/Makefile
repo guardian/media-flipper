@@ -2,9 +2,14 @@ all: dockerbuild
 
 .PHONY: dockerbuild
 
-DOCKER_VER = `if [ "${BUILD_NUM}" == "" ]; then echo DEV; else echo ${BUILD_NUM}; fi`
+ifndef BUILD_NUM
+	DOCKER_VER="DEV"
+else
+	DOCKER_VER="$(BUILD_NUM)"
+endif
+
 dockerbuild:
-	docker build . -t guardianmultimedia/mediaflipper:$(DOCKER_VER)
+	docker build . -t guardianmultimedia/mediaflipper:DEV
 
 clean:
 	rm -f webapp
