@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: webapp
+    stack: MediaFlipper
+  name: webapp-mediaflipper
+spec:
+  ports:
+    - name: webapp
+      port: 9000
+      targetPort: 9000
+  selector:
+    app: MediaFlipper
+    stack: MediaFlipper

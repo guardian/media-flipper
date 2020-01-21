@@ -1,2 +1,6 @@
 scratch:
   localpath: scratchdir
+redis:
+  address: localhost
+  password: changeme
+  dbNum: 0

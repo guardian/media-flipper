@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mediaflipper-webapp-config
+data:
+  serverconfig.yaml: |
+    scratch:
+      localpath: /mnt/shared-data
+    redis:
+      address: redis-mediaflipper:6379
+      password: changeme
+      dbNum: 0

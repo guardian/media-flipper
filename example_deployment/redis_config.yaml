@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mediaflipper-redis-config
+data:
+  redis.conf: |
+    protected-mode no
+    port 6379
+    bind 0.0.0.0
+
+    save 900 1
+    save 300 10
+    save 60 100
+
+    rdbcompression yes
+    dbfilename dump.rdb
+
+    dir /data
+
+    requirepass changeme
+    #if you change the maxmemory, make sure that the statefulset memory limit is updated too
+    maxmemory 2147483648
+    maxmemory-policy noeviction

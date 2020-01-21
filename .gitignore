@@ -38,3 +38,4 @@ node_modules
 webapp/static/bundle.js
 webapp/webapp
 wrapper/wrapper
+example_deployment/private

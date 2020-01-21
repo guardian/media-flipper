@@ -6,4 +6,5 @@ require (
 	github.com/h2non/filetype v1.0.10
 	github.com/mitchellh/mapstructure v1.1.2
 	gopkg.in/yaml.v2 v2.2.4
+	k8s.io/client-go v0.0.0-20191114101535-6c5935290e33
 )

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-mediaflipper
+  labels:
+    app: MediaFlipper
+    stack: MediaFlipper
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: MediaFlipper
+      stack: MediaFlipper
+  template:
+    metadata:
+      name: webapp-mediaflipper
+      labels:
+        app: MediaFlipper
+        stack: MediaFlipper
+    spec:
+      containers:
+        - image: guardianmultimedia/mediaflipper:DEV
+          imagePullPolicy: Always
+          name: webapp-mediaflipper
+          resources:
+            requests:
+              cpu: 0.5
+              memory: 2Gi
+            limits:
+              cpu: 2
+              memory: 2Gi
+          ports:
+          - containerPort: 9000
+          volumeMounts:
+            - mountPath: /mnt/shared-data
+              name: shared-data
+            - mountPath: /opt/mediaflipper/config
+              name: webapp-config
+      restartPolicy: Always
+      volumes:
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: shared-data-mediaflipper
+        - name: webapp-config
+          configMap:
+            name: mediaflipper-webapp-config

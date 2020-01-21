@@ -1,0 +1,53 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  labels:
+    stack: MediaFlipper
+    app: redis
+  name: redis-mediaflipper
+spec:
+  replicas: 1
+  serviceName: redis-mediaflipper
+  selector:
+    matchLabels:
+      app: redis
+      stack: MediaFlipper
+  template:
+    metadata:
+      name: redis-mediaflipper
+      labels:
+        app: redis
+        stack: MediaFlipper
+    spec:
+      containers:
+        - image: redis:5-alpine
+          name: redis-mediaflipper
+          command: ["/usr/local/bin/docker-entrypoint.sh"]
+          args: ["/etc/redis/redis.conf"]
+          resources:
+            requests:
+              cpu: 0.1
+              memory: 1Gi
+            limits:
+              cpu: 2
+              memory: 2Gi
+          volumeMounts:
+            - mountPath: /data
+              name: redisdata
+            - mountPath: /etc/redis
+              name: redisconfig
+      restartPolicy: Always
+      volumes:
+        - name: redisconfig
+          configMap:
+            name: mediaflipper-redis-config
+  volumeClaimTemplates:
+  - metadata:
+      name: redisdata
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: basic
+      resources:
+        requests:
+          storage: 5Gi

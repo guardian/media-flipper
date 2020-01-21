@@ -5,6 +5,7 @@ import (
 	"github.com/guardian/mediaflipper/webapp/analysis"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/initiator"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
 	"log"
 	"net/http"
@@ -55,6 +56,9 @@ func main() {
 		log.Fatal("Could not connect to redis")
 	}
 
+	k8Client, _ := jobrunner.InClusterClient()
+
+	log.Print("Got k8client: ", k8Client)
 	app.index.filePath = "public/index.html"
 	app.index.contentType = "text/html"
 	app.index.exactMatchPath = "/"
