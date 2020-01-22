@@ -1,115 +1,188 @@
 package jobrunner
 
-// see https://github.com/kubernetes/client-go/blob/master/examples/in-cluster-client-configuration/main.go
-
 import (
 	"errors"
-	"fmt"
-	_ "fmt"
+	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/models"
-	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"log"
-	"os"
 	"time"
-	//
-	// Uncomment to load all auth plugins
-	// _ "k8s.io/client-go/plugin/pkg/client/auth"
-	//
-	// Or uncomment to load specific auth plugins
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/azure"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
 
-func InClusterClient() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Printf("Could not establish cluster connection: ", err)
-		return nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Printf("Could not establish cluster connection: ", err)
-		return nil, err
-	}
-
-	return clientset, nil
+type JobRunner struct {
+	redisClient     *redis.Client
+	k8client        *kubernetes.Clientset
+	shutdownChan    chan bool
+	queuePollTicker *time.Ticker
+	maxJobs         int32
 }
 
-func GetMyNamespace(client *kubernetes.Clientset) (string, error) {
-	//if we are in the cluster then this file should be present
-	_, statErr := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if statErr != nil {
-		if os.IsNotExist(statErr) {
-			log.Printf("Out of cluster configuration not implemented yet")
-			return "", errors.New("Not implemented")
+/**
+create a new JobRunner object
+*/
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, channelBuffer int, maxJobs int32) JobRunner {
+	shutdownChan := make(chan bool)
+	queuePollTicker := time.NewTicker(1 * time.Second)
+
+	runner := JobRunner{
+		redisClient:     redisClient,
+		k8client:        k8client,
+		shutdownChan:    shutdownChan,
+		queuePollTicker: queuePollTicker,
+		maxJobs:         maxJobs,
+	}
+	go runner.requestProcessor()
+	return runner
+}
+
+/**
+add the provided JobEntry to the queue for processing
+*/
+func (j *JobRunner) AddJob(job *models.JobEntry, predefinedType string) error {
+	newRecord := JobRunnerRequest{
+		requestId:      uuid.New(),
+		predefinedType: predefinedType,
+		forJob:         *job,
+	}
+
+	return pushToRequestQueue(j.redisClient, &newRecord)
+}
+
+/**
+goroutine to process incoming requests
+*/
+func (j *JobRunner) requestProcessor() {
+	log.Print("Started requestProcessor routine")
+	for {
+		select {
+		case <-j.queuePollTicker.C:
+			log.Printf("DEBUG: JobRunner queue tick")
+			j.clearCompletedTick()
+			j.waitingQueueTick()
 		}
-		log.Print("ERROR asserting kubernetes namespace: ", statErr)
-		return "", statErr
 	}
-
-	content, readErr := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if readErr != nil {
-		log.Print("Could not read in k8s namespace: ", readErr)
-		return "", readErr
-	}
-	return string(content), nil
 }
 
-func safeStartTimeString(timeval *metav1.Time) string {
-	if timeval == nil {
-		return ""
+/**
+trigger the action for a given item and put it onto the running queue if successful
+*/
+func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
+	if rq.predefinedType == "analysis" {
+		err := CreateAnalysisJob(rq.forJob, j.k8client)
+		if err != nil {
+			log.Print("Could not create analysis job! ", err)
+			return err
+		}
+		pushErr := pushToRunningQueue(j.redisClient, rq)
+		if pushErr != nil {
+			log.Printf("Could not update running queue! ", pushErr)
+			return pushErr
+		}
+		return nil
 	} else {
-		return timeval.Format(time.RFC3339)
+		log.Print("Other job types not yet implemented!")
+		return errors.New("other job types not yet implemented")
 	}
 }
 
-func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.JobRunnerDesc, error) {
-	ns, nsErr := GetMyNamespace(client)
-	if nsErr != nil {
-		return nil, nsErr
+func (j *JobRunner) clearCompletedTick() {
+	set, checkErr := checkQueueLock(j.redisClient, RUNNING_QUEUE)
+	if checkErr != nil {
+		log.Printf("Could not check running queue lock: %s", checkErr)
+		return
 	}
 
-	listOpts := metav1.ListOptions{
-		LabelSelector:  fmt.Sprintf("mediaflipper.jobId=%s", jobId),
-		Watch:          false,
-		TimeoutSeconds: nil,
-		Limit:          0,
+	if set {
+		log.Printf("Running queue is locked, not performing clear completed")
+		return
 	}
 
-	response, err := client.BatchV1().Jobs(ns).List(listOpts)
-	if err != nil {
-		log.Print("ERROR: Could not list k8s job containers: ", err)
-		return nil, err
+	setQueueLock(j.redisClient, RUNNING_QUEUE)
+
+	queueSnapshot, snapErr := copyRunningQueueContent(j.redisClient)
+	if snapErr != nil {
+		log.Printf("ERROR: Could not clear completed jobs, queue snapshot gave an error")
+		return
 	}
 
-	rtn := make([]models.JobRunnerDesc, len(response.Items))
-	for i, jobDesc := range response.Items {
-		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status, jobDesc.Labels)
-		var statusString string
-		if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
-			statusString = "InProgress"
-		} else if jobDesc.Status.Failed > 0 && jobDesc.Status.Succeeded == 0 {
-			statusString = "Failed"
-		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded > 0 {
-			statusString = "Success"
+	for i, runningJob := range *queueSnapshot {
+		var jobId uuid.UUID
+		if runningJob.forJob.JobId.ID() != 0 {
+			jobId = runningJob.forJob.JobId
 		} else {
-			statusString = "Unknown"
+			jobId = runningJob.requestId
 		}
 
-		rtn[i] = models.JobRunnerDesc{
-			JobUID:         string(jobDesc.UID),
-			Status:         statusString,
-			StartTime:      safeStartTimeString(jobDesc.Status.StartTime),
-			CompletionTime: safeStartTimeString(jobDesc.Status.CompletionTime),
-			Name:           jobDesc.Name,
+		runners, runErr := FindRunnerFor(jobId, j.k8client)
+		if runErr != nil {
+			log.Print("Could not get runner for ", jobId, ": ", runErr)
+			continue //proceed to next one, don't abort
+		}
+
+		for _, runner := range *runners {
+			switch runner.Status {
+			case models.CONTAINER_COMPLETED:
+				runningJob.forJob.Status = models.JOB_COMPLETED
+				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				if putErr != nil {
+					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+				} else {
+					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+				}
+			case models.CONTAINER_FAILED:
+				runningJob.forJob.Status = models.JOB_FAILED
+				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				if putErr != nil {
+					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+				} else {
+					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+				}
+			case models.CONTAINER_ACTIVE:
+				runningJob.forJob.Status = models.JOB_STARTED
+				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				if putErr != nil {
+					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+				} else {
+					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+				}
+			}
 		}
 	}
-	return &rtn, nil
+
+	releaseQueueLock(j.redisClient, RUNNING_QUEUE)
+}
+
+/**
+internal function to process items on the waiting queue, up until we either run out of items on the queue or have the
+max running jobs
+*/
+func (j *JobRunner) waitingQueueTick() {
+	for {
+		queuelen, getErr := getRunningQueueLength(j.redisClient)
+		if getErr != nil {
+			log.Printf("ERROR: Could not get queue length: %s", getErr)
+			continue
+		}
+		if queuelen >= int64(j.maxJobs) {
+			log.Printf("Max running jobs reached")
+			break
+		}
+		if queuelen == 0 {
+			log.Print("End of queue reached")
+			break
+		}
+		newJob, getErr := getNextRequestQueueEntry(j.redisClient)
+		if getErr == nil {
+			if newJob == nil {
+				log.Printf("No more jobs to get")
+				break
+			} else {
+				j.actionRequest(newJob)
+			}
+		} else {
+			log.Printf("Could not get next job to process!")
+			break
+		}
+	}
 }

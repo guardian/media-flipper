@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: analysis-job-template
+spec:
+  template:
+    spec:
+      containers:
+        - name: analyser
+          image: guardianmultimedia/mediaflipper:DEV
+          imagePullPolicy: Always
+          env:
+            - name: WRAPPER_MODE
+              value: analyse
+            - name: JOB_ID
+              value: overwritten
+            - name: FILE_NAME
+              value: overwritten
+            - name: WEBAPP_BASE
+              value: overwritten
+            - name: MAX_RETRIES
+              value: "10"
+          command: ["/opt/mediaflipper/wrapper"]
+          volumeMounts:
+            - mountPath: /mnt/shared-data
+              name: shared-data
+      restartPolicy: Never
+      volumes:
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: shared-data-mediaflipper
+  backoffLimit: 4

@@ -8,8 +8,9 @@ import (
 )
 
 func RunAnalysis(fileName string) (*AnalysisResult, error) {
-	cmd := exec.Command("ffprobe", "-of", "json", "-show_format", "-show_streams", "-show_programs", fileName)
+	cmd := exec.Command("/usr/bin/ffprobe", "-of", "json", "-show_format", "-show_streams", "-show_programs", fileName)
 
+	log.Print("DEBUG: exec command is ", cmd)
 	outPipe, _ := cmd.StdoutPipe()
 
 	startErr := cmd.Start()
@@ -25,7 +26,7 @@ func RunAnalysis(fileName string) (*AnalysisResult, error) {
 		exitErr, isExitError := completeErr.(*exec.ExitError)
 		if isExitError {
 			log.Print("Failure code: ", exitErr)
-			log.Printf("Subprocess exited with an error: \n%s\n%s", exitErr.Stderr)
+			log.Printf("Subprocess exited with an error: \n%s\n%s", exitErr.Stderr, cmd.Stdout)
 			return nil, completeErr
 		} else {
 			log.Print("Could not run subprocess: ", completeErr)

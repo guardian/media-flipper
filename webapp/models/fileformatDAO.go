@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-func keyForJobId(id uuid.UUID) string {
+func keyForFileId(id uuid.UUID) string {
 	return fmt.Sprintf("mediaflipper:fileformat:%s", id.String())
 }
 
@@ -16,7 +16,7 @@ func keyForJobId(id uuid.UUID) string {
 Retrieve the file format data for a given UUID from the datastore. Returns nil, nil if the job does not exist
 */
 func GetFileFormat(forId uuid.UUID, redisClient *redis.Client) (*FileFormatInfo, error) {
-	jobKey := keyForJobId(forId)
+	jobKey := keyForFileId(forId)
 
 	result := redisClient.Get(jobKey)
 	content, getErr := result.Result()
@@ -40,7 +40,7 @@ func GetFileFormat(forId uuid.UUID, redisClient *redis.Client) (*FileFormatInfo,
 Save the given job object to the datastore. Returns nil if successful, or an error
 */
 func PutFileFormat(record *FileFormatInfo, redisClient *redis.Client) error {
-	jobKey := keyForJobId(record.ForJob)
+	jobKey := keyForFileId(record.ForJob)
 
 	encoded, encodErr := json.Marshal(*record)
 	if encodErr != nil {

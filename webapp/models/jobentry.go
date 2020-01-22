@@ -1,4 +1,4 @@
-package jobs
+package models
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ type JobEntry struct {
 	Status     JobStatus `json:"jobStatus"`
 }
 
-func (j JobEntry) toMap() map[string]string {
+func (j JobEntry) ToMap() map[string]string {
 	return map[string]string{
 		"jobId":      j.JobId.String(),
 		"mediaFile":  j.MediaFile,

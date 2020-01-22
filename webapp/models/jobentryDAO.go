@@ -1,4 +1,4 @@
-package jobs
+package models
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ Save the given job object to the datastore. Returns nil if successful, or an err
 */
 func PutJob(entry *JobEntry, redisClient *redis.Client) error {
 	jobKey := keyForJobId(entry.JobId)
-	mapData := entry.toMap()
+	mapData := entry.ToMap()
 
 	pipe := redisClient.Pipeline()
 	for k, v := range mapData {

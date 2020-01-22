@@ -1,6 +1,6 @@
 scratch:
   localpath: scratchdir
 redis:
-  address: localhost
-  password: changeme
+  address: localhost:6379
+#  password: changeme
   dbNum: 0

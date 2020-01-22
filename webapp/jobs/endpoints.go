@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -23,7 +24,7 @@ type JobsEndpoints struct {
 func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset) JobsEndpoints {
 	return JobsEndpoints{
 		GetHandler:    GetJobHandler{redisClient},
-		CreateHandler: CreateJobHandler{redisClient},
+		CreateHandler: CreateJobHandler{redisClient, k8client},
 		ListHandler:   ListJobHandler{redisClient},
 		StatusHandler: StatusJobHandler{k8client},
 	}
@@ -54,7 +55,7 @@ func (h GetJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, jobErr := GetJobForId(jobId, h.RedisClient)
+	result, jobErr := models.GetJobForId(jobId, h.RedisClient)
 	if jobErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not retrieve entry"}, w, 500)
 		return
@@ -67,6 +68,7 @@ func (h GetJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type CreateJobHandler struct {
 	RedisClient *redis.Client
+	K8Client    *kubernetes.Clientset
 }
 
 func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -89,8 +91,8 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newEntry := NewJobEntry(rq.SettingsId)
-	jobErr := PutJob(&newEntry, h.RedisClient)
+	newEntry := models.NewJobEntry(rq.SettingsId)
+	jobErr := models.PutJob(&newEntry, h.RedisClient)
 	if jobErr != nil {
 		log.Print("Could not save new job: ", jobErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Could not save record"}, w, 500)
@@ -133,7 +135,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := make([]*JobEntry, 0)
+	result := make([]*models.JobEntry, 0)
 
 	for _, cmd := range cmds {
 		content, getErr := cmd.Result()
@@ -143,7 +145,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		newEntry, marErr := JobEntryFromMap(content)
+		newEntry, marErr := models.JobEntryFromMap(content)
 		if marErr != nil {
 			log.Printf("offending data is %s", content)
 			log.Printf("Could not unmarshal datastore content into job object for %s: %s", cmd.Args()[0], *marErr)

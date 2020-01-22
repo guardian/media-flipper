@@ -4,9 +4,11 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/jobs"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"io"
 	"io/ioutil"
+	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
 	"net/url"
@@ -16,6 +18,7 @@ import (
 type UploadEndpointHandler struct {
 	config      *helpers.Config
 	redisClient *redis.Client
+	k8Client    *kubernetes.Clientset
 }
 
 func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +46,7 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	jobRecord, jobErr := jobs.GetJobForId(jobId, h.redisClient)
+	jobRecord, jobErr := models.GetJobForId(jobId, h.redisClient)
 	if jobErr != nil {
 		log.Printf("Could not retrieve job record for %s: %s", jobId, jobErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Could not retrieve record"}, w, 500)
@@ -81,13 +84,16 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	jobRecord.MediaFile = fp.Name()
-	jobUpdateErr := jobs.PutJob(jobRecord, h.redisClient)
+	jobUpdateErr := models.PutJob(jobRecord, h.redisClient)
 	if jobUpdateErr != nil {
 		log.Printf("ERROR: Could not update job record: %s", writeErr)
 		defer os.Remove(fp.Name())
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not update job"}, w, 500)
 		return
 	}
+
+	//not a good idea in prod, for testing only
+	go jobrunner.CreateAnalysisJob(*jobRecord, h.k8Client)
 
 	helpers.WriteJsonContent(map[string]interface{}{"status": "ok", "receivedBytes": bytesCopied}, w, 200)
 

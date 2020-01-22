@@ -35,7 +35,13 @@ func main() {
 	log.Printf("Max retriues set to %d", maxTries)
 	switch os.Getenv("WRAPPER_MODE") {
 	case "analyse":
-		result, err := RunAnalysis(*testFilePtr)
+		var filename string
+		if os.Getenv("FILE_NAME") != "" {
+			filename = os.Getenv("FILE_NAME")
+		} else {
+			filename = *testFilePtr
+		}
+		result, err := RunAnalysis(filename)
 
 		if err != nil {
 			log.Fatal("Could not run analysis: ", err)
