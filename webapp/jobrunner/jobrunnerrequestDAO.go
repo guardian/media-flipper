@@ -66,7 +66,7 @@ func pushToQueue(client *redis.Client, item *JobRunnerRequest, queueName QueueNa
 
 	encodedContent, marshalErr := json.Marshal(item)
 	if marshalErr != nil {
-		log.Printf("Could not encode content for %s: %s", item, marshalErr)
+		log.Print("Could not encode content for ", item, ": ", marshalErr)
 		return marshalErr
 	}
 

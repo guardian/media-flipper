@@ -48,6 +48,6 @@ func (h IndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, err := io.Copy(w, f)
 
 	if err != nil {
-		log.Printf("Could not output fronend: ", err)
+		log.Print("Could not output frontend: ", err)
 	}
 }

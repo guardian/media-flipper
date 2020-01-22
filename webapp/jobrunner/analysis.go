@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/guardian/mediaflipper/webapp/models"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	v1 "k8s.io/api/batch/v1"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"log"
 	"path"
+	"reflect"
 )
 
 /**
@@ -22,13 +23,23 @@ func LoadFromTemplate(fileName string) (*v1.Job, error) {
 	if readErr != nil {
 		return nil, readErr
 	}
+	//THIS is the right way to read k8s manifests.... https://github.com/kubernetes/client-go/issues/193
+	decode := scheme.Codecs.UniversalDeserializer()
 
-	var templateDesc v1.Job
-	decodErr := yaml.Unmarshal(bytes, &templateDesc)
-	if decodErr != nil {
-		return nil, decodErr
+	obj, groupVersionKind, err := decode.Decode(bytes, nil, nil)
+	if err != nil {
+		return nil, err
 	}
-	return &templateDesc, nil
+
+	log.Print("DEBUG: groupVersionKind is ", groupVersionKind)
+
+	switch obj.(type) {
+	case *v1.Job:
+		return obj.(*v1.Job), nil
+	default:
+		log.Printf("Expected to get a job from template %s but got %s instead", fileName, reflect.TypeOf(obj).String())
+		return nil, errors.New("Wrong manifest type")
+	}
 }
 
 /**
@@ -50,12 +61,9 @@ func CreateAnalysisJob(jobDesc models.JobEntry, k8client *kubernetes.Clientset) 
 	jobPtr, loadErr := LoadFromTemplate("config/AnalysisJobTemplate.yaml")
 
 	if loadErr != nil {
-		log.Printf("Could not load analysis job template data: ", loadErr)
+		log.Print("Could not load analysis job template data: ", loadErr)
 		return loadErr
 	}
-
-	spew.Dump(jobPtr.Spec.Template.Spec)
-	spew.Dump(jobPtr.Spec.Template.Spec.RestartPolicy)
 
 	svcUrlPtr, svcUrlErr := FindServiceUrl(k8client)
 	if svcUrlErr != nil {

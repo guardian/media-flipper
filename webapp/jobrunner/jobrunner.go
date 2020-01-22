@@ -76,7 +76,7 @@ func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
 		}
 		pushErr := pushToRunningQueue(j.redisClient, rq)
 		if pushErr != nil {
-			log.Printf("Could not update running queue! ", pushErr)
+			log.Print("Could not update running queue! ", pushErr)
 			return pushErr
 		}
 		return nil
@@ -126,7 +126,7 @@ func (j *JobRunner) clearCompletedTick() {
 				runningJob.forJob.Status = models.JOB_COMPLETED
 				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
 				if putErr != nil {
-					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
 				} else {
 					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
 				}
@@ -134,7 +134,7 @@ func (j *JobRunner) clearCompletedTick() {
 				runningJob.forJob.Status = models.JOB_FAILED
 				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
 				if putErr != nil {
-					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
 				} else {
 					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
 				}
@@ -142,7 +142,7 @@ func (j *JobRunner) clearCompletedTick() {
 				runningJob.forJob.Status = models.JOB_STARTED
 				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
 				if putErr != nil {
-					log.Printf("Could not update job %s: %s", runningJob.forJob, putErr)
+					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
 				} else {
 					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
 				}

@@ -182,7 +182,7 @@ func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.Job
 
 	rtn := make([]models.JobRunnerDesc, len(response.Items))
 	for i, jobDesc := range response.Items {
-		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status, jobDesc.Labels)
+		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
 		var statusVal models.ContainerStatus
 		if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
 			statusVal = models.CONTAINER_ACTIVE
