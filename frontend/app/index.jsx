@@ -4,10 +4,12 @@ import {BrowserRouter, Link, Route, Switch, Redirect, withRouter} from 'react-ro
 import { library } from '@fortawesome/fontawesome-svg-core'
 import RootComponent from "./RootComponent.jsx";
 import css from './approot.css';
+import JobList from "./JobList/JobList.jsx";
 
 class App extends React.Component {
     render() {
         return <Switch>
+                <Route path="/jobs" component={JobList}/>
                 <Route path="/" exact={true} component={RootComponent}/>
             </Switch>;
     }
