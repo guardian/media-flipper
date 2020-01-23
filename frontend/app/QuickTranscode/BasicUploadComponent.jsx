@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import css from "./UploadComponent.css";
 
 /**
  * simple component to load the file into browser environment and make it available for upload
@@ -7,7 +8,6 @@ import PropTypes from 'prop-types';
 class BasicUploadComponent extends React.Component {
     static propTypes = {
         id: PropTypes.string,
-        className: PropTypes.string,
         loadCompleted: PropTypes.func.isRequired,
         loadStart: PropTypes.func
     };
@@ -21,24 +21,30 @@ class BasicUploadComponent extends React.Component {
     }
 
     fileLoadCompleted(evt) {
-        this.props.loadCompleted(evt.result);
+        console.log("fileLoadCompleted: ", evt);
+        if(evt.result===null){
+            console.error("fileLoadCompleted but no result data");
+            return;
+        }
+        this.props.loadCompleted(this.fileReader.result);
     }
 
     fileInputChanged(evt) {
         const file = evt.target.files[0];
+        console.log("fileInputChanged: ", file);
         if(!file){
             console.error("fileInputChanged but got no files??");
             return;
         }
-
-        if(this.props.loadStart) this.props.loadStart();
-
         this.fileReader.onloadend = this.fileLoadCompleted;
+
+        if(this.props.loadStart) this.props.loadStart(file);
+        console.log("started reading");
         this.fileReader.readAsArrayBuffer(file);
     }
 
     render(){
-        return <input type="file" id={this.props.id} className={this.props.className} onChange={this.fileInputChanged}/>
+        return <input type="file" id={this.props.id} className="inputfile" onChange={this.fileInputChanged}/>
     }
 }
 

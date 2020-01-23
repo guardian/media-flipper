@@ -1,15 +1,18 @@
 import React from 'react';
 import MenuBanner from "../MenuBanner.jsx";
 import BasicUploadComponent from "./BasicUploadComponent.jsx";
+import css from "../inline-dialog.css";
 
 class QuickTranscode extends React.Component {
     constructor(props) {
         super(props);
 
         this.state = {
-            loading: false,
+            phase: 0,
+            uploadCompleted: false,
             lastError: null,
             jobId: null,
+            fileName: null,
             settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279"  //FAKE value for testing
         };
 
@@ -52,6 +55,7 @@ class QuickTranscode extends React.Component {
      * @returns {Promise<void>}
      */
     async uploadData(jobId, data) {
+        console.log("uploadData: ", data);
         const response = await fetch("/api/flip/upload?forJob="+jobId, {method:"POST", body: data, headers:{"Content-Type":"application/octet-stream"}});
         const responseBody = await response.text();
 
@@ -65,25 +69,38 @@ class QuickTranscode extends React.Component {
     async uploadProcess(data) {
         const newJobId = await this.createJobEntry();
         console.log("Job created with id ",newJobId);
+        await this.setStatePromise({jobId: newJobId, phase: 1, uploadCompleted: false});
         await this.uploadData(newJobId, data);
     }
 
     newDataAvailable(data) {
         this.uploadProcess(data)
-            .then(()=>this.setState({loading: false}))
+            .then(()=>this.setState({phase: 2, uploadCompleted: true}))
             .catch(err=>this.setState({loading: false, lastError: err}))
     }
 
     render() {
         return <div>
             <MenuBanner/>
-            <div className="centered">
-                <label htmlFor="upload-box">Add your file here:</label>
+            <div className="inline-dialog">
+                <h2 className="inline-dialog-title">Quick transcode</h2>
+                <div className="inline-dialog-content" style={{marginTop: "1em"}}>
                 <BasicUploadComponent id="upload-box"
-                                      loadStart={()=>this.setState({loading: true})}
+                                      loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + file.size + " " + file.type + ")"})}
                                       loadCompleted={this.newDataAvailable}/>
-                <span className="loading" style={{display: this.state.loading ? "block" : "none"}}>Loading...</span>
-                <span className="error" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
+                <label htmlFor="upload-box">Upload a file</label>
+                <div id="placeholder" style={{height: "4em", display: "block", overflow: "hidden"}}>
+                    <span className="transcode-info-block" style={{display: this.state.fileName ? "inherit" : "none"}}>{this.state.fileName}</span>
+
+                    <span className="transcode-info-block" style={{display: this.state.phase<1 ? "none" : "block"}}>{
+                        this.state.uploadCompleted ? "Uploading... Done!" : "Uploading..."
+                    }</span>
+                    <span className="transcode-info-block" style={{display: this.state.phase<2 ? "none" : "block"}}>{
+                        this.state.analysisCompleted ? "Analysing... Done!" : "Analysing..."
+                    }</span>
+                    <span className="error-text" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
+                </div>
+                </div>
             </div>
         </div>
     }

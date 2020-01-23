@@ -1,0 +1,36 @@
+.inputfile {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+}
+
+.inputfile + label {
+    /*font-size: 1.25em;*/
+    font-weight: bold;
+    padding: 0.5em;
+    color: black;
+    border-radius: 4px;
+    text-align: center;
+    background-color: lightgray;
+    display: inherit;
+    width: 30%;
+    margin-right: auto;
+    margin-left: auto;
+    overflow: hidden;
+    margin-bottom: 0.4em
+}
+
+.inputfile:focus + label,
+.inputfile + label:hover {
+    background-color: darkgray;
+    cursor: pointer;
+}
+
+.transcode-info-block {
+    font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 0.8em;
+    text-align: center;
+}
