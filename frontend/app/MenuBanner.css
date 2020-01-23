@@ -1,0 +1,19 @@
+ul.menubanner {
+    list-style: none;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;
+    width: 20%;
+}
+
+li.menubanner {
+    display: inline-block;
+    margin-right: 0.4em;
+    border-right: 2px solid black;
+    padding-right: 0.4em;
+}
+
+li.last {
+    border-right: none !important;
+}

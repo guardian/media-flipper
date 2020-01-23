@@ -24,7 +24,7 @@ create a new JobRunner object
 */
 func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, channelBuffer int, maxJobs int32) JobRunner {
 	shutdownChan := make(chan bool)
-	queuePollTicker := time.NewTicker(30 * time.Second)
+	queuePollTicker := time.NewTicker(1 * time.Second)
 
 	runner := JobRunner{
 		redisClient:     redisClient,

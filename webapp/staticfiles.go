@@ -67,6 +67,7 @@ func (h StaticFilesHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		mimeType = fileTypeInfo.MIME.Value
 	}
 
+	log.Printf("MIME type is %s", mimeType)
 	f, openErr := os.Open(fileName)
 
 	if openErr != nil {

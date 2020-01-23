@@ -24,9 +24,9 @@ var config = {
             },
             {
                 test: /\.css$/,
-                //use: ['style-loader', 'css-loader']
+                use: ['style-loader', 'css-loader'],
                 //see https://stackoverflow.com/questions/43567527/webpack-bundle-required-css-files
-                loader: ExtractTextPlugin.extract("css")
+                //loader: ExtractTextPlugin.extract("css")
             }
         ]
     },

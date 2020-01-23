@@ -1,12 +1,14 @@
 package main
 
 import (
+	"github.com/guardian/mediaflipper/webapp/helpers"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type IndexHandler struct {
@@ -24,6 +26,14 @@ func (h IndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Requested URL %s did not match exactMatchPath %s for this controller", requestUrl.Path, h.exactMatchPath)
 		w.WriteHeader(404)
 		return
+	}
+
+	if strings.HasPrefix(requestUrl.Path, "/api") {
+		log.Printf("Access for invalid API path %s fell through to html handler, returning json 404", requestUrl.Path)
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{
+			Status: "not_found",
+			Detail: "invalid api endpoint",
+		}, w, 404)
 	}
 
 	f, openErr := os.Open(h.filePath)

@@ -84,17 +84,15 @@ func main() {
 
 	runner := jobrunner.NewJobRunner(redisClient, k8Client, 10, 2)
 
-	app.index.filePath = "public/index.html"
+	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
-	app.index.exactMatchPath = "/"
 	app.healthcheck.redisClient = redisClient
-	app.static.basePath = "public"
+	app.static.basePath = "static"
 	app.static.uriTrim = 2
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, &runner)
 	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 
-	http.Handle("/default", http.NotFoundHandler())
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
 	http.Handle("/static/", app.static)

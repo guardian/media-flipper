@@ -85,11 +85,12 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	////not a good idea in prod, for testing only
-	//go jobrunner.CreateAnalysisJob(*jobRecord, h.k8Client)
-
-	h.runner.AddJob(jobRecord, "analysis")
-
+	runErr := h.runner.AddJob(jobRecord, "analysis")
+	if runErr != nil {
+		log.Print("ERROR: Could not add job to processing queue: ", runErr)
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not enqueue job for processing"}, w, 500)
+		return
+	}
 	helpers.WriteJsonContent(map[string]interface{}{"status": "ok", "receivedBytes": bytesCopied}, w, 200)
 
 }

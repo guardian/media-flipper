@@ -36,6 +36,7 @@ fabric.properties
 *.out
 node_modules
 webapp/static/bundle.js
+!webapp/static/*.html
 webapp/webapp
 wrapper/wrapper
 example_deployment/private
