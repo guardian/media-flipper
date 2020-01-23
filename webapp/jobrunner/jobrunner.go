@@ -5,6 +5,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/jinzhu/copier"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"time"
@@ -23,7 +24,7 @@ create a new JobRunner object
 */
 func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, channelBuffer int, maxJobs int32) JobRunner {
 	shutdownChan := make(chan bool)
-	queuePollTicker := time.NewTicker(1 * time.Second)
+	queuePollTicker := time.NewTicker(30 * time.Second)
 
 	runner := JobRunner{
 		redisClient:     redisClient,
@@ -41,12 +42,14 @@ add the provided JobEntry to the queue for processing
 */
 func (j *JobRunner) AddJob(job *models.JobEntry, predefinedType string) error {
 	newRecord := JobRunnerRequest{
-		requestId:      uuid.New(),
-		predefinedType: predefinedType,
-		forJob:         *job,
+		RequestId:      uuid.New(),
+		PredefinedType: predefinedType,
+		ForJob:         *job,
 	}
 
-	return pushToRequestQueue(j.redisClient, &newRecord)
+	result := pushToRequestQueue(j.redisClient, &newRecord)
+	log.Printf("Enqueued job for processing: %s", job.JobId)
+	return result
 }
 
 /**
@@ -57,7 +60,7 @@ func (j *JobRunner) requestProcessor() {
 	for {
 		select {
 		case <-j.queuePollTicker.C:
-			log.Printf("DEBUG: JobRunner queue tick")
+			//log.Printf("DEBUG: JobRunner queue tick")
 			j.clearCompletedTick()
 			j.waitingQueueTick()
 		}
@@ -68,12 +71,13 @@ func (j *JobRunner) requestProcessor() {
 trigger the action for a given item and put it onto the running queue if successful
 */
 func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
-	if rq.predefinedType == "analysis" {
-		err := CreateAnalysisJob(rq.forJob, j.k8client)
+	if rq.PredefinedType == "analysis" {
+		err := CreateAnalysisJob(rq.ForJob, j.k8client)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
 		}
+		log.Printf("External job created for %s with type %s", rq.ForJob.JobId, rq.PredefinedType)
 		pushErr := pushToRunningQueue(j.redisClient, rq)
 		if pushErr != nil {
 			log.Print("Could not update running queue! ", pushErr)
@@ -81,7 +85,7 @@ func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
 		}
 		return nil
 	} else {
-		log.Print("Other job types not yet implemented!")
+		log.Print("Other job types not yet implemented! ", rq.PredefinedType)
 		return errors.New("other job types not yet implemented")
 	}
 }
@@ -106,12 +110,12 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
-	for i, runningJob := range *queueSnapshot {
+	for _, runningJob := range *queueSnapshot {
 		var jobId uuid.UUID
-		if runningJob.forJob.JobId.ID() != 0 {
-			jobId = runningJob.forJob.JobId
+		if runningJob.ForJob.JobId.ID() != 0 {
+			jobId = runningJob.ForJob.JobId
 		} else {
-			jobId = runningJob.requestId
+			jobId = runningJob.RequestId
 		}
 
 		runners, runErr := FindRunnerFor(jobId, j.k8client)
@@ -120,31 +124,39 @@ func (j *JobRunner) clearCompletedTick() {
 			continue //proceed to next one, don't abort
 		}
 
+		var updatedJob JobRunnerRequest
+		copyErr := copier.Copy(&updatedJob, &runningJob)
+		if copyErr != nil {
+			log.Print("ERROR: Could not perform copy (out of memory?!): ", copyErr)
+			continue
+		}
+
 		for _, runner := range *runners {
 			switch runner.Status {
 			case models.CONTAINER_COMPLETED:
-				runningJob.forJob.Status = models.JOB_COMPLETED
-				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				updatedJob.ForJob.Status = models.JOB_COMPLETED
+				log.Printf("External job for %s with type %s completed", runningJob.ForJob.JobId, runningJob.PredefinedType)
+				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
 				if putErr != nil {
-					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
+					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
 				} else {
-					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+					removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
 				}
 			case models.CONTAINER_FAILED:
-				runningJob.forJob.Status = models.JOB_FAILED
-				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				updatedJob.ForJob.Status = models.JOB_FAILED
+				log.Printf("External job for %s with type %s failed", runningJob.ForJob.JobId, runningJob.PredefinedType)
+				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
 				if putErr != nil {
-					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
+					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
 				} else {
-					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+					removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
 				}
 			case models.CONTAINER_ACTIVE:
-				runningJob.forJob.Status = models.JOB_STARTED
-				putErr := models.PutJob(&runningJob.forJob, j.redisClient)
+				updatedJob.ForJob.Status = models.JOB_STARTED
+				log.Printf("External job for %s with type %s is active", runningJob.ForJob.JobId, runningJob.PredefinedType)
+				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
 				if putErr != nil {
-					log.Print("Could not update job ", runningJob.forJob, ": ", putErr)
-				} else {
-					removeFromQueue(j.redisClient, RUNNING_QUEUE, int64(i))
+					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
 				}
 			}
 		}
@@ -168,10 +180,7 @@ func (j *JobRunner) waitingQueueTick() {
 			log.Printf("Max running jobs reached")
 			break
 		}
-		if queuelen == 0 {
-			log.Print("End of queue reached")
-			break
-		}
+
 		newJob, getErr := getNextRequestQueueEntry(j.redisClient)
 		if getErr == nil {
 			if newJob == nil {

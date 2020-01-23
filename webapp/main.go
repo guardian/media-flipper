@@ -82,13 +82,15 @@ func main() {
 
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, 10, 2)
+
 	app.index.filePath = "public/index.html"
 	app.index.contentType = "text/html"
 	app.index.exactMatchPath = "/"
 	app.healthcheck.redisClient = redisClient
 	app.static.basePath = "public"
 	app.static.uriTrim = 2
-	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, k8Client)
+	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, &runner)
 	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 

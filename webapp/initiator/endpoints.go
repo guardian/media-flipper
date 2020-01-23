@@ -3,7 +3,7 @@ package initiator
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/helpers"
-	"k8s.io/client-go/kubernetes"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"net/http"
 )
 
@@ -11,9 +11,9 @@ type InitiatorEndpoints struct {
 	uploader UploadEndpointHandler
 }
 
-func NewInitiatorEndpoints(config *helpers.Config, redisClient *redis.Client, k8client *kubernetes.Clientset) InitiatorEndpoints {
+func NewInitiatorEndpoints(config *helpers.Config, redisClient *redis.Client, jobrunner *jobrunner.JobRunner) InitiatorEndpoints {
 	return InitiatorEndpoints{
-		uploader: UploadEndpointHandler{config: config, redisClient: redisClient, k8Client: k8client},
+		uploader: UploadEndpointHandler{config: config, redisClient: redisClient, runner: jobrunner},
 	}
 }
 

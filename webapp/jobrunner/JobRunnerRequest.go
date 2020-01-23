@@ -6,14 +6,14 @@ import (
 )
 
 type JobRunnerRequest struct {
-	requestId       uuid.UUID
-	predefinedType  string
-	templateFile    string
-	image           string
-	imagePullPolicy string
-	command         []string
-	env             map[string]string
-	forJob          models.JobEntry
+	RequestId       uuid.UUID         `json:"requestId"`
+	PredefinedType  string            `json:"predefinedType"`
+	TemplateFile    string            `json:"templateFile"`
+	Image           string            `json:"image"`
+	ImagePullPolicy string            `json:"imagePullPolicy"`
+	Command         []string          `json:"command"`
+	Env             map[string]string `json:"env"`
+	ForJob          models.JobEntry   `json:"forJob"`
 }
 
 type JobRunnerResult struct {

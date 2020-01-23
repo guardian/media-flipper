@@ -8,7 +8,6 @@ import (
 	"github.com/guardian/mediaflipper/webapp/models"
 	"io"
 	"io/ioutil"
-	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,7 +17,7 @@ import (
 type UploadEndpointHandler struct {
 	config      *helpers.Config
 	redisClient *redis.Client
-	k8Client    *kubernetes.Clientset
+	runner      *jobrunner.JobRunner
 }
 
 func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,12 +59,6 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	log.Print("Got job record: ", *jobRecord)
-	//
-	//if jobRecord.MediaFile != "" {
-	//	log.Printf("Job already has a file! - %s", jobRecord.MediaFile)
-	//	helpers.WriteJsonContent(helpers.GenericErrorResponse{"error","Job already has a file"}, w, 400)
-	//	return
-	//}
 
 	uploadFileBasepath := h.config.Scratch.LocalPath
 
@@ -92,8 +85,10 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	//not a good idea in prod, for testing only
-	go jobrunner.CreateAnalysisJob(*jobRecord, h.k8Client)
+	////not a good idea in prod, for testing only
+	//go jobrunner.CreateAnalysisJob(*jobRecord, h.k8Client)
+
+	h.runner.AddJob(jobRecord, "analysis")
 
 	helpers.WriteJsonContent(map[string]interface{}{"status": "ok", "receivedBytes": bytesCopied}, w, 200)
 

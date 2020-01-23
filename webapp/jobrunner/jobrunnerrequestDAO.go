@@ -35,6 +35,9 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 
 	content, getErr := result.Result()
 	if getErr != nil {
+		if getErr.Error() == "redis: nil" { //FIXME: there must be a better way of making this check!
+			return nil, nil
+		}
 		log.Print("ERROR: Could not get next item from job queue: ", getErr)
 		return nil, getErr
 	}
@@ -44,6 +47,8 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 		return nil, nil
 	}
 	var rq JobRunnerRequest
+	log.Printf("DEBUG: Got %s for %s", content, jobKey)
+
 	marshalErr := json.Unmarshal([]byte(content), &rq)
 	if marshalErr != nil {
 		log.Print("ERROR: Could not decode item from job queue: ", marshalErr)
@@ -64,17 +69,20 @@ func pushToRunningQueue(client *redis.Client, item *JobRunnerRequest) error {
 func pushToQueue(client *redis.Client, item *JobRunnerRequest, queueName QueueName) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
-	encodedContent, marshalErr := json.Marshal(item)
+	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
 		return marshalErr
 	}
+
+	//log.Printf("DEBUG: Pushed %s to %s", string(encodedContent), jobKey)
 
 	result := client.RPush(jobKey, string(encodedContent))
 	if result.Err() != nil {
 		log.Printf("Could not push to list %s: %s", jobKey, result.Err())
 		return result.Err()
 	}
+	//log.Printf("DEBUG: pushed %s to %s", item.RequestId, queueName)
 	return nil
 }
 
@@ -118,6 +126,7 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRe
 	rtn := make([]JobRunnerRequest, len(result))
 	for i, resultString := range result {
 		var rq JobRunnerRequest
+		//log.Printf("content before unmarshal: %s", resultString)
 		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
 		if unmarshalEr != nil {
 			log.Print("ERROR: Corrupted information in ", queueName, " queue: ", unmarshalEr)
@@ -130,13 +139,16 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRe
 }
 
 /**
-remove the item at the given index. you should ensure that you have the lock before doign this!
+remove the given item from the given queue.
 */
-func removeFromQueue(client *redis.Client, queueName QueueName, idx int64) error {
+func removeFromQueue(client *redis.Client, queueName QueueName, entry *JobRunnerRequest) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
-	_, err := client.LRem(jobKey, 0, idx).Result()
+	content, _ := json.Marshal(entry)
+	//log.Printf("Removing item %s from queue %s", string(content), jobKey)
+
+	_, err := client.LRem(jobKey, 0, string(content)).Result()
 	if err != nil {
-		log.Printf("Could not remove %d from queue %s: %s", idx, queueName, err)
+		log.Printf("Could not remove element from queue %s: %s", queueName, err)
 		return err
 	}
 	return nil
