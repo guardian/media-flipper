@@ -184,7 +184,7 @@ func (j *JobRunner) waitingQueueTick() {
 		newJob, getErr := getNextRequestQueueEntry(j.redisClient)
 		if getErr == nil {
 			if newJob == nil {
-				log.Printf("No more jobs to get")
+				//log.Printf("No more jobs to get")
 				break
 			} else {
 				j.actionRequest(newJob)

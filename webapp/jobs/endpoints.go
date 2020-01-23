@@ -99,7 +99,7 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(201)
+	helpers.WriteJsonContent(map[string]string{"status": "ok", "jobId": newEntry.JobId.String()}, w, 201)
 }
 
 type ListJobHandler struct {

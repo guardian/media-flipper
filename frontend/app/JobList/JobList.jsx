@@ -10,14 +10,19 @@ class JobList extends React.Component {
         this.state = {
             loading: false,
             lastError: null,
-            content: []
+            content: [{
+                containerId: "",
+                mediaFile: "",
+                settingsId: "",
+                jobStatus: ""
+            }]  //we need a placeholder entry on initial mount so that the table component can find its fields
         };
 
         this.columns = {
-            "JobID": (data)=><span className="table-data">{data.containerId}</span>,
-            "Media File": (data)=><span className="table-data">{data.mediaFile}</span>,
-            "SettingsID": (data)=><span className="table-data">{data.settingsId}</span>,
-            "Status": (data)=><JobStatusComponent className="table-data" status={data.jobStatus}/>
+            containerId: (data)=><span className="table-data">{data.containerId}</span>,
+            mediaFile: (data)=><span className="table-data">{data.mediaFile.split("/").pop()}</span>,
+            settingsId: (data)=><span className="table-data">{data.settingsId}</span>,
+            jobStatus: (data)=><JobStatusComponent className="table-data" status={data.jobStatus}/>
         }
     }
 
