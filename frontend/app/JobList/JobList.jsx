@@ -2,6 +2,7 @@ import React from 'react';
 import JobStatusComponent from "./JobStatusComponent.jsx";
 import MenuBanner from "../MenuBanner.jsx";
 import TableView from 'react-table-view';
+import MediaFileInfo from "./MediaFileInfo.jsx";
 
 class JobList extends React.Component {
     constructor(props) {
@@ -20,7 +21,10 @@ class JobList extends React.Component {
 
         this.columns = {
             containerId: (data)=><span className="table-data">{data.containerId}</span>,
-            mediaFile: (data)=><span className="table-data">{data.mediaFile.split("/").pop()}</span>,
+            mediaFile: (data)=><div className="table-data">
+                <span style={{display: "block"}}>{data.mediaFile.split("/").pop()}</span>
+                <MediaFileInfo jobId={data.containerId}/>
+            </div>,
             settingsId: (data)=><span className="table-data">{data.settingsId}</span>,
             jobStatus: (data)=><JobStatusComponent className="table-data" status={data.jobStatus}/>
         }
@@ -29,7 +33,6 @@ class JobList extends React.Component {
     setStatePromise(newState){
         return new Promise((resolve,reject)=>
             this.setState(newState, ()=>resolve()))
-            .catch(err=>reject(err))
     }
 
     async loadData(){

@@ -5,8 +5,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/models"
+	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type GetData struct {
@@ -36,10 +38,18 @@ func (h GetData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	content, err := models.GetFileFormat(jobId, h.redisClient)
 	if err != nil {
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{
-			Status: "db_error",
-			Detail: "Could not read content from datastore",
-		}, w, 500)
+		if strings.Contains(err.Error(), "redis: nil") { //FIXME: there must be a better way of doing this??
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{
+				Status: "not_found",
+				Detail: "no analysis data for that job id",
+			}, w, 404)
+		} else {
+			log.Print("Could not read datastore content: ", err)
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{
+				Status: "db_error",
+				Detail: "Could not read content from datastore",
+			}, w, 500)
+		}
 		return
 	}
 

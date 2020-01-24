@@ -1,0 +1,25 @@
+.media-file-info {
+    font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 0.7em;
+    border: none !important;
+}
+
+table.media-file-info {
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 0;
+}
+
+.right {
+    text-align: right;
+}
+
+.left {
+    text-align: left;
+}
+
+td.media-file-info {
+    margin:0;
+    /* don't apply the font-size reduction twice*/
+    font-size: 1em;
+}

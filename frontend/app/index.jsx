@@ -6,9 +6,9 @@ import RootComponent from "./RootComponent.jsx";
 import css from './approot.css';
 import JobList from "./JobList/JobList.jsx";
 import QuickTranscode from "./QuickTranscode/QuickTranscode.jsx";
-import { faUpload, faCloudUploadAlt, faFileUpload } from '@fortawesome/free-solid-svg-icons'
+import { faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown } from '@fortawesome/free-solid-svg-icons'
 
-library.add(faUpload, faCloudUploadAlt, faFileUpload);
+library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown);
 
 class App extends React.Component {
     render() {
