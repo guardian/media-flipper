@@ -15,6 +15,7 @@ h2.inline-dialog-title {
     padding: 0.1em;
     padding-left: 0.5em;
     border-top-left-radius: 30px;
+    font-family: Verdana, Arial, Helvetica, sans-serif !important;
 }
 
 button.inline-dialog {

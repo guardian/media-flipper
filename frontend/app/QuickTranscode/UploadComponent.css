@@ -8,7 +8,6 @@
 }
 
 .inputfile + label {
-    /*font-size: 1.25em;*/
     font-weight: bold;
     padding: 0.5em;
     color: black;
@@ -16,7 +15,9 @@
     text-align: center;
     background-color: lightgray;
     display: inherit;
-    width: 30%;
+    width: 40%;
+    padding-left: 0.2em;
+    padding-right: 0.2em;
     margin-right: auto;
     margin-left: auto;
     overflow: hidden;

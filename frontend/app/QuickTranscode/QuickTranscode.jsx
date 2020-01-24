@@ -1,6 +1,8 @@
 import React from 'react';
 import MenuBanner from "../MenuBanner.jsx";
 import BasicUploadComponent from "./BasicUploadComponent.jsx";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import BytesFormatterImplementation from "../Common/BytesFormatterImplementation.jsx";
 import css from "../inline-dialog.css";
 
 class QuickTranscode extends React.Component {
@@ -86,9 +88,9 @@ class QuickTranscode extends React.Component {
                 <h2 className="inline-dialog-title">Quick transcode</h2>
                 <div className="inline-dialog-content" style={{marginTop: "1em"}}>
                 <BasicUploadComponent id="upload-box"
-                                      loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + file.size + " " + file.type + ")"})}
+                                      loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + BytesFormatterImplementation.getString(file.size) + " " + file.type + ")"})}
                                       loadCompleted={this.newDataAvailable}/>
-                <label htmlFor="upload-box">Upload a file</label>
+                <label htmlFor="upload-box"><FontAwesomeIcon icon="upload" style={{marginRight: "4px"}}/>Upload a file</label>
                 <div id="placeholder" style={{height: "4em", display: "block", overflow: "hidden"}}>
                     <span className="transcode-info-block" style={{display: this.state.fileName ? "inherit" : "none"}}>{this.state.fileName}</span>
 
