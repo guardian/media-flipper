@@ -45,7 +45,7 @@ func LoadFromTemplate(fileName string) (*v1.Job, error) {
 /**
 create an analysis job based on the provided template
 */
-func CreateAnalysisJob(jobDesc models.JobEntry, k8client *kubernetes.Clientset) error {
+func CreateAnalysisJob(jobDesc models.JobStepAnalysis, k8client *kubernetes.Clientset) error {
 	log.Printf("In CreateAnalysisJob")
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform analysis with no media file")
@@ -74,12 +74,12 @@ func CreateAnalysisJob(jobDesc models.JobEntry, k8client *kubernetes.Clientset) 
 	if currentLabels == nil {
 		currentLabels = make(map[string]string)
 	}
-	currentLabels["mediaflipper.jobId"] = jobDesc.JobId.String()
+	currentLabels["mediaflipper.jobStepId"] = jobDesc.JobStepId.String()
 	jobPtr.SetLabels(currentLabels)
 
 	jobPtr.Spec.Template.Spec.Containers[0].Env = []v12.EnvVar{
 		{Name: "WRAPPER_MODE", Value: "analyse"},
-		{Name: "JOB_ID", Value: jobDesc.JobId.String()},
+		{Name: "JOB_ID", Value: jobDesc.JobStepId.String()},
 		{Name: "FILE_NAME", Value: jobDesc.MediaFile},
 		{Name: "WEBAPP_BASE", Value: *svcUrlPtr},
 		{Name: "MAX_RETRIES", Value: "10"},

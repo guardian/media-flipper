@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os/exec"
 )
@@ -10,30 +9,9 @@ import (
 func RunAnalysis(fileName string) (*AnalysisResult, error) {
 	cmd := exec.Command("ffprobe", "-of", "json", "-show_format", "-show_streams", "-show_programs", fileName)
 
-	log.Print("DEBUG: exec command is ", cmd)
-	outPipe, _ := cmd.StdoutPipe()
-	errPipe, _ := cmd.StderrPipe()
-
-	startErr := cmd.Start()
-	if startErr != nil {
-		log.Print("Could not start analysis command: ", startErr)
-		return nil, startErr
-	}
-
-	outContent, _ := ioutil.ReadAll(outPipe)
-	errContent, _ := ioutil.ReadAll(errPipe)
-
-	completeErr := cmd.Wait()
-	if completeErr != nil {
-		exitErr, isExitError := completeErr.(*exec.ExitError)
-		if isExitError {
-			log.Print("Failure code: ", exitErr)
-			log.Printf("Subprocess exited with an error: \n%s\n%s", exitErr.Stderr, errContent)
-			return nil, completeErr
-		} else {
-			log.Print("Could not run subprocess: ", completeErr)
-			return nil, completeErr
-		}
+	outContent, _, err := RunCommand(cmd)
+	if err != nil {
+		return nil, err
 	}
 
 	var rawOutput map[string]interface{}

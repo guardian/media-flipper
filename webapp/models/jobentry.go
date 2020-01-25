@@ -4,15 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"strconv"
-)
-
-type JobStatus int
-
-const (
-	JOB_PENDING JobStatus = iota
-	JOB_STARTED
-	JOB_COMPLETED
-	JOB_FAILED
+	"time"
 )
 
 func (j JobStatus) isFailure() bool {
@@ -28,6 +20,8 @@ type JobEntry struct {
 	MediaFile  string    `json:"mediaFile"`
 	SettingsId uuid.UUID `json:"settingsId"`
 	Status     JobStatus `json:"jobStatus"`
+	StartAt    time.Time `json:"startAt"`
+	EndAt      time.Time `json:"endAt"`
 }
 
 func (j JobEntry) ToMap() map[string]string {
@@ -55,10 +49,10 @@ func JobEntryFromMap(fromData map[string]string) (*JobEntry, *error) {
 	}
 
 	return &JobEntry{
-		jobId,
-		fromData["mediaFile"],
-		settingsId,
-		JobStatus(statusNum),
+		JobId:      jobId,
+		MediaFile:  fromData["mediaFile"],
+		SettingsId: settingsId,
+		Status:     JobStatus(statusNum),
 	}, nil
 }
 

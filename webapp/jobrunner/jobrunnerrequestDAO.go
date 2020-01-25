@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"log"
 	"time"
 )
@@ -20,15 +21,11 @@ func keyForJobId(id uuid.UUID) string {
 	return fmt.Sprintf("mediaflipper:jobrequest:%s", id.String())
 }
 
-func getNextRequestQueueEntry(client *redis.Client) (*JobRunnerRequest, error) {
+func getNextRequestQueueEntry(client *redis.Client) (*models.JobContainer, error) {
 	return getNextJobRunnerRequest(client, REQUEST_QUEUE)
 }
 
-func getNextRunningQueueEntry(client *redis.Client) (*JobRunnerRequest, error) {
-	return getNextJobRunnerRequest(client, REQUEST_QUEUE)
-}
-
-func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRunnerRequest, error) {
+func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models.JobContainer, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	result := client.LPop(jobKey)
@@ -46,7 +43,7 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 		log.Print("DEBUG: no items in queue right now")
 		return nil, nil
 	}
-	var rq JobRunnerRequest
+	var rq models.JobContainer
 	log.Printf("DEBUG: Got %s for %s", content, jobKey)
 
 	marshalErr := json.Unmarshal([]byte(content), &rq)
@@ -58,22 +55,28 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 	return &rq, nil
 }
 
-func pushToRequestQueue(client *redis.Client, item *JobRunnerRequest) error {
-	return pushToQueue(client, item, REQUEST_QUEUE)
-}
-
-func pushToRunningQueue(client *redis.Client, item *JobRunnerRequest) error {
-	return pushToQueue(client, item, RUNNING_QUEUE)
-}
-
-func pushToQueue(client *redis.Client, item *JobRunnerRequest, queueName QueueName) error {
-	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
-
+func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
 		return marshalErr
 	}
+
+	return pushToQueue(client, encodedContent, REQUEST_QUEUE)
+}
+
+func pushToRunningQueue(client *redis.Client, item *models.JobStep) error {
+	encodedContent, marshalErr := json.Marshal(*item)
+	if marshalErr != nil {
+		log.Print("Could not encode content for ", item, ": ", marshalErr)
+		return marshalErr
+	}
+
+	return pushToQueue(client, encodedContent, RUNNING_QUEUE)
+}
+
+func pushToQueue(client *redis.Client, encodedContent []byte, queueName QueueName) error {
+	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	//log.Printf("DEBUG: Pushed %s to %s", string(encodedContent), jobKey)
 
@@ -105,14 +108,31 @@ func getQueueLength(client *redis.Client, queueName QueueName) (int64, error) {
 	return count, err
 }
 
-func copyRunningQueueContent(client *redis.Client) (*[]JobRunnerRequest, error) {
-	return copyQueueContent(client, RUNNING_QUEUE)
+func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
+	result, getErr := copyQueueContent(client, RUNNING_QUEUE)
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	rtn := make([]models.JobStep, len(*result))
+	for i, resultString := range *result {
+		var rq models.JobStep
+		//log.Printf("content before unmarshal: %s", resultString)
+		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
+		if unmarshalEr != nil {
+			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", unmarshalEr)
+			return nil, unmarshalEr
+		}
+		rtn[i] = rq
+	}
+
+	return &rtn, nil
 }
 
 /**
 download a snapshot of the current queue
 */
-func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRequest, error) {
+func copyQueueContent(client *redis.Client, queueName QueueName) (*[]string, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	cmd := client.LRange(jobKey, 0, -1)
@@ -122,20 +142,7 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRe
 		log.Printf("Could not range %s: %s", jobKey, err)
 		return nil, err
 	}
-
-	rtn := make([]JobRunnerRequest, len(result))
-	for i, resultString := range result {
-		var rq JobRunnerRequest
-		//log.Printf("content before unmarshal: %s", resultString)
-		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
-		if unmarshalEr != nil {
-			log.Print("ERROR: Corrupted information in ", queueName, " queue: ", unmarshalEr)
-			return nil, unmarshalEr
-		}
-		rtn[i] = rq
-	}
-
-	return &rtn, nil
+	return &result, nil
 }
 
 /**

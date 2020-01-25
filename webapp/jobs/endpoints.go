@@ -21,10 +21,10 @@ type JobsEndpoints struct {
 	StatusHandler StatusJobHandler
 }
 
-func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset) JobsEndpoints {
+func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset, jobTemplateMgr *models.JobTemplateManager) JobsEndpoints {
 	return JobsEndpoints{
 		GetHandler:    GetJobHandler{redisClient},
-		CreateHandler: CreateJobHandler{redisClient, k8client},
+		CreateHandler: CreateJobHandler{redisClient, k8client, jobTemplateMgr},
 		ListHandler:   ListJobHandler{redisClient},
 		StatusHandler: StatusJobHandler{k8client},
 	}
@@ -69,6 +69,7 @@ func (h GetJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type CreateJobHandler struct {
 	RedisClient *redis.Client
 	K8Client    *kubernetes.Clientset
+	TemplateMgr *models.JobTemplateManager
 }
 
 func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -91,15 +92,20 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newEntry := models.NewJobEntry(rq.SettingsId)
-	jobErr := models.PutJob(&newEntry, h.RedisClient)
+	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.SettingsId, rq.JobTemplateId)
+	if createErr != nil {
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"server_error", "Could not create job from container"}, w, 500)
+		return
+	}
+
+	jobErr := newEntry.Store(h.RedisClient)
 	if jobErr != nil {
 		log.Print("Could not save new job: ", jobErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Could not save record"}, w, 500)
 		return
 	}
 
-	helpers.WriteJsonContent(map[string]string{"status": "ok", "jobId": newEntry.JobId.String()}, w, 201)
+	helpers.WriteJsonContent(map[string]string{"status": "ok", "jobContainerId": newEntry.Id.String()}, w, 201)
 }
 
 type ListJobHandler struct {

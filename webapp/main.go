@@ -8,6 +8,7 @@ import (
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
@@ -84,13 +85,18 @@ func main() {
 
 	runner := jobrunner.NewJobRunner(redisClient, k8Client, 10, 2)
 
+	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
+
+	if mgrLoadErr != nil {
+		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
+	}
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
 	app.healthcheck.redisClient = redisClient
 	app.static.basePath = "static"
 	app.static.uriTrim = 2
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, &runner)
-	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client)
+	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client, templateMgr)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 
 	http.Handle("/", app.index)

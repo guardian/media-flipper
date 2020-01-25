@@ -3,7 +3,6 @@ package jobrunner
 import (
 	"errors"
 	"github.com/go-redis/redis/v7"
-	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"github.com/jinzhu/copier"
 	"k8s.io/client-go/kubernetes"
@@ -40,15 +39,9 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, cha
 /**
 add the provided JobEntry to the queue for processing
 */
-func (j *JobRunner) AddJob(job *models.JobEntry, predefinedType string) error {
-	newRecord := JobRunnerRequest{
-		RequestId:      uuid.New(),
-		PredefinedType: predefinedType,
-		ForJob:         *job,
-	}
-
-	result := pushToRequestQueue(j.redisClient, &newRecord)
-	log.Printf("Enqueued job for processing: %s", job.JobId)
+func (j *JobRunner) AddJob(container *models.JobContainer) error {
+	result := pushToRequestQueue(j.redisClient, container)
+	log.Printf("Enqueued job for processing: %s", container.Id)
 	return result
 }
 
@@ -67,27 +60,58 @@ func (j *JobRunner) requestProcessor() {
 	}
 }
 
-/**
-trigger the action for a given item and put it onto the running queue if successful
-*/
-func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
-	if rq.PredefinedType == "analysis" {
-		err := CreateAnalysisJob(rq.ForJob, j.k8client)
+///**
+//trigger the action for a given item and put it onto the running queue if successful
+//*/
+//func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
+//	if rq.PredefinedType == "analysis" {
+//		err := CreateAnalysisJob(rq.ForJob, j.k8client)
+//		if err != nil {
+//			log.Print("Could not create analysis job! ", err)
+//			return err
+//		}
+//		log.Printf("External job created for %s with type %s", rq.ForJob.JobId, rq.PredefinedType)
+//		pushErr := pushToRunningQueue(j.redisClient, rq)
+//		if pushErr != nil {
+//			log.Print("Could not update running queue! ", pushErr)
+//			return pushErr
+//		}
+//		return nil
+//	} else {
+//		log.Print("Other job types not yet implemented! ", rq.PredefinedType)
+//		return errors.New("other job types not yet implemented")
+//	}
+//}
+
+func (j *JobRunner) actionRequest(container *models.JobContainer) error {
+	initialStep := container.InitialStep()
+	return j.actionStep(initialStep)
+}
+
+func (j *JobRunner) actionStep(step models.JobStep) error {
+	analysisJob, isAnalysis := step.(models.JobStepAnalysis)
+	if isAnalysis {
+		err := CreateAnalysisJob(analysisJob, j.k8client)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
 		}
-		log.Printf("External job created for %s with type %s", rq.ForJob.JobId, rq.PredefinedType)
-		pushErr := pushToRunningQueue(j.redisClient, rq)
+		log.Printf("External job created for %s with type analysis", analysisJob.JobStepId)
+		pushErr := pushToRunningQueue(j.redisClient, &step)
 		if pushErr != nil {
-			log.Print("Could not update running queue! ", pushErr)
-			return pushErr
+			log.Print("Could not save job to queue: ", pushErr)
+			return err
 		}
 		return nil
-	} else {
-		log.Print("Other job types not yet implemented! ", rq.PredefinedType)
-		return errors.New("other job types not yet implemented")
 	}
+
+	_, isThumb := step.(models.JobStepThumbnail)
+	if isThumb {
+		log.Print("Thumbnail job not implemented yet")
+		return errors.New("Thumbnail job not implemented yet")
+	}
+
+	return errors.New("Did not recognise initial step type")
 }
 
 func (j *JobRunner) clearCompletedTick() {
@@ -111,12 +135,7 @@ func (j *JobRunner) clearCompletedTick() {
 	}
 
 	for _, runningJob := range *queueSnapshot {
-		var jobId uuid.UUID
-		if runningJob.ForJob.JobId.ID() != 0 {
-			jobId = runningJob.ForJob.JobId
-		} else {
-			jobId = runningJob.RequestId
-		}
+		jobId := runningJob.StepId()
 
 		runners, runErr := FindRunnerFor(jobId, j.k8client)
 		if runErr != nil {
@@ -134,13 +153,18 @@ func (j *JobRunner) clearCompletedTick() {
 		for _, runner := range *runners {
 			switch runner.Status {
 			case models.CONTAINER_COMPLETED:
-				updatedJob.ForJob.Status = models.JOB_COMPLETED
-				log.Printf("External job for %s with type %s completed", runningJob.ForJob.JobId, runningJob.PredefinedType)
-				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-				if putErr != nil {
-					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
-				} else {
-					removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
+				//updatedJob.ForJob.Status = models.JOB_COMPLETED
+				//log.Printf("External job for %s with type %s completed", jobId, runningJob.PredefinedType)
+				//putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
+				//if putErr != nil {
+				//	log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
+				//} else {
+				//	removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
+				//}
+				container := models.JobContainerForId(runningJob.ContainerId())
+				nextStep := container.CompleteStepAndMoveOn()
+				if nextStep != nil {
+					j.actionStep(nextStep)
 				}
 			case models.CONTAINER_FAILED:
 				updatedJob.ForJob.Status = models.JOB_FAILED
