@@ -1,5 +1,6 @@
 package jobs
 
+/*
 import (
 	"encoding/json"
 	"github.com/go-redis/redis/v7"
@@ -197,3 +198,4 @@ func (h StatusJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"entries": *jobResults,
 	}, w, 200)
 }
+*/

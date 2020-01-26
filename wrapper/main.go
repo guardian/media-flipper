@@ -22,7 +22,7 @@ func GetMaxRetries() int {
 
 /**
 we expect the following environment variables to be set:
-WRAPPER_MODE={analyse|transcode}
+WRAPPER_MODE={analyse|thumbnail|transcode}
 JOB_ID={uuid-string}
 WEBAPP_BASE={url-string}  [url to contact main webapp]
 MAX_RETRIES={count}

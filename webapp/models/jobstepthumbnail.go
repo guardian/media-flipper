@@ -9,18 +9,18 @@ import (
 )
 
 type ThumbnailResult struct {
-	OutPath *string `json:"outPath"`
+	OutPath      *string `json:"outPath"`
 	ErrorMessage *string `json:"errorMessage"`
-	TimeTaken float64 `json:"timeTaken"`
+	TimeTaken    float64 `json:"timeTaken"`
 }
 
 type JobStepThumbnail struct {
-	JobStepId uuid.UUID `json:"id"`
-	JobContainerId uuid.UUID `json:"jobContainerId"`
-	ContainerData *JobRunnerDesc	`json:"containerData"`
-	StatusValue JobStatus `json:"jobStepStatus"`
-	Result *ThumbnailResult `json:"thumbnailResult"`
-	KubernetesTemplateFile string `json:"templateFile"`
+	JobStepId              uuid.UUID        `json:"id"`
+	JobContainerId         uuid.UUID        `json:"jobContainerId"`
+	ContainerData          *JobRunnerDesc   `json:"containerData"`
+	StatusValue            JobStatus        `json:"jobStepStatus"`
+	Result                 *ThumbnailResult `json:"thumbnailResult"`
+	KubernetesTemplateFile string           `json:"templateFile"`
 }
 
 func (j JobStepThumbnail) StepId() uuid.UUID {
@@ -52,7 +52,7 @@ func (j JobStepThumbnail) RunnerDesc() *JobRunnerDesc {
 }
 
 func (j JobStepThumbnail) TimeTaken() float64 {
-	if j.Result!=nil {
+	if j.Result != nil {
 		return j.Result.TimeTaken
 	} else {
 		return -1
@@ -60,7 +60,7 @@ func (j JobStepThumbnail) TimeTaken() float64 {
 }
 
 func (j JobStepThumbnail) ErrorMessage() string {
-	if j.Result!= nil && j.Result.ErrorMessage!=nil {
+	if j.Result != nil && j.Result.ErrorMessage != nil {
 		return *j.Result.ErrorMessage
 	} else {
 		return ""
@@ -82,8 +82,12 @@ func (j JobStepThumbnail) Store(redisClient *redis.Client) error {
 	return nil
 }
 
-func (j JobStepThumbnail) WithNewStatus(newStatus JobStatus) JobStep{
+func (j JobStepThumbnail) WithNewStatus(newStatus JobStatus, errMsg *string) JobStep {
 	j.StatusValue = newStatus
+	return j
+}
+
+func (j JobStepThumbnail) WithNewMediaFile(newMediaFile string) JobStep {
 	return j
 }
 

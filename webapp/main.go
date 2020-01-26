@@ -83,13 +83,14 @@ func main() {
 
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, 10, 2)
-
 	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
 
 	if mgrLoadErr != nil {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
 	}
+
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 2)
+
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
 	app.healthcheck.redisClient = redisClient

@@ -14,6 +14,7 @@ type JobStepAnalysis struct {
 	ContainerData          *JobRunnerDesc `json:"containerData"`
 	StatusValue            JobStatus      `json:"jobStepStatus"`
 	Result                 AnalysisResult `json:"analysisResult"`
+	LastError              string         `json:"errorMessage"`
 	MediaFile              string         `json:"mediaFile"`
 	KubernetesTemplateFile string         `json:"templateFile"`
 }
@@ -66,8 +67,16 @@ func (j JobStepAnalysis) Store(redisClient *redis.Client) error {
 	return nil
 }
 
-func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus) JobStep {
+func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus, errMsg *string) JobStep {
 	j.StatusValue = newStatus
+	if errMsg != nil {
+		j.LastError = *errMsg
+	}
+	return j
+}
+
+func (j JobStepAnalysis) WithNewMediaFile(newMediaFile string) JobStep {
+	j.MediaFile = newMediaFile
 	return j
 }
 

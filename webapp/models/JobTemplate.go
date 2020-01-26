@@ -53,7 +53,7 @@ func NewJobTemplateManager(fromFilePath string) (*JobTemplateManager, error) {
 	return &mgr, nil
 }
 
-func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId uuid.UUID, mediaFile string) (*JobContainer, error) {
+func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId uuid.UUID) (*JobContainer, error) {
 	tplEntry, tplExists := mgr.loadedTemplates[templateId]
 	if !tplExists {
 		return nil, errors.New(fmt.Sprintf("Request for non-existent template with id %s", templateId))
@@ -70,7 +70,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
 				StatusValue:            JOB_PENDING,
-				MediaFile:              mediaFile,
+				MediaFile:              "",
 				Result:                 AnalysisResult{},
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
 			}

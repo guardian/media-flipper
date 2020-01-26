@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/models"
-	"github.com/jinzhu/copier"
+	_ "github.com/jinzhu/copier"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"time"
@@ -15,7 +15,7 @@ type JobRunner struct {
 	k8client        *kubernetes.Clientset
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
-	templateMgr  *models.JobTemplateManager
+	templateMgr     *models.JobTemplateManager
 	maxJobs         int32
 }
 
@@ -31,7 +31,7 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 		k8client:        k8client,
 		shutdownChan:    shutdownChan,
 		queuePollTicker: queuePollTicker,
-		templateMgr: templateManager,
+		templateMgr:     templateManager,
 		maxJobs:         maxJobs,
 	}
 	go runner.requestProcessor()
@@ -145,21 +145,25 @@ func (j *JobRunner) clearCompletedTick() {
 			continue //proceed to next one, don't abort
 		}
 
-		if len(*runners)>1 {
+		if len(*runners) > 1 {
 			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), jobId, (*runners)[0].JobUID)
 		}
 		runner := (*runners)[0]
 		switch runner.Status {
 		case models.CONTAINER_COMPLETED:
+			/*
+				remove the given step from the RUNNING_QUEUE and set its status to complete. Action the next step if there is one
+				or if not complete the job and save.
+			*/
 			removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
 
 			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
 			if getErr != nil {
 				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
-				continue	//pick it up on the next iteration
+				continue //pick it up on the next iteration
 			}
 			log.Printf("External job step %s completed", jobStep.StepId())
-			nextStep := container.CompleteStepAndMoveOn()	//this updates the internal state of `container`
+			nextStep := container.CompleteStepAndMoveOn() //this updates the internal state of `container`
 
 			storErr := container.Store(j.redisClient)
 			if storErr != nil {
@@ -182,21 +186,46 @@ func (j *JobRunner) clearCompletedTick() {
 				}
 			}
 		case models.CONTAINER_FAILED:
-			//updatedJob.ForJob.Status = models.JOB_FAILED
-			//log.Printf("External job for %s with type %s failed", runningJob.ForJob.JobId, runningJob.PredefinedType)
-			//putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-			//if putErr != nil {
-			//	log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
-			//} else {
-			//	removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
-			//}
-			
+			/*
+				remove the given step from the RUNNING_QUEUE, set the job and step status to FAILED and save
+			*/
+			removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+
+			log.Printf("External job step %s failed", jobStep.StepId())
+
+			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			if getErr != nil {
+				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+				continue //pick it up on the next iteration
+			}
+			container.FailCurrentStep("Kubernetes container failed")
+			storErr := container.Store(j.redisClient)
+			if storErr != nil {
+				log.Printf("Could not store job container: %s", storErr)
+			} else {
+				log.Printf("Job completed and saved")
+			}
+
 		case models.CONTAINER_ACTIVE:
-			updatedJob.ForJob.Status = models.JOB_STARTED
-			log.Printf("External job for %s with type %s is active", runningJob.ForJob.JobId, runningJob.PredefinedType)
-			putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-			if putErr != nil {
-				log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
+			/*
+				check the state of the current job step. If it's not STARTED, then update it and the container statuses
+				and save
+			*/
+			if jobStep.Status() != models.JOB_STARTED {
+				container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+				if getErr != nil {
+					log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+					continue //pick it up on the next iteration
+				}
+				updatedJobStep := jobStep.WithNewStatus(models.JOB_STARTED, nil)
+				container.Steps[container.CompletedSteps] = updatedJobStep
+				container.Status = models.JOB_STARTED
+				storErr := container.Store(j.redisClient)
+				if storErr != nil {
+					log.Printf("Could not store job container: %s", storErr)
+				} else {
+					log.Printf("Job completed and saved")
+				}
 			}
 		}
 	}
