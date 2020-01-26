@@ -65,3 +65,28 @@ func (j JobStepAnalysis) Store(redisClient *redis.Client) error {
 	}
 	return nil
 }
+
+func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus) JobStep {
+	j.StatusValue = newStatus
+	return j
+}
+
+func LoadJobStepAnalysis(fromId uuid.UUID, redisClient *redis.Client) (*JobStepAnalysis, error) {
+	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", fromId.String())
+	content, getErr := redisClient.Get(dbKey).Result()
+
+	if getErr != nil {
+		log.Printf("Could not load key for jobstep %s: %s", fromId.String(), getErr)
+		return nil, getErr
+	}
+
+	var rtn JobStepAnalysis
+	marshalErr := json.Unmarshal([]byte(content), &rtn)
+	if marshalErr != nil {
+		log.Printf("Could not understand data for jobstep %s: %s", fromId.String(), marshalErr)
+		log.Printf("Offending data was %s", content)
+		return nil, marshalErr
+	}
+
+	return &rtn, nil
+}

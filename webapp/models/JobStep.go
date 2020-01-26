@@ -9,6 +9,7 @@ type JobStep interface {
 	StepId() uuid.UUID
 	ContainerId() uuid.UUID
 	Status() JobStatus
+	WithNewStatus(newStatus JobStatus) JobStep
 	OutputPath() string
 	OutputData() interface{}
 	TimeTaken() float64
@@ -19,6 +20,8 @@ type JobStep interface {
 
 func MapFromJobstep(from JobStep) map[string]interface{} {
 	return map[string]interface{}{
+		"stepId": from.StepId(),
+		"jobContainer": from.ContainerId(),
 		"status":    from.Status(),
 		"timeTaken": from.TimeTaken(),
 		"error":     from.ErrorMessage(),

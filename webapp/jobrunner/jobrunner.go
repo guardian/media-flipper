@@ -15,13 +15,14 @@ type JobRunner struct {
 	k8client        *kubernetes.Clientset
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
+	templateMgr  *models.JobTemplateManager
 	maxJobs         int32
 }
 
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, channelBuffer int, maxJobs int32) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, channelBuffer int, maxJobs int32) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
@@ -30,6 +31,7 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, cha
 		k8client:        k8client,
 		shutdownChan:    shutdownChan,
 		queuePollTicker: queuePollTicker,
+		templateMgr: templateManager,
 		maxJobs:         maxJobs,
 	}
 	go runner.requestProcessor()
@@ -134,8 +136,8 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
-	for _, runningJob := range *queueSnapshot {
-		jobId := runningJob.StepId()
+	for _, jobStep := range *queueSnapshot {
+		jobId := jobStep.StepId()
 
 		runners, runErr := FindRunnerFor(jobId, j.k8client)
 		if runErr != nil {
@@ -143,45 +145,58 @@ func (j *JobRunner) clearCompletedTick() {
 			continue //proceed to next one, don't abort
 		}
 
-		var updatedJob JobRunnerRequest
-		copyErr := copier.Copy(&updatedJob, &runningJob)
-		if copyErr != nil {
-			log.Print("ERROR: Could not perform copy (out of memory?!): ", copyErr)
-			continue
+		if len(*runners)>1 {
+			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), jobId, (*runners)[0].JobUID)
 		}
+		runner := (*runners)[0]
+		switch runner.Status {
+		case models.CONTAINER_COMPLETED:
+			removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
 
-		for _, runner := range *runners {
-			switch runner.Status {
-			case models.CONTAINER_COMPLETED:
-				//updatedJob.ForJob.Status = models.JOB_COMPLETED
-				//log.Printf("External job for %s with type %s completed", jobId, runningJob.PredefinedType)
-				//putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-				//if putErr != nil {
-				//	log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
-				//} else {
-				//	removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
-				//}
-				container := models.JobContainerForId(runningJob.ContainerId())
-				nextStep := container.CompleteStepAndMoveOn()
-				if nextStep != nil {
-					j.actionStep(nextStep)
+			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			if getErr != nil {
+				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+				continue	//pick it up on the next iteration
+			}
+			log.Printf("External job step %s completed", jobStep.StepId())
+			nextStep := container.CompleteStepAndMoveOn()	//this updates the internal state of `container`
+
+			storErr := container.Store(j.redisClient)
+			if storErr != nil {
+				log.Printf("Could not store job container: %s", storErr)
+			} else {
+				log.Printf("Job completed and saved")
+			}
+
+			if nextStep != nil { //nil => this was the last jobstep, not nil => another step to queue
+				log.Printf("Job %s: Moving to next job step ", container.Id)
+				runErr := j.actionStep(nextStep)
+				if runErr != nil {
+					log.Print("Could not action next step: ", runErr)
+					container.Status = models.JOB_FAILED
+					container.ErrorMessage = runErr.Error()
+					storErr = container.Store(j.redisClient)
+					if storErr != nil {
+						log.Printf("Could not store updated job container: %s", storErr)
+					}
 				}
-			case models.CONTAINER_FAILED:
-				updatedJob.ForJob.Status = models.JOB_FAILED
-				log.Printf("External job for %s with type %s failed", runningJob.ForJob.JobId, runningJob.PredefinedType)
-				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-				if putErr != nil {
-					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
-				} else {
-					removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
-				}
-			case models.CONTAINER_ACTIVE:
-				updatedJob.ForJob.Status = models.JOB_STARTED
-				log.Printf("External job for %s with type %s is active", runningJob.ForJob.JobId, runningJob.PredefinedType)
-				putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
-				if putErr != nil {
-					log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
-				}
+			}
+		case models.CONTAINER_FAILED:
+			//updatedJob.ForJob.Status = models.JOB_FAILED
+			//log.Printf("External job for %s with type %s failed", runningJob.ForJob.JobId, runningJob.PredefinedType)
+			//putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
+			//if putErr != nil {
+			//	log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
+			//} else {
+			//	removeFromQueue(j.redisClient, RUNNING_QUEUE, &runningJob)
+			//}
+			
+		case models.CONTAINER_ACTIVE:
+			updatedJob.ForJob.Status = models.JOB_STARTED
+			log.Printf("External job for %s with type %s is active", runningJob.ForJob.JobId, runningJob.PredefinedType)
+			putErr := models.PutJob(&updatedJob.ForJob, j.redisClient)
+			if putErr != nil {
+				log.Print("Could not update job ", updatedJob.ForJob, ": ", putErr)
 			}
 		}
 	}

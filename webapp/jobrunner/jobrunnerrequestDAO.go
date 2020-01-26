@@ -148,7 +148,7 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]string, err
 /**
 remove the given item from the given queue.
 */
-func removeFromQueue(client *redis.Client, queueName QueueName, entry *JobRunnerRequest) error {
+func removeFromQueue(client *redis.Client, queueName QueueName, entry *models.JobStep) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 	content, _ := json.Marshal(entry)
 	//log.Printf("Removing item %s from queue %s", string(content), jobKey)

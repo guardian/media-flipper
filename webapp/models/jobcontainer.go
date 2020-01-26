@@ -24,6 +24,7 @@ type JobContainer struct {
 	CompletedSteps int       `json:"completed_steps"`
 	Status         JobStatus `json:"status"`
 	JobTemplateId  uuid.UUID `json:"templateId"`
+	ErrorMessage  string `json:"error_message"`
 }
 
 func (c JobContainer) Store(redisClient *redis.Client) error {
@@ -43,9 +44,17 @@ func (c JobContainer) Store(redisClient *redis.Client) error {
 	return nil
 }
 
+/**
+return a copy of the current jobstep
+ */
+func (c *JobContainer) CurrentStep() JobStep {
+	return c.Steps[c.CompletedSteps]
+}
+
 func (c *JobContainer) CompleteStepAndMoveOn() JobStep {
+	c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_COMPLETED)
 	c.CompletedSteps += 1
-	if len(c.Steps) >= c.CompletedSteps {
+	if c.CompletedSteps>= len(c.Steps) {
 		c.Status = JOB_COMPLETED
 		return nil
 	}
@@ -59,4 +68,22 @@ func (c *JobContainer) InitialStep() JobStep {
 		return nil
 	}
 	return c.Steps[0]
+}
+
+func JobContainerForId(forId uuid.UUID, redisClient *redis.Client) (*JobContainer, error) {
+	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", forId)
+
+	content, getErr := redisClient.Get(dbKey).Result()
+	if getErr != nil {
+		log.Printf("Could not retrieve job container with id %s: %s", forId, getErr)
+		return nil, getErr
+	}
+
+	var c JobContainer
+	marshalErr := json.Unmarshal([]byte(content), &c)
+	if marshalErr != nil {
+		log.Printf("Could not unmarshal data from store: %s. Offending data was: %s", marshalErr, content)
+		return nil, marshalErr
+	}
+	return &c, nil
 }
