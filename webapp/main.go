@@ -8,6 +8,7 @@ import (
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
+	"github.com/guardian/mediaflipper/webapp/jobtemplate"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -18,6 +19,7 @@ type MyHttpApp struct {
 	index       IndexHandler
 	healthcheck HealthcheckHandler
 	static      StaticFilesHandler
+	templates   jobtemplate.TemplateEndpoints
 	initiators  initiator.InitiatorEndpoints
 	jobs        jobs.JobsEndpoints
 	analysers   analysis.AnalysisEndpoints
@@ -99,6 +101,7 @@ func main() {
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, &runner)
 	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client, templateMgr)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
+	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -107,6 +110,7 @@ func main() {
 	app.initiators.WireUp("/api/flip")
 	app.jobs.WireUp("/api/job")
 	app.analysers.WireUp("/api/analysis")
+	app.templates.WireUp("/api/jobtemplate")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)

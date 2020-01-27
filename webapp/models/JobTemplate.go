@@ -108,3 +108,13 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 		Status:         JOB_PENDING,
 	}, nil
 }
+
+func (mgr JobTemplateManager) ListTemplates() []JobTemplateDefinition {
+	rtn := make([]JobTemplateDefinition, len(mgr.loadedTemplates))
+	i := 0
+	for _, templateDef := range mgr.loadedTemplates {
+		rtn[i] = templateDef
+		i += 1
+	}
+	return rtn
+}

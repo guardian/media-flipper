@@ -6,6 +6,7 @@ import BytesFormatterImplementation from "../Common/BytesFormatterImplementation
 import css from "../inline-dialog.css";
 import JobStatusComponent from "../JobList/JobStatusComponent.jsx";
 import MediaFileInfo from "../JobList/MediaFileInfo.jsx";
+import JobTemplateSelector from "./JobTemplateSelector.jsx";
 
 class QuickTranscode extends React.Component {
     //job status values from models/jobentry.go
@@ -20,7 +21,11 @@ class QuickTranscode extends React.Component {
         this.state = {
             phase: 0,
             uploadCompleted: false,
-            jobStatus: 0,
+            jobStatus: {
+                status: 0,
+                completedSteps: 0,
+                totalSteps: 0
+            },
             lastError: null,
             analysisCompleted: false,
             analysisResult: null,
@@ -28,7 +33,8 @@ class QuickTranscode extends React.Component {
             jobTimer: null,
             jobId: null,
             fileName: null,
-            settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279"  //FAKE value for testing
+            settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279",  //FAKE value for testing
+            templateId: null
         };
 
         this.setStatePromise = this.setStatePromise.bind(this);
@@ -85,7 +91,8 @@ class QuickTranscode extends React.Component {
     async createJobEntry() {
         //see webapp/jobs/jobrequest.go
         const requestContent = JSON.stringify({
-            settingsId: this.state.settingsId
+            settingsId: this.state.settingsId,
+            jobTemplateId: this.state.templateId,
         });
 
         const response = await fetch("/api/job/new",{method:"POST",body: requestContent,headers:{"Content-Type":"application/json"}});
@@ -98,7 +105,7 @@ class QuickTranscode extends React.Component {
         }
 
         const responseJson = JSON.parse(responseBody);
-        return responseJson.jobId;
+        return responseJson.jobContainerId;
     }
 
     /**
@@ -159,7 +166,12 @@ class QuickTranscode extends React.Component {
         const response = await fetch(url);
         if(response.status===200) {
             const jobData = await response.json();
-            return this.setStatePromise({jobStatus: jobData.entry.jobStatus})
+            console.log("updated job data: ", jobData.entry);
+            return this.setStatePromise({jobStatus: {
+                status: jobData.entry.status,
+                completedSteps: jobData.entry.completed_steps,
+                totalSteps: jobData.entry.steps.length
+            }})
         } else {
             await this.clearAllTimers();
             return this.setStatePromise({lastError: "Could not get job: " + response.statusText})
@@ -172,6 +184,9 @@ class QuickTranscode extends React.Component {
             <div className="inline-dialog">
                 <h2 className="inline-dialog-title">Quick transcode</h2>
                 <div className="inline-dialog-content" style={{marginTop: "1em"}}>
+                    <span className="transcode-info-block" style={{marginBottom: "1em", display:"block"}}>
+                        <JobTemplateSelector value={this.state.templateId} onChange={evt=>this.setState({templateId: evt.target.value})}/>
+                    </span>
                 <BasicUploadComponent id="upload-box"
                                       loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + BytesFormatterImplementation.getString(file.size) + " " + file.type + ")"})}
                                       loadCompleted={this.newDataAvailable}/>
@@ -179,6 +194,7 @@ class QuickTranscode extends React.Component {
                     {
                         this.state.analysisCompleted ? <span className="transcode-info-block"><MediaFileInfo jobId={this.state.jobId} fileInfo={this.state.analysisResult}/> </span>: ""
                     }
+
                 <div id="placeholder" style={{height: "4em", display: "block", overflow: "hidden"}}>
                     <span className="transcode-info-block" style={{display: this.state.fileName ? "inherit" : "none"}}>{this.state.fileName}</span>
 
@@ -193,7 +209,7 @@ class QuickTranscode extends React.Component {
                     <span className="error-text" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
                 </div>
 
-                    <span className="transcode-info-block" style={{fontWeight: "bold"}}>Job is <JobStatusComponent status={this.state.jobStatus}/></span>
+                    <span className="transcode-info-block" style={{fontWeight: "bold"}}>Job is <JobStatusComponent status={this.state.jobStatus.status}/>, completed {this.state.jobStatus.completedSteps} out of {this.state.jobStatus.totalSteps} steps</span>
                 </div>
             </div>
         </div>
