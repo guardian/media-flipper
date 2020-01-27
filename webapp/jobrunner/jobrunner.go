@@ -2,11 +2,14 @@ package jobrunner
 
 import (
 	"errors"
+	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/models"
 	_ "github.com/jinzhu/copier"
 	"k8s.io/client-go/kubernetes"
 	"log"
+	"reflect"
 	"time"
 )
 
@@ -87,13 +90,14 @@ func (j *JobRunner) requestProcessor() {
 
 func (j *JobRunner) actionRequest(container *models.JobContainer) error {
 	initialStep := container.InitialStep()
+	log.Printf("actionRequest: initialStep is %s", spew.Sdump(initialStep))
 	return j.actionStep(initialStep)
 }
 
 func (j *JobRunner) actionStep(step models.JobStep) error {
-	analysisJob, isAnalysis := step.(models.JobStepAnalysis)
+	analysisJob, isAnalysis := step.(*models.JobStepAnalysis)
 	if isAnalysis {
-		err := CreateAnalysisJob(analysisJob, j.k8client)
+		err := CreateAnalysisJob(*analysisJob, j.k8client)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
@@ -107,13 +111,13 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 		return nil
 	}
 
-	_, isThumb := step.(models.JobStepThumbnail)
+	_, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
 		log.Print("Thumbnail job not implemented yet")
 		return errors.New("Thumbnail job not implemented yet")
 	}
 
-	return errors.New("Did not recognise initial step type")
+	return errors.New(fmt.Sprintf("Did not recognise initial step type %s", reflect.TypeOf(step)))
 }
 
 func (j *JobRunner) clearCompletedTick() {
@@ -255,7 +259,18 @@ func (j *JobRunner) waitingQueueTick() {
 				//log.Printf("No more jobs to get")
 				break
 			} else {
-				j.actionRequest(newJob)
+				log.Printf("Actioning job")
+				actioningErr := j.actionRequest(newJob)
+				if actioningErr != nil {
+					log.Printf("Could not action job: %s", actioningErr)
+					newJob.Status = models.JOB_FAILED
+					newJob.ErrorMessage = actioningErr.Error()
+					storeErr := newJob.Store(j.redisClient)
+					if storeErr != nil {
+						log.Printf("Could not save job description: %s", storeErr)
+						return
+					}
+				}
 			}
 		} else {
 			log.Printf("Could not get next job to process!")

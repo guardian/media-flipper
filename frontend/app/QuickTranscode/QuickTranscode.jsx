@@ -60,8 +60,9 @@ class QuickTranscode extends React.Component {
     componentDidUpdate(prevProps, prevState, snapshot) {
         if(prevState.phase !== this.state.phase && this.state.phase===2){
             console.log("Entered analysis phase, starting timer");
-            const timerId = window.setInterval(this.pollAnalysisState, 500);
-            this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
+            //const timerId = window.setInterval(this.pollAnalysisState, 500);
+            //this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
+            this.setStatePromise({analysisCompleted: false})
         }
         if(prevState.phase !== this.state.phase && this.state.phase!==2 && this.state.analysisTimer){
             console.log("Changed phase to not analysis with a timer set, removing it");
@@ -71,7 +72,7 @@ class QuickTranscode extends React.Component {
 
         if(prevState.jobStatus !== this.state.jobStatus){
             console.log("Job status changed from ", prevState.jobStatus, " to ", this.state.jobStatus);
-            switch(this.state.jobStatus){
+            switch(this.state.jobStatus.status){
                 case this.JOB_COMPLETED:
                     this.clearAllTimers();
                     break;
@@ -169,6 +170,7 @@ class QuickTranscode extends React.Component {
             console.log("updated job data: ", jobData.entry);
             return this.setStatePromise({jobStatus: {
                 status: jobData.entry.status,
+                    error: jobData.entry.error_message,
                 completedSteps: jobData.entry.completed_steps,
                 totalSteps: jobData.entry.steps.length
             }})
@@ -210,6 +212,7 @@ class QuickTranscode extends React.Component {
                 </div>
 
                     <span className="transcode-info-block" style={{fontWeight: "bold"}}>Job is <JobStatusComponent status={this.state.jobStatus.status}/>, completed {this.state.jobStatus.completedSteps} out of {this.state.jobStatus.totalSteps} steps</span>
+                    <span className="transcode-info-block error-text" style={{display: this.state.jobStatus.error ? "inherit" : "none"}}>Failed: {this.state.jobStatus.error}</span>
                 </div>
             </div>
         </div>
