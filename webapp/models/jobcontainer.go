@@ -2,7 +2,9 @@ package models
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
@@ -88,6 +90,52 @@ func (c *JobContainer) SetMediaFile(newMediaFile string) {
 	}
 }
 
+func (c *JobContainer) UnmarshalJSON(data []byte) error {
+	var rawDataMap map[string]interface{}
+	err := json.Unmarshal(data, &rawDataMap)
+	if err != nil {
+		return err
+	}
+
+	rawSteps := rawDataMap["steps"].([]interface{})
+	steps := make([]JobStep, len(rawSteps))
+	//spew.Dump(rawSteps)
+	for i, untypedRawStep := range rawSteps {
+		rawStep := untypedRawStep.(map[string]interface{})
+		stepType, typeIsString := rawStep["stepType"].(string)
+		if !typeIsString {
+			return errors.New("stepType was not a string")
+		}
+		switch stepType {
+		case "analysis":
+			decodedStep, decErr := JobStepAnalysisFromMap(rawStep)
+			if decErr != nil {
+				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				return decErr
+			}
+			steps[i] = decodedStep
+		case "thumbnail":
+			decodedStep, decErr := JobStepThumbnailFromMap(rawStep)
+			if decErr != nil {
+				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				return decErr
+			}
+			steps[i] = decodedStep
+		default:
+			log.Printf("WARNING: Did not recognise job step type %s", rawStep["stepType"].(string))
+		}
+	}
+
+	c.Steps = steps
+	c.IncomingMediaFile = rawDataMap["incoming_media_file"].(string)
+	c.Status = JobStatus(rawDataMap["status"].(float64))
+	c.CompletedSteps = int(rawDataMap["completed_steps"].(float64))
+	c.ErrorMessage = rawDataMap["error_message"].(string)
+	c.Id = uuid.MustParse(rawDataMap["id"].(string))
+	c.JobTemplateId = uuid.MustParse(rawDataMap["templateId"].(string))
+	return nil
+}
+
 func JobContainerForId(forId uuid.UUID, redisClient *redis.Client) (*JobContainer, error) {
 	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", forId)
 
@@ -110,6 +158,7 @@ func JobContainerForId(forId uuid.UUID, redisClient *redis.Client) (*JobContaine
 scans for data matching job containers and retrieves up to `limit` records starting from `cursor`.
 returns a pointer to an array of containers (if successful), a new cursor to continue iterating (if successful)
 and an error (if failed)
+Note, consider switching to msgpack https://msgpack.org/index.html when moving to production
 */
 func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client) (*[]string, uint64, error) {
 	keys, nextCursor, scanErr := redisclient.Scan(cursor, "mediaflipper:JobContainer:*", limit).Result()

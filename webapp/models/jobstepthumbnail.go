@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 	"log"
 )
 
@@ -15,12 +16,51 @@ type ThumbnailResult struct {
 }
 
 type JobStepThumbnail struct {
+	JobStepType            string           `json:"stepType"` //this field is vital so we can correctly unmarshal json data from the store
 	JobStepId              uuid.UUID        `json:"id"`
 	JobContainerId         uuid.UUID        `json:"jobContainerId"`
 	ContainerData          *JobRunnerDesc   `json:"containerData"`
 	StatusValue            JobStatus        `json:"jobStepStatus"`
 	Result                 *ThumbnailResult `json:"thumbnailResult"`
 	KubernetesTemplateFile string           `json:"templateFile"`
+}
+
+func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail, error) {
+	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
+	if stepIdParseErr != nil {
+		return nil, stepIdParseErr
+	}
+	contId, contIdParseErr := uuid.Parse(mapData["jobContainerId"].(string))
+	if contIdParseErr != nil {
+		return nil, contIdParseErr
+	}
+
+	var runnerDescPtr *JobRunnerDesc
+	if mapData["containerData"] == nil {
+		runnerDescPtr = nil
+	} else {
+		contDecodeErr := mapstructure.Decode(mapData["containerData"], runnerDescPtr)
+		if contDecodeErr != nil {
+			return nil, contDecodeErr
+		}
+	}
+
+	var aResult ThumbnailResult
+	resultDecodeErr := mapstructure.Decode(mapData["thumbnailResult"], &aResult)
+	if resultDecodeErr != nil {
+		return nil, resultDecodeErr
+	}
+
+	rtn := JobStepThumbnail{
+		JobStepType:            "thumbnail",
+		JobStepId:              stepId,
+		JobContainerId:         contId,
+		ContainerData:          runnerDescPtr,
+		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
+		Result:                 &aResult,
+		KubernetesTemplateFile: mapData["templateFile"].(string),
+	}
+	return &rtn, nil
 }
 
 func (j JobStepThumbnail) StepId() uuid.UUID {
@@ -68,6 +108,7 @@ func (j JobStepThumbnail) ErrorMessage() string {
 }
 
 func (j JobStepThumbnail) Store(redisClient *redis.Client) error {
+	j.JobStepType = "thumbnail"
 	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", j.JobStepId.String())
 	content, marshalErr := json.Marshal(j)
 	if marshalErr != nil {

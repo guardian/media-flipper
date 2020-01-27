@@ -66,6 +66,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 		switch stepTemplate.PredeterminedType {
 		case "analysis":
 			newStep := JobStepAnalysis{
+				JobStepType:            "analysis",
 				JobStepId:              uuid.New(),
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
@@ -78,6 +79,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 			break
 		case "thumbnail":
 			newStep := JobStepThumbnail{
+				JobStepType:            "thumbnail",
 				JobStepId:              stepTemplate.Id,
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,

@@ -39,7 +39,7 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.SettingsId, rq.JobTemplateId)
 	if createErr != nil {
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"server_error", "Could not create job from container"}, w, 500)
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"server_error", createErr.Error()}, w, 500)
 		return
 	}
 

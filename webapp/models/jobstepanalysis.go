@@ -5,18 +5,60 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 	"log"
 )
 
 type JobStepAnalysis struct {
-	JobStepId              uuid.UUID      `json:"id"`
-	JobContainerId         uuid.UUID      `json:"JobContainerId"`
-	ContainerData          *JobRunnerDesc `json:"containerData"`
-	StatusValue            JobStatus      `json:"jobStepStatus"`
-	Result                 AnalysisResult `json:"analysisResult"`
-	LastError              string         `json:"errorMessage"`
-	MediaFile              string         `json:"mediaFile"`
-	KubernetesTemplateFile string         `json:"templateFile"`
+	JobStepType            string         `json:"stepType",struct:"stepType"`
+	JobStepId              uuid.UUID      `json:"id",struct:"id"`
+	JobContainerId         uuid.UUID      `json:"jobContainerId",struct:"jobContainerId"`
+	ContainerData          *JobRunnerDesc `json:"containerData",struct:"containerData"`
+	StatusValue            JobStatus      `json:"jobStepStatus",struct:"jobStepStatus"`
+	Result                 AnalysisResult `json:"analysisResult",struct:"analysisResult"`
+	LastError              string         `json:"errorMessage",struct:"errorMessage"`
+	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
+	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
+}
+
+func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
+	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
+	if stepIdParseErr != nil {
+		return nil, stepIdParseErr
+	}
+	contId, contIdParseErr := uuid.Parse(mapData["jobContainerId"].(string))
+	if contIdParseErr != nil {
+		return nil, contIdParseErr
+	}
+
+	var aResult AnalysisResult
+	resultDecodeErr := mapstructure.Decode(mapData["analysisResult"], &aResult)
+	if resultDecodeErr != nil {
+		return nil, resultDecodeErr
+	}
+
+	var runnerDescPtr *JobRunnerDesc
+	if mapData["containerData"] == nil {
+		runnerDescPtr = nil
+	} else {
+		contDecodeErr := mapstructure.Decode(mapData["containerData"], runnerDescPtr)
+		if contDecodeErr != nil {
+			return nil, contDecodeErr
+		}
+	}
+
+	rtn := JobStepAnalysis{
+		JobStepType:            "analysis",
+		JobStepId:              stepId,
+		JobContainerId:         contId,
+		ContainerData:          runnerDescPtr,
+		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
+		Result:                 aResult,
+		LastError:              mapData["errorMessage"].(string),
+		MediaFile:              mapData["mediaFile"].(string),
+		KubernetesTemplateFile: mapData["templateFile"].(string),
+	}
+	return &rtn, nil
 }
 
 func (j JobStepAnalysis) StepId() uuid.UUID {
@@ -52,6 +94,7 @@ func (j JobStepAnalysis) ErrorMessage() string {
 }
 
 func (j JobStepAnalysis) Store(redisClient *redis.Client) error {
+	j.JobStepType = "analysis"
 	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", j.JobStepId.String())
 	content, marshalErr := json.Marshal(j)
 	if marshalErr != nil {

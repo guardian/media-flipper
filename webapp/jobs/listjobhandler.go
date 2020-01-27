@@ -5,7 +5,6 @@ import (
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"net/http"
-	"strings"
 )
 
 type ListJobHandler struct {
@@ -13,9 +12,9 @@ type ListJobHandler struct {
 }
 
 type ListJobResponse struct {
-	Status     string `json:"status"`
-	NextCursor uint64 `json:"nextCursor"`
-	Entries    string `json:",string"` //this _should_ allow us to pass through the premarshalled string and avoid needing to decode and encode again
+	Status     string                 `json:"status"`
+	NextCursor uint64                 `json:"nextCursor"`
+	Entries    *[]models.JobContainer `json:"entries"`
 }
 
 func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +22,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonBlobs, nextCursor, getErr := models.ListJobContainersJson(0, 50, h.RedisClient)
+	jobs, nextCursor, getErr := models.ListJobContainers(0, 50, h.RedisClient)
 	if getErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",
@@ -32,10 +31,18 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	finalJsonString := "[" + strings.Join(*jsonBlobs, ",") + "]"
-	helpers.WriteJsonContent(ListJobResponse{
+	//finalJsonString := "[" + strings.Join(*jsonBlobs, ",") + "]"
+	//helpers.WriteJsonContent(ListJobResponse{
+	//	Status:     "ok",
+	//	NextCursor: nextCursor,
+	//	Entries:    finalJsonString,
+	//}, w, 200)
+
+	response := ListJobResponse{
 		Status:     "ok",
 		NextCursor: nextCursor,
-		Entries:    finalJsonString,
-	}, w, 200)
+		Entries:    jobs,
+	}
+
+	helpers.WriteJsonContent(response, w, 200)
 }
