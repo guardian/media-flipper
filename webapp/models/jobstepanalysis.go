@@ -21,6 +21,12 @@ type JobStepAnalysis struct {
 	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
 }
 
+func safeGetString(from interface{}) string {
+	if from == nil {
+		return ""
+	}
+	return from.(string)
+}
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
 	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
 	if stepIdParseErr != nil {
@@ -54,9 +60,9 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
 		Result:                 aResult,
-		LastError:              mapData["errorMessage"].(string),
-		MediaFile:              mapData["mediaFile"].(string),
-		KubernetesTemplateFile: mapData["templateFile"].(string),
+		LastError:              safeGetString(mapData["errorMessage"]),
+		MediaFile:              safeGetString(mapData["mediaFile"]),
+		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
 	}
 	return &rtn, nil
 }

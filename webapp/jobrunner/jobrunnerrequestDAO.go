@@ -2,6 +2,7 @@ package jobrunner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
@@ -108,6 +109,29 @@ func getQueueLength(client *redis.Client, queueName QueueName) (int64, error) {
 	return count, err
 }
 
+func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
+	jobType, isStr := fromMap["stepType"].(string)
+	if !isStr {
+		log.Printf("Could not determine job type, stepType parameter missing or wrong format")
+		return nil, errors.New("Could not determine job type")
+	}
+	switch jobType {
+	case "analysis":
+		aJobPtr, anErr := models.JobStepAnalysisFromMap(fromMap)
+		if anErr == nil {
+			log.Printf("Got JobStepAnalysis")
+			return aJobPtr, nil
+		}
+	case "thumbnail":
+		tJobPtr, tErr := models.JobStepThumbnailFromMap(fromMap)
+		if tErr == nil && tJobPtr.JobStepType == "thumbnail" {
+			log.Printf("Got JobStepThumbnail")
+			return tJobPtr, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("Could not decode to any known job type, got %s", fromMap["stepType"]))
+}
+
 func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
 	result, getErr := copyQueueContent(client, RUNNING_QUEUE)
 	if getErr != nil {
@@ -116,14 +140,20 @@ func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
 
 	rtn := make([]models.JobStep, len(*result))
 	for i, resultString := range *result {
-		var rq models.JobStep
+		var rq map[string]interface{}
 		//log.Printf("content before unmarshal: %s", resultString)
 		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
 		if unmarshalEr != nil {
 			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", unmarshalEr)
 			return nil, unmarshalEr
 		}
-		rtn[i] = rq
+
+		step, stepErr := getJobFromMap(rq)
+		if stepErr != nil {
+			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", stepErr)
+			return nil, stepErr
+		}
+		rtn[i] = step
 	}
 
 	return &rtn, nil

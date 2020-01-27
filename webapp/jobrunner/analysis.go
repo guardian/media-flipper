@@ -26,12 +26,12 @@ func LoadFromTemplate(fileName string) (*v1.Job, error) {
 	//THIS is the right way to read k8s manifests.... https://github.com/kubernetes/client-go/issues/193
 	decode := scheme.Codecs.UniversalDeserializer()
 
-	obj, groupVersionKind, err := decode.Decode(bytes, nil, nil)
+	obj, _, err := decode.Decode(bytes, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Print("DEBUG: groupVersionKind is ", groupVersionKind)
+	//log.Print("DEBUG: groupVersionKind is ", groupVersionKind)
 
 	switch obj.(type) {
 	case *v1.Job:
