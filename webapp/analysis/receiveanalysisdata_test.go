@@ -137,15 +137,15 @@ func TestReceiveData_ServeHTTP_NoCorrectSteps(t *testing.T) {
 
 	mockRequest := http.Request{
 		Method:     "POST",
-		RequestURI: "https://myserver.com/api/analysis/result?forJob=E6D1337A-6850-4C15-8938-18907B2FF311&stepId=815206e7-3c09-4e0f-ad87-3a4d67767315",
+		RequestURI: "https://myserver.com/api/analysis/result?forJob=95C2E86F-C0C3-4D9F-B9E1-0AC878BE6B10&stepId=15B4342F-12EA-4986-9668-9943A153F280",
 		Proto:      "https",
 		ProtoMajor: 1,
 		ProtoMinor: 0,
 		Body:       mockBody,
 	}
 
-	jobMasterId := uuid.MustParse("E6D1337A-6850-4C15-8938-18907B2FF311")
-	jobStepId := uuid.MustParse("815206e7-3c09-4e0f-ad87-3a4d67767315")
+	jobMasterId := uuid.MustParse("95C2E86F-C0C3-4D9F-B9E1-0AC878BE6B10")
+	jobStepId := uuid.MustParse("15B4342F-12EA-4986-9668-9943A153F280")
 
 	fakeJobContainer := models.JobContainer{
 		Id: jobMasterId,

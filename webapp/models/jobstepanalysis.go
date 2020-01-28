@@ -73,7 +73,7 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		JobContainerId:         contId,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		ResultId:               getUUID(mapData["analysisResultId"]),
+		ResultId:               getUUID(mapData["analysisResult"]),
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),

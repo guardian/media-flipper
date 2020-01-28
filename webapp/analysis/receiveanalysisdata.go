@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
@@ -78,6 +79,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
+			errorChan <- nil
 			return
 		}
 
@@ -85,6 +87,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if jobStepCopyPtr == nil {
 			log.Printf("Job container %s does not have any step with the id %s", jobContainerId.String(), jobStepId.String())
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"not_found", "no jobstep with that id in the given job"}, w, 404)
+			errorChan <- nil
 			return
 		}
 
@@ -95,6 +98,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !isAnalysis {
 			log.Printf("Expected step %s of job %s to be analysis type but got %s", jobStepId, jobContainerId, reflect.TypeOf(jobStepCopy))
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"not_found", "identified jobstep was not analysis"}, w, 404)
+			errorChan <- nil
 			return
 		}
 
@@ -113,6 +117,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Status: "db_error",
 				Detail: "Could not save record",
 			}, w, 500)
+			errorChan <- nil
 			return
 		}
 
@@ -123,8 +128,12 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Status: "error",
 				Detail: updateErr.Error(),
 			}, w, 500)
+			errorChan <- nil
 			return
 		}
+
+		spew.Dump(jobContainerInfo)
+
 		jobSaveErr := jobContainerInfo.Store(h.redisClient)
 		if jobSaveErr != nil {
 			log.Printf("Could not save record to datastore")
@@ -132,6 +141,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Status: "db_error",
 				Detail: "Could not save record",
 			}, w, 500)
+			errorChan <- nil
 			return
 		}
 		helpers.WriteJsonContent(map[string]string{"status": "ok", "detail": "Record saved", "entryId": newRecord.Id.String()}, w, 200)
