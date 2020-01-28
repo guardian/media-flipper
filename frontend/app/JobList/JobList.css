@@ -1,0 +1,53 @@
+ul.job-list {
+    list-style: none;
+    max-width: 1200px;
+}
+
+ul.job-details-list {
+    list-style: none;
+}
+
+li.job-list-entry {
+    margin-bottom: 1em;
+    border-top: 1px solid black;
+    padding-top: 0.4em
+}
+
+li.job-sublist-entry {
+    margin-bottom: 0.5em;
+}
+
+@media(min-width: 900px) {
+    div.job-list-container {
+        display: flex;
+    }
+
+    div.job-list-content-indented {
+        margin-top: 0.2em;
+        margin-left: 2em;
+    }
+}
+
+@media(max-width: 900px) {
+    div.job-list-content-indented {
+        margin-top: 0.2em;
+        margin-left: 0.5em;
+    }
+}
+
+div.job-list-container {
+    display: flex;
+}
+
+div.job-list-entry-cell.mini {
+    flex: 1;
+}
+
+div.job-list-entry-cell.baseline {
+    flex: 3;
+}
+
+div.job-list-entry-cell.wide {
+    flex: 6;
+}
+

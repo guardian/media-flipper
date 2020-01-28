@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
@@ -25,7 +26,12 @@ func safeGetString(from interface{}) string {
 	if from == nil {
 		return ""
 	}
-	return from.(string)
+	stringContent, isString := from.(string)
+	if !isString {
+		log.Printf("WARNING: expected string, got %s", spew.Sdump(from))
+		return ""
+	}
+	return stringContent
 }
 
 func getUUID(from interface{}) uuid.UUID {
@@ -67,7 +73,7 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		JobContainerId:         contId,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		ResultId:               getUUID(mapData["analysisResult"]),
+		ResultId:               getUUID(mapData["analysisResultId"]),
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
