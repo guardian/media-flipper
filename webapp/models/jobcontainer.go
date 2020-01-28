@@ -80,6 +80,33 @@ func (c *JobContainer) FailCurrentStep(msg string) {
 }
 
 /**
+iterate the internal step list and try to find a step with the given ID
+returns a pointer to freshly copied JobStep data if found or nil if not found.
+*/
+func (c JobContainer) FindStepById(stepId uuid.UUID) *JobStep {
+	for _, s := range c.Steps {
+		if s.StepId() == stepId {
+			newStep := s //copy out the data rather than referencing
+			return &newStep
+		}
+	}
+	return nil //nothing found, return nil
+}
+
+/**
+update the jobstep with the given ID to a new value
+*/
+func (c *JobContainer) UpdateStepById(stepId uuid.UUID, updatedStep JobStep) error {
+	for i, s := range c.Steps {
+		if s.StepId() == stepId {
+			c.Steps[i] = updatedStep
+			return nil
+		}
+	}
+	return errors.New("No step found for that ID")
+}
+
+/**
 sets the media file on the job and any job steps that need it
 */
 func (c *JobContainer) SetMediaFile(newMediaFile string) {

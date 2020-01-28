@@ -15,7 +15,7 @@ type JobStepAnalysis struct {
 	JobContainerId         uuid.UUID      `json:"jobContainerId",struct:"jobContainerId"`
 	ContainerData          *JobRunnerDesc `json:"containerData",struct:"containerData"`
 	StatusValue            JobStatus      `json:"jobStepStatus",struct:"jobStepStatus"`
-	Result                 AnalysisResult `json:"analysisResult",struct:"analysisResult"`
+	ResultId               uuid.UUID      `json:"analysisResult",struct:"analysisResult"`
 	LastError              string         `json:"errorMessage",struct:"errorMessage"`
 	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
 	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
@@ -27,6 +27,20 @@ func safeGetString(from interface{}) string {
 	}
 	return from.(string)
 }
+
+func getUUID(from interface{}) uuid.UUID {
+	stringContent := safeGetString(from)
+	if stringContent == "" {
+		return uuid.UUID{}
+	}
+	parsed, parseErr := uuid.Parse(stringContent)
+	if parseErr != nil {
+		log.Printf("Could not decode UUID from '%s' (jobstepanalysis.go/getUUID)", parseErr)
+		return uuid.UUID{}
+	}
+	return parsed
+}
+
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
 	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
 	if stepIdParseErr != nil {
@@ -35,12 +49,6 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 	contId, contIdParseErr := uuid.Parse(mapData["jobContainerId"].(string))
 	if contIdParseErr != nil {
 		return nil, contIdParseErr
-	}
-
-	var aResult AnalysisResult
-	resultDecodeErr := mapstructure.Decode(mapData["analysisResult"], &aResult)
-	if resultDecodeErr != nil {
-		return nil, resultDecodeErr
 	}
 
 	var runnerDescPtr *JobRunnerDesc
@@ -59,7 +67,7 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		JobContainerId:         contId,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		Result:                 aResult,
+		ResultId:               getUUID(mapData["analysisResult"]),
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
@@ -84,7 +92,7 @@ func (j JobStepAnalysis) OutputPath() string {
 }
 
 func (j JobStepAnalysis) OutputData() interface{} {
-	return j.Result
+	return j.ResultId
 }
 
 func (j JobStepAnalysis) RunnerDesc() *JobRunnerDesc {

@@ -8,7 +8,7 @@ import (
 
 /**
 InitialStep should return the first step in the list
- */
+*/
 func TestJobContainer_InitialStep(t *testing.T) {
 	containerId := uuid.New()
 	steps := []JobStep{
@@ -17,7 +17,7 @@ func TestJobContainer_InitialStep(t *testing.T) {
 			JobContainerId:         containerId,
 			ContainerData:          nil,
 			StatusValue:            0,
-			Result:                 AnalysisResult{},
+			ResultId:               uuid.New(),
 			MediaFile:              "",
 			KubernetesTemplateFile: "",
 		},
@@ -50,7 +50,7 @@ func TestJobContainer_InitialStep(t *testing.T) {
 
 /**
 container should auto-complete and return nil if there are no job steps
- */
+*/
 func TestJobContainer_InitialStepEmpty(t *testing.T) {
 	containerId := uuid.New()
 	steps := []JobStep{}
@@ -76,7 +76,7 @@ func TestJobContainer_InitialStepEmpty(t *testing.T) {
 /**
 CompleteStepAndMoveOn should update the completed steps counter and return the next step in the list.
 It should return nil and set the status to JOB_COMPLETED when we reach the end of the list
- */
+*/
 func TestJobContainer_CompleteStepAndMoveOn(t *testing.T) {
 	containerId := uuid.New()
 	steps := []JobStep{
@@ -85,7 +85,7 @@ func TestJobContainer_CompleteStepAndMoveOn(t *testing.T) {
 			JobContainerId:         containerId,
 			ContainerData:          nil,
 			StatusValue:            0,
-			Result:                 AnalysisResult{},
+			ResultId:               uuid.New(),
 			MediaFile:              "",
 			KubernetesTemplateFile: "",
 		},

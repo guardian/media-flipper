@@ -152,6 +152,10 @@ func (j *JobRunner) clearCompletedTick() {
 		if len(*runners) > 1 {
 			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), jobId, (*runners)[0].JobUID)
 		}
+		if len(*runners) == 0 {
+			log.Print("Could not get runner for ", jobId, ": ", runErr)
+			continue //proceed to next one, don't abort
+		}
 		runner := (*runners)[0]
 		switch runner.Status {
 		case models.CONTAINER_COMPLETED:

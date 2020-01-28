@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/alicebob/miniredis"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"testing"
@@ -17,16 +18,17 @@ func TestJobStepAnalysis_Store(t *testing.T) {
 	defer s.Close()
 
 	testClient := redis.NewClient(&redis.Options{
-		Addr:               s.Addr(),
+		Addr: s.Addr(),
 	})
 
 	jobStepId := uuid.New()
 	step := JobStepAnalysis{
+		JobStepType:            "analysis",
 		JobStepId:              jobStepId,
 		JobContainerId:         uuid.New(),
 		ContainerData:          nil,
 		StatusValue:            JOB_STARTED,
-		Result:                 AnalysisResult{},
+		ResultId:               uuid.New(),
 		MediaFile:              "path/to/something",
 		KubernetesTemplateFile: "mytemplate.yaml",
 	}
@@ -47,7 +49,7 @@ func TestJobStepAnalysis_Store(t *testing.T) {
 			t.Error("Could not unmarshal content: ", marshalErr)
 		} else {
 			if storedStep != step {
-				t.Error("Stored data did not match test data")
+				t.Errorf("Stored data did not match test data, %s vs %s", spew.Sdump(storedStep), spew.Sdump(step))
 			}
 		}
 	}
@@ -59,12 +61,12 @@ func TestJobStepAnalysis_WithNewStatus(t *testing.T) {
 		JobContainerId:         uuid.UUID{},
 		ContainerData:          nil,
 		StatusValue:            JOB_PENDING,
-		Result:                 AnalysisResult{},
+		ResultId:               uuid.New(),
 		MediaFile:              "",
 		KubernetesTemplateFile: "",
 	}
 
-	updated := st.WithNewStatus(JOB_COMPLETED)
+	updated := st.WithNewStatus(JOB_COMPLETED, nil)
 	if updated.Status() != JOB_COMPLETED {
 		t.Errorf("Job status update did not work, expected %d got %d", JOB_COMPLETED, st.StatusValue)
 	}
@@ -78,7 +80,7 @@ func TestLoadJobStepAnalysis(t *testing.T) {
 	defer s.Close()
 
 	testClient := redis.NewClient(&redis.Options{
-		Addr:               s.Addr(),
+		Addr: s.Addr(),
 	})
 
 	jobStepId := uuid.New()
@@ -87,7 +89,7 @@ func TestLoadJobStepAnalysis(t *testing.T) {
 		JobContainerId:         uuid.New(),
 		ContainerData:          nil,
 		StatusValue:            JOB_STARTED,
-		Result:                 AnalysisResult{},
+		ResultId:               uuid.New(),
 		MediaFile:              "path/to/something",
 		KubernetesTemplateFile: "mytemplate.yaml",
 	}

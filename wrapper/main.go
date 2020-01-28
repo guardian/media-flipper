@@ -23,7 +23,8 @@ func GetMaxRetries() int {
 /**
 we expect the following environment variables to be set:
 WRAPPER_MODE={analyse|thumbnail|transcode}
-JOB_ID={uuid-string}
+JOB_STEP_ID={uuid-string}
+JOB_CONTAINER_ID={uuid-string}
 WEBAPP_BASE={url-string}  [url to contact main webapp]
 MAX_RETRIES={count}
 THUMBNAIL_FRAME={int} [thumbnail only]
@@ -50,7 +51,7 @@ func main() {
 		}
 
 		log.Print("Got analysis result: ", result)
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_ID")
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
@@ -66,7 +67,7 @@ func main() {
 
 		result := RunThumbnail(filename, thumbFrame)
 		log.Print("Got thumbnail result: ", result)
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_ID")
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)

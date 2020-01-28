@@ -79,7 +79,8 @@ func CreateAnalysisJob(jobDesc models.JobStepAnalysis, k8client *kubernetes.Clie
 
 	jobPtr.Spec.Template.Spec.Containers[0].Env = []v12.EnvVar{
 		{Name: "WRAPPER_MODE", Value: "analyse"},
-		{Name: "JOB_ID", Value: jobDesc.JobStepId.String()},
+		{Name: "JOB_CONTAINER_ID", Value: jobDesc.JobContainerId.String()},
+		{Name: "JOB_STEP_ID", Value: jobDesc.JobStepId.String()},
 		{Name: "FILE_NAME", Value: jobDesc.MediaFile},
 		{Name: "WEBAPP_BASE", Value: *svcUrlPtr},
 		{Name: "MAX_RETRIES", Value: "10"},

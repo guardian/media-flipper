@@ -73,7 +73,7 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	bytesCopied, writeErr := io.Copy(fp, r.Body)
 
 	if writeErr != nil {
-		log.Printf("Could not write data to %s: %s", fp.Name())
+		log.Printf("Could not write data to %s: %s", fp.Name(), writeErr)
 	}
 
 	jobRecord.SetMediaFile(fp.Name())

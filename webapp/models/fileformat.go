@@ -5,6 +5,6 @@ import (
 )
 
 type FileFormatInfo struct {
-	ForJob         uuid.UUID      `json:"forJob"`
+	Id             uuid.UUID      `json:"id"`
 	FormatAnalysis FormatAnalysis `json:"formatAnalysis"`
 }

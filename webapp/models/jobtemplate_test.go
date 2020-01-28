@@ -44,7 +44,7 @@ func TestNewJobContainer(t *testing.T) {
 
 	fakeSettingsId := uuid.New()
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	result, err := mgr.NewJobContainer(fakeSettingsId, expectedUuid, "/path/to/mediafile")
+	result, err := mgr.NewJobContainer(fakeSettingsId, expectedUuid)
 	if err != nil {
 		t.Error("NewJobContainer unexpectedly failed: ", err)
 	} else {
@@ -68,9 +68,6 @@ func TestNewJobContainer(t *testing.T) {
 		if analysisStep.JobContainerId != result.Id {
 			t.Errorf("Step had incorrect container id, got %s expected %s", analysisStep.JobContainerId, result.Id)
 		}
-		if analysisStep.MediaFile != "/path/to/mediafile" {
-			t.Errorf("Expected step mediafile to be /path/to/mediafile, got %s", analysisStep.MediaFile)
-		}
 		if analysisStep.JobStepId == analysisStep.JobContainerId {
 			t.Error("Job step id was the same as container ID")
 		}
@@ -88,8 +85,9 @@ func TestNewJobContainer(t *testing.T) {
 		if thumbStep.JobStepId == thumbStep.JobContainerId {
 			t.Error("Job step id was the same as container ID")
 		}
-		//if thumbStep.MediaFile != "/path/to/mediafile" {
-		//	t.Errorf("Expected step mediafile to be /path/to/mediafile, got %s", analysisStep.MediaFile)
-		//}
 	}
+}
+
+func TestJobContainer_SetMediaFile(t *testing.T) {
+
 }

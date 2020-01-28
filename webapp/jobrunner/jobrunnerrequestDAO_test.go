@@ -32,7 +32,7 @@ func TestCopyRunningQueueContent(t *testing.T) {
 		JobContainerId:         uuid.New(),
 		ContainerData:          nil,
 		StatusValue:            models.JOB_STARTED,
-		Result:                 models.AnalysisResult{},
+		ResultId:               uuid.New(),
 		MediaFile:              "path/to/something",
 		KubernetesTemplateFile: "mytemplate.yaml",
 	}
