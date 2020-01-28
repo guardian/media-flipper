@@ -7,8 +7,10 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/models"
+	"log"
 	"reflect"
 	"testing"
+	"time"
 )
 
 /**
@@ -77,5 +79,83 @@ func TestCopyRunningQueueContent(t *testing.T) {
 	_, isThumb := decoded[1].(*models.JobStepThumbnail)
 	if !isThumb {
 		t.Error("Step 1 was not thumbnail, got ", reflect.TypeOf(decoded[0]))
+	}
+}
+
+func TestQueueLockBasic(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	//non-existing key should always be unlocked
+	locked, lockErr := CheckQueueLock(testClient, "testqueue")
+	if lockErr != nil {
+		t.Error("Expected uninitialised check not to error, got ", lockErr)
+	}
+	if locked {
+		t.Error("Expected uninitialised queue not to be locked")
+	}
+
+	//set a lock and check it
+	SetQueueLock(testClient, "testqueue")
+	shouldBeLocked, lockErr := CheckQueueLock(testClient, "testqueue")
+	if lockErr != nil {
+		t.Error("Expected locked check not to error, got ", lockErr)
+	}
+	if !shouldBeLocked {
+		t.Error("Expected locked check to be true, got false")
+	}
+
+	//clear the lock and check it again
+	ReleaseQueueLock(testClient, "testqueue")
+	shouldBeUnLocked, lockErr := CheckQueueLock(testClient, "testqueue")
+	if lockErr != nil {
+		t.Error("Expected locked check not to error, got ", lockErr)
+	}
+	if shouldBeUnLocked {
+		t.Error("Expected unlocked check to be false, got true")
+	}
+}
+
+func TestWhenQueueAvailable(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	SetQueueLock(testClient, "testqueue")
+	unlockTimer := time.NewTimer(500 * time.Millisecond)
+
+	go func() {
+		<-unlockTimer.C
+		ReleaseQueueLock(testClient, "testqueue")
+	}()
+
+	testStartMs := time.Now().UnixNano() / 1000000
+	log.Printf("test start time is %d", testStartMs)
+	completionChan := make(chan int64)
+	callOnRelease := func(failure error) {
+		if failure != nil {
+			panic(failure)
+		}
+		completionChan <- time.Now().UnixNano() / 1000000
+	}
+
+	WhenQueueAvailable(testClient, "testqueue", callOnRelease, false)
+	testDoneMs := <-completionChan
+	log.Printf("test finish time is %d", testDoneMs)
+	if testDoneMs-testStartMs < 500 {
+		t.Errorf("Test completed too quickly, in %dms instead of 500ms. Suggests that the queue wait failed.", testDoneMs-testStartMs)
 	}
 }

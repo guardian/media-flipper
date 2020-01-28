@@ -28,6 +28,7 @@ class QuickTranscode extends React.Component {
             },
             lastError: null,
             analysisCompleted: false,
+            analysisResultId: null,
             analysisResult: null,
             analysisTimer: null,
             jobTimer: null,
@@ -57,17 +58,24 @@ class QuickTranscode extends React.Component {
         return this.setStatePromise({analysisTimer: null, jobTimer: null});
     }
 
-    componentDidUpdate(prevProps, prevState, snapshot) {
+    async componentDidUpdate(prevProps, prevState, snapshot) {
         if(prevState.phase !== this.state.phase && this.state.phase===2){
             console.log("Entered analysis phase, starting timer");
             //const timerId = window.setInterval(this.pollAnalysisState, 500);
             //this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
-            this.setStatePromise({analysisCompleted: false})
+            await this.setStatePromise({analysisCompleted: false})
         }
         if(prevState.phase !== this.state.phase && this.state.phase!==2 && this.state.analysisTimer){
             console.log("Changed phase to not analysis with a timer set, removing it");
             window.clearTimeout(this.state.analysisTimer);
-            this.setStatePromise({analysisTimer: null });
+            await this.setStatePromise({analysisTimer: null });
+        }
+
+        if(prevState.analysisResultId !== this.state.analysisResultId) {
+            if(this.state.analysisResultId!=="00000000-0000-0000-0000-000000000000") {
+                console.log("Analysis result changed");
+                await this.loadAnalysisData();
+            }
         }
 
         if(prevState.jobStatus !== this.state.jobStatus){
@@ -82,6 +90,25 @@ class QuickTranscode extends React.Component {
                 default:
                     break;
             }
+        }
+    }
+
+    /**
+     * loads the data associated with the analysis ID in the state
+     * @returns {Promise<void>}
+     */
+    async loadAnalysisData() {
+        const response = await fetch("/api/analysis/get?forId=" + this.state.analysisResultId);
+        if(response.status===200){
+            const parsedData = await response.json();
+            if(!parsedData.hasOwnProperty("entry")){
+                return this.setStatePromise({lastError: "invalid response from /api/analysis/get"});
+            } else {
+                return this.setStatePromise({analysisResult: parsedData.entry, analysisCompleted: true});
+            }
+        } else {
+            const errorText = await response.text();
+            return this.setStatePromise({lastError: errorText});
         }
     }
 
@@ -167,17 +194,28 @@ class QuickTranscode extends React.Component {
         const response = await fetch(url);
         if(response.status===200) {
             const jobData = await response.json();
-            console.log("updated job data: ", jobData.entry);
-            return this.setStatePromise({jobStatus: {
+
+            const analysisStep = this.findAnalysisStep(jobData.entry.steps);
+            console.log("analysis step: ", analysisStep);
+            const analysisResultUpdate = analysisStep===null ? {} : {analysisResultId: analysisStep.analysisResult};
+
+            console.log("analysisResultUpdate: ", analysisResultUpdate);
+
+            return this.setStatePromise(Object.assign({}, analysisResultUpdate, {jobStatus: {
                 status: jobData.entry.status,
-                    error: jobData.entry.error_message,
+                error: jobData.entry.error_message,
                 completedSteps: jobData.entry.completed_steps,
                 totalSteps: jobData.entry.steps.length
-            }})
+            }}))
         } else {
             await this.clearAllTimers();
             return this.setStatePromise({lastError: "Could not get job: " + response.statusText})
         }
+    }
+
+    findAnalysisStep(jobSteps) {
+        const resultList = jobSteps.filter(s=>s.stepType==="analysis");
+        return resultList.length>0 ? resultList[0] : null;
     }
 
     render() {

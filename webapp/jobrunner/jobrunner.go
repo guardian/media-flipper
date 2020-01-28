@@ -121,7 +121,7 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 }
 
 func (j *JobRunner) clearCompletedTick() {
-	set, checkErr := checkQueueLock(j.redisClient, RUNNING_QUEUE)
+	set, checkErr := CheckQueueLock(j.redisClient, RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
 		return
@@ -132,7 +132,7 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
-	setQueueLock(j.redisClient, RUNNING_QUEUE)
+	SetQueueLock(j.redisClient, RUNNING_QUEUE)
 
 	queueSnapshot, snapErr := copyRunningQueueContent(j.redisClient)
 	if snapErr != nil {
@@ -211,7 +211,7 @@ func (j *JobRunner) clearCompletedTick() {
 			if storErr != nil {
 				log.Printf("Could not store job container: %s", storErr)
 			} else {
-				log.Printf("Job completed and saved")
+				log.Printf("Job failed and saved")
 			}
 
 		case models.CONTAINER_ACTIVE:
@@ -226,19 +226,23 @@ func (j *JobRunner) clearCompletedTick() {
 					continue //pick it up on the next iteration
 				}
 				updatedJobStep := jobStep.WithNewStatus(models.JOB_STARTED, nil)
+				removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+				pushToRunningQueue(j.redisClient, &updatedJobStep)
+
 				container.Steps[container.CompletedSteps] = updatedJobStep
 				container.Status = models.JOB_STARTED
+				spew.Dump(container)
 				storErr := container.Store(j.redisClient)
 				if storErr != nil {
 					log.Printf("Could not store job container: %s", storErr)
 				} else {
-					log.Printf("Job completed and saved")
+					log.Printf("Job started, container saved")
 				}
 			}
 		}
 	}
 
-	releaseQueueLock(j.redisClient, RUNNING_QUEUE)
+	ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
 }
 
 /**

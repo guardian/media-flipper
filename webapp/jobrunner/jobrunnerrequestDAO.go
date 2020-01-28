@@ -194,7 +194,7 @@ func removeFromQueue(client *redis.Client, queueName QueueName, entry *models.Jo
 /**
 check if the given queue lock is set
 */
-func checkQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
+func CheckQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 
 	result, err := client.Exists(jobKey).Result()
@@ -212,16 +212,82 @@ func checkQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
 /**
 set the given queue lock
 */
-func setQueueLock(client *redis.Client, queueName QueueName) {
+func SetQueueLock(client *redis.Client, queueName QueueName) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 
-	client.SetXX(jobKey, "set", 2*time.Second)
+	client.Set(jobKey, "set", 2*time.Second)
 }
 
 /**
 release the given queue lock
 */
-func releaseQueueLock(client *redis.Client, queueName QueueName) {
+func ReleaseQueueLock(client *redis.Client, queueName QueueName) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 	client.Del(jobKey)
+}
+
+/*
+block until the given queue lock is available or the timeout occurs
+*/
+func WaitForQueueLock(client *redis.Client, queueName QueueName, timeout time.Duration) error {
+	timeoutTimer := time.NewTicker(timeout)
+	clearedChannel := make(chan error)
+
+	go func() {
+		for {
+			locked, checkErr := CheckQueueLock(client, queueName)
+			if checkErr != nil {
+				clearedChannel <- checkErr
+			} else {
+				if locked {
+					time.Sleep(50 * time.Millisecond)
+				} else {
+					clearedChannel <- nil
+				}
+			}
+		}
+	}()
+
+	select {
+	case <-timeoutTimer.C:
+		return errors.New(fmt.Sprintf("Timed out waiting for lock on %s", queueName))
+	case checkErr := <-clearedChannel:
+		return checkErr
+	}
+}
+
+type QueueLockCallback func(error)
+
+/*
+call the given callback as soon as the queue becomes unlocked.
+optionally, assert the queue lock by calling SetQueueLock/ReleaseQueueLock either side of the callback
+remember that the callback is in a background goroutine, concurrency warnings apply
+*/
+func WhenQueueAvailable(client *redis.Client, queueName QueueName, callback QueueLockCallback, assertingQueue bool) {
+	intervalTicker := time.NewTicker(50 * time.Millisecond)
+	go func() {
+		for {
+			select {
+			case <-intervalTicker.C:
+				locked, checkErr := CheckQueueLock(client, queueName)
+				if checkErr != nil {
+					log.Printf("ERROR: Could not check lock for %s: %s", queueName, checkErr)
+					intervalTicker.Stop()
+					callback(checkErr)
+					return
+				}
+				if !locked {
+					intervalTicker.Stop()
+					if assertingQueue {
+						SetQueueLock(client, queueName)
+					}
+					callback(nil)
+					if assertingQueue {
+						ReleaseQueueLock(client, queueName)
+					}
+					return
+				}
+			}
+		}
+	}()
 }
