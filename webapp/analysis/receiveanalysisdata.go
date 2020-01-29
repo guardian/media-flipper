@@ -1,7 +1,6 @@
 package analysis
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
@@ -131,8 +130,6 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			errorChan <- nil
 			return
 		}
-
-		spew.Dump(jobContainerInfo)
 
 		jobSaveErr := jobContainerInfo.Store(h.redisClient)
 		if jobSaveErr != nil {
