@@ -67,7 +67,7 @@ func main() {
 
 		result := RunThumbnail(filename, thumbFrame)
 		log.Print("Got thumbnail result: ", result)
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)

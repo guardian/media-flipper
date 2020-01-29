@@ -11,9 +11,9 @@ import (
 )
 
 type ThumbnailResult struct {
-	OutPath      *string `json:"outPath"`
-	ErrorMessage *string `json:"errorMessage"`
-	TimeTaken    float64 `json:"timeTaken"`
+	OutPath      *string `json:"outPath",struct:"outPath"`
+	ErrorMessage *string `json:"errorMessage",struct:"errorMessage"`
+	TimeTaken    float64 `json:"timeTaken",struct:"timeTaken"`
 }
 
 type JobStepThumbnail struct {
@@ -23,6 +23,7 @@ type JobStepThumbnail struct {
 	ContainerData          *JobRunnerDesc   `json:"containerData"`
 	StatusValue            JobStatus        `json:"jobStepStatus"`
 	LastError              string           `json:"errorMessage",struct:"errorMessage"`
+	MediaFile              string           `json:"mediaFile",struct:"mediaFile"`
 	Result                 *ThumbnailResult `json:"thumbnailResult"`
 	KubernetesTemplateFile string           `json:"templateFile"`
 	StartTime              *time.Time       `json:"startTime",struct:"startTime"`
@@ -62,7 +63,10 @@ func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
 		Result:                 &aResult,
+		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: mapData["templateFile"].(string),
+		StartTime:              timeFromOptionalString(mapData["startTime"]),
+		EndTime:                timeFromOptionalString(mapData["endTime"]),
 	}
 	return &rtn, nil
 }
@@ -149,6 +153,7 @@ func (j JobStepThumbnail) WithNewStatus(newStatus JobStatus, errMsg *string) Job
 }
 
 func (j JobStepThumbnail) WithNewMediaFile(newMediaFile string) JobStep {
+	j.MediaFile = newMediaFile
 	return j
 }
 

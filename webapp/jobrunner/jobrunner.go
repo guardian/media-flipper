@@ -90,13 +90,23 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 		return nil
 	}
 
-	_, isThumb := step.(*models.JobStepThumbnail)
+	thumbJob, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
-		log.Print("Thumbnail job not implemented yet")
-		return errors.New("Thumbnail job not implemented yet")
+		err := CreateThumbnailJob(*thumbJob, j.k8client)
+		if err != nil {
+			log.Print("Could not create thumbnail job! ", err)
+			return err
+		}
+		log.Printf("External job created for %s with type thumbnail", thumbJob.JobStepId)
+		pushErr := pushToRunningQueue(j.redisClient, &step)
+		if pushErr != nil {
+			log.Print("Could not save job to queue: ", pushErr)
+			return err
+		}
+		return nil
 	}
 
-	return errors.New(fmt.Sprintf("Did not recognise initial step type %s", reflect.TypeOf(step)))
+	return errors.New(fmt.Sprintf("Did not recognise step type %s", reflect.TypeOf(step)))
 }
 
 func (j *JobRunner) clearCompletedTick() {
@@ -213,6 +223,7 @@ func (j *JobRunner) clearCompletedTick() {
 					continue //pick it up on the next iteration
 				}
 				updatedJobStep := jobStep.WithNewStatus(models.JOB_STARTED, nil)
+				//it's necessary to remove and re-add, beccause list removal in redis is by-value. if the value changes=> we lose it and go out-of-sync with the main model.
 				removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
 				pushToRunningQueue(j.redisClient, &updatedJobStep)
 
@@ -269,7 +280,6 @@ func (j *JobRunner) waitingQueueTick() {
 			if newJob == nil {
 				break
 			} else {
-				//log.Printf("Actioning job")
 				actioningErr := j.actionRequest(newJob)
 				if actioningErr != nil {
 					log.Printf("Could not action job: %s", actioningErr)

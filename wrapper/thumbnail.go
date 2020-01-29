@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -11,7 +12,7 @@ func RunThumbnail(fileName string, atFrame int) *ThumbnailResult {
 	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
 	startTime := time.Now()
 
-	cmd := exec.Command("ffmpeg", "-i", "fileName", fileName, "-vframes", "1", "-an", "-ss", string(atFrame), outFileName)
+	cmd := exec.Command("ffmpeg", "-i", fileName, "-vframes", "1", "-an", "-y", "-ss", fmt.Sprint(atFrame), outFileName)
 
 	_, errContent, err := RunCommand(cmd)
 
@@ -22,7 +23,7 @@ func RunThumbnail(fileName string, atFrame int) *ThumbnailResult {
 	if err != nil {
 		log.Printf("Command failed")
 		_, fileErr := os.Stat(outFileName)
-		if os.IsNotExist(fileErr) {
+		if !os.IsNotExist(fileErr) {
 			log.Printf("Removing intermediate file %s", outFileName)
 			os.Remove(outFileName)
 		}
