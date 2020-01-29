@@ -259,7 +259,7 @@ func WaitForQueueLock(client *redis.Client, queueName QueueName, timeout time.Du
 type QueueLockCallback func(error)
 
 /*
-call the given callback as soon as the queue becomes unlocked.
+call the given callback (in a subthread) as soon as the queue becomes unlocked.
 optionally, assert the queue lock by calling SetQueueLock/ReleaseQueueLock either side of the callback
 remember that the callback is in a background goroutine, concurrency warnings apply
 */

@@ -7,6 +7,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"time"
 )
 
 type JobStepTemplateDefinition struct {
@@ -99,12 +100,14 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 		}
 	}
 
+	startTime := time.Now()
 	return &JobContainer{
 		Id:             newContainerId,
 		JobTemplateId:  templateId,
 		Steps:          steps,
 		CompletedSteps: 0,
 		Status:         JOB_PENDING,
+		StartTime:      &startTime,
 	}, nil
 }
 

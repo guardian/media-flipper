@@ -8,6 +8,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
+	"time"
 )
 
 type JobStatus int
@@ -19,15 +20,17 @@ const (
 	JOB_FAILED
 )
 
-//containers are initiated from JobTemplateManager
+//containers are initiated from JobTemplateManager, so there is no New function
 type JobContainer struct {
-	Id                uuid.UUID `json:"id"`
-	Steps             []JobStep `json:"steps"`
-	CompletedSteps    int       `json:"completed_steps"`
-	Status            JobStatus `json:"status"`
-	JobTemplateId     uuid.UUID `json:"templateId"`
-	ErrorMessage      string    `json:"error_message"`
-	IncomingMediaFile string    `json:"incoming_media_file"`
+	Id                uuid.UUID  `json:"id"`
+	Steps             []JobStep  `json:"steps"`
+	CompletedSteps    int        `json:"completed_steps"`
+	Status            JobStatus  `json:"status"`
+	JobTemplateId     uuid.UUID  `json:"templateId"`
+	ErrorMessage      string     `json:"error_message"`
+	IncomingMediaFile string     `json:"incoming_media_file"`
+	StartTime         *time.Time `json:"start_time"`
+	EndTime           *time.Time `json:"end_time"`
 }
 
 func (c JobContainer) Store(redisClient *redis.Client) error {
@@ -59,6 +62,8 @@ func (c *JobContainer) CompleteStepAndMoveOn() JobStep {
 	c.CompletedSteps += 1
 	if c.CompletedSteps >= len(c.Steps) {
 		c.Status = JOB_COMPLETED
+		nowTime := time.Now()
+		c.EndTime = &nowTime
 		return nil
 	}
 	nextStep := c.Steps[c.CompletedSteps]
@@ -68,6 +73,8 @@ func (c *JobContainer) CompleteStepAndMoveOn() JobStep {
 func (c *JobContainer) InitialStep() JobStep {
 	if len(c.Steps) == 0 {
 		c.Status = JOB_COMPLETED
+		nowTime := time.Now()
+		c.EndTime = &nowTime
 		return nil
 	}
 	return c.Steps[0]
@@ -75,6 +82,8 @@ func (c *JobContainer) InitialStep() JobStep {
 
 func (c *JobContainer) FailCurrentStep(msg string) {
 	c.Status = JOB_FAILED
+	nowTime := time.Now()
+	c.EndTime = &nowTime
 	c.ErrorMessage = msg
 	c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_FAILED, &msg)
 }
@@ -124,6 +133,7 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	spew.Dump(rawDataMap)
 	rawSteps := rawDataMap["steps"].([]interface{})
 	steps := make([]JobStep, len(rawSteps))
 	//spew.Dump(rawSteps)
@@ -160,6 +170,7 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.ErrorMessage = rawDataMap["error_message"].(string)
 	c.Id = uuid.MustParse(rawDataMap["id"].(string))
 	c.JobTemplateId = uuid.MustParse(rawDataMap["templateId"].(string))
+
 	return nil
 }
 

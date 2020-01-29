@@ -71,6 +71,10 @@ func TestJobContainer_InitialStepEmpty(t *testing.T) {
 	if container.Status != JOB_COMPLETED {
 		t.Errorf("Got %d for container status after test, expected %d", container.Status, JOB_COMPLETED)
 	}
+
+	if container.EndTime == nil {
+
+	}
 }
 
 /**

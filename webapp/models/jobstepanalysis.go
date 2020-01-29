@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"log"
+	"time"
 )
 
 type JobStepAnalysis struct {
@@ -20,6 +21,8 @@ type JobStepAnalysis struct {
 	LastError              string         `json:"errorMessage",struct:"errorMessage"`
 	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
 	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
+	StartTime              *time.Time     `json:"startTime",struct:"startTime"`
+	EndTime                *time.Time     `json:"endTime",struct:"startTime"`
 }
 
 func safeGetString(from interface{}) string {
@@ -134,6 +137,19 @@ func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus, errMsg *string) JobS
 	j.StatusValue = newStatus
 	if errMsg != nil {
 		j.LastError = *errMsg
+	}
+	nowTime := time.Now()
+	switch j.StatusValue {
+	case JOB_STARTED:
+		j.StartTime = &nowTime
+		break
+	case JOB_FAILED:
+		fallthrough
+	case JOB_COMPLETED:
+		j.EndTime = &nowTime
+		break
+	default:
+		break
 	}
 	return j
 }

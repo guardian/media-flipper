@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"log"
+	"time"
 )
 
 type ThumbnailResult struct {
@@ -21,8 +22,11 @@ type JobStepThumbnail struct {
 	JobContainerId         uuid.UUID        `json:"jobContainerId"`
 	ContainerData          *JobRunnerDesc   `json:"containerData"`
 	StatusValue            JobStatus        `json:"jobStepStatus"`
+	LastError              string           `json:"errorMessage",struct:"errorMessage"`
 	Result                 *ThumbnailResult `json:"thumbnailResult"`
 	KubernetesTemplateFile string           `json:"templateFile"`
+	StartTime              *time.Time       `json:"startTime",struct:"startTime"`
+	EndTime                *time.Time       `json:"endTime",struct:"startTime"`
 }
 
 func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail, error) {
@@ -125,6 +129,22 @@ func (j JobStepThumbnail) Store(redisClient *redis.Client) error {
 
 func (j JobStepThumbnail) WithNewStatus(newStatus JobStatus, errMsg *string) JobStep {
 	j.StatusValue = newStatus
+	if errMsg != nil {
+		j.LastError = *errMsg
+	}
+	nowTime := time.Now()
+	switch j.StatusValue {
+	case JOB_STARTED:
+		j.StartTime = &nowTime
+		break
+	case JOB_FAILED:
+		fallthrough
+	case JOB_COMPLETED:
+		j.EndTime = &nowTime
+		break
+	default:
+		break
+	}
 	return j
 }
 

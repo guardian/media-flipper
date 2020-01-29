@@ -140,6 +140,8 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
+	defer ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
+
 	for _, jobStep := range *queueSnapshot {
 		jobId := jobStep.StepId()
 
@@ -241,8 +243,6 @@ func (j *JobRunner) clearCompletedTick() {
 			}
 		}
 	}
-
-	ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
 }
 
 /**
@@ -278,6 +278,10 @@ func (j *JobRunner) waitingQueueTick() {
 						log.Printf("Could not save job description: %s", storeErr)
 						return
 					}
+				} else {
+					t := time.Now()
+					newJob.StartTime = &t
+					newJob.Store(j.redisClient)
 				}
 			}
 		} else {
