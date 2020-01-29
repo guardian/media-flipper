@@ -168,7 +168,7 @@ func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.Job
 	}
 
 	listOpts := metav1.ListOptions{
-		LabelSelector:  fmt.Sprintf("mediaflipper.jobId=%s", jobId),
+		LabelSelector:  fmt.Sprintf("mediaflipper.jobStepId=%s", jobId),
 		Watch:          false,
 		TimeoutSeconds: nil,
 		Limit:          0,

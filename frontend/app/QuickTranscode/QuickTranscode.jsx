@@ -6,6 +6,7 @@ import BytesFormatterImplementation from "../Common/BytesFormatterImplementation
 import css from "../inline-dialog.css";
 import JobStatusComponent from "../JobList/JobStatusComponent.jsx";
 import MediaFileInfo from "../JobList/MediaFileInfo.jsx";
+import JobTemplateSelector from "./JobTemplateSelector.jsx";
 
 class QuickTranscode extends React.Component {
     //job status values from models/jobentry.go
@@ -20,15 +21,21 @@ class QuickTranscode extends React.Component {
         this.state = {
             phase: 0,
             uploadCompleted: false,
-            jobStatus: 0,
+            jobStatus: {
+                status: 0,
+                completedSteps: 0,
+                totalSteps: 0
+            },
             lastError: null,
             analysisCompleted: false,
+            analysisResultId: null,
             analysisResult: null,
             analysisTimer: null,
             jobTimer: null,
             jobId: null,
             fileName: null,
-            settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279"  //FAKE value for testing
+            settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279",  //FAKE value for testing
+            templateId: null
         };
 
         this.setStatePromise = this.setStatePromise.bind(this);
@@ -51,21 +58,29 @@ class QuickTranscode extends React.Component {
         return this.setStatePromise({analysisTimer: null, jobTimer: null});
     }
 
-    componentDidUpdate(prevProps, prevState, snapshot) {
+    async componentDidUpdate(prevProps, prevState, snapshot) {
         if(prevState.phase !== this.state.phase && this.state.phase===2){
             console.log("Entered analysis phase, starting timer");
-            const timerId = window.setInterval(this.pollAnalysisState, 500);
-            this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
+            //const timerId = window.setInterval(this.pollAnalysisState, 500);
+            //this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
+            await this.setStatePromise({analysisCompleted: false})
         }
         if(prevState.phase !== this.state.phase && this.state.phase!==2 && this.state.analysisTimer){
             console.log("Changed phase to not analysis with a timer set, removing it");
             window.clearTimeout(this.state.analysisTimer);
-            this.setStatePromise({analysisTimer: null });
+            await this.setStatePromise({analysisTimer: null });
+        }
+
+        if(prevState.analysisResultId !== this.state.analysisResultId) {
+            if(this.state.analysisResultId!=="00000000-0000-0000-0000-000000000000") {
+                console.log("Analysis result changed");
+                await this.loadAnalysisData();
+            }
         }
 
         if(prevState.jobStatus !== this.state.jobStatus){
             console.log("Job status changed from ", prevState.jobStatus, " to ", this.state.jobStatus);
-            switch(this.state.jobStatus){
+            switch(this.state.jobStatus.status){
                 case this.JOB_COMPLETED:
                     this.clearAllTimers();
                     break;
@@ -79,13 +94,33 @@ class QuickTranscode extends React.Component {
     }
 
     /**
+     * loads the data associated with the analysis ID in the state
+     * @returns {Promise<void>}
+     */
+    async loadAnalysisData() {
+        const response = await fetch("/api/analysis/get?forId=" + this.state.analysisResultId);
+        if(response.status===200){
+            const parsedData = await response.json();
+            if(!parsedData.hasOwnProperty("entry")){
+                return this.setStatePromise({lastError: "invalid response from /api/analysis/get"});
+            } else {
+                return this.setStatePromise({analysisResult: parsedData.entry, analysisCompleted: true});
+            }
+        } else {
+            const errorText = await response.text();
+            return this.setStatePromise({lastError: errorText});
+        }
+    }
+
+    /**
      * asks the server to create a new job.
      * @returns {Promise<string>} Resolves to the created job ID if successful or rejects otherwise
      */
     async createJobEntry() {
         //see webapp/jobs/jobrequest.go
         const requestContent = JSON.stringify({
-            settingsId: this.state.settingsId
+            settingsId: this.state.settingsId,
+            jobTemplateId: this.state.templateId,
         });
 
         const response = await fetch("/api/job/new",{method:"POST",body: requestContent,headers:{"Content-Type":"application/json"}});
@@ -98,7 +133,7 @@ class QuickTranscode extends React.Component {
         }
 
         const responseJson = JSON.parse(responseBody);
-        return responseJson.jobId;
+        return responseJson.jobContainerId;
     }
 
     /**
@@ -159,11 +194,28 @@ class QuickTranscode extends React.Component {
         const response = await fetch(url);
         if(response.status===200) {
             const jobData = await response.json();
-            return this.setStatePromise({jobStatus: jobData.entry.jobStatus})
+
+            const analysisStep = this.findAnalysisStep(jobData.entry.steps);
+            console.log("analysis step: ", analysisStep);
+            const analysisResultUpdate = analysisStep===null ? {} : {analysisResultId: analysisStep.analysisResult};
+
+            console.log("analysisResultUpdate: ", analysisResultUpdate);
+
+            return this.setStatePromise(Object.assign({}, analysisResultUpdate, {jobStatus: {
+                status: jobData.entry.status,
+                error: jobData.entry.error_message,
+                completedSteps: jobData.entry.completed_steps,
+                totalSteps: jobData.entry.steps.length
+            }}))
         } else {
             await this.clearAllTimers();
             return this.setStatePromise({lastError: "Could not get job: " + response.statusText})
         }
+    }
+
+    findAnalysisStep(jobSteps) {
+        const resultList = jobSteps.filter(s=>s.stepType==="analysis");
+        return resultList.length>0 ? resultList[0] : null;
     }
 
     render() {
@@ -172,6 +224,9 @@ class QuickTranscode extends React.Component {
             <div className="inline-dialog">
                 <h2 className="inline-dialog-title">Quick transcode</h2>
                 <div className="inline-dialog-content" style={{marginTop: "1em"}}>
+                    <span className="transcode-info-block" style={{marginBottom: "1em", display:"block"}}>
+                        <JobTemplateSelector value={this.state.templateId} onChange={evt=>this.setState({templateId: evt.target.value})}/>
+                    </span>
                 <BasicUploadComponent id="upload-box"
                                       loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + BytesFormatterImplementation.getString(file.size) + " " + file.type + ")"})}
                                       loadCompleted={this.newDataAvailable}/>
@@ -179,6 +234,7 @@ class QuickTranscode extends React.Component {
                     {
                         this.state.analysisCompleted ? <span className="transcode-info-block"><MediaFileInfo jobId={this.state.jobId} fileInfo={this.state.analysisResult}/> </span>: ""
                     }
+
                 <div id="placeholder" style={{height: "4em", display: "block", overflow: "hidden"}}>
                     <span className="transcode-info-block" style={{display: this.state.fileName ? "inherit" : "none"}}>{this.state.fileName}</span>
 
@@ -193,7 +249,8 @@ class QuickTranscode extends React.Component {
                     <span className="error-text" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
                 </div>
 
-                    <span className="transcode-info-block" style={{fontWeight: "bold"}}>Job is <JobStatusComponent status={this.state.jobStatus}/></span>
+                    <span className="transcode-info-block" style={{fontWeight: "bold"}}>Job is <JobStatusComponent status={this.state.jobStatus.status}/>, completed {this.state.jobStatus.completedSteps} out of {this.state.jobStatus.totalSteps} steps</span>
+                    <span className="transcode-info-block error-text" style={{display: this.state.jobStatus.error ? "inherit" : "none"}}>Failed: {this.state.jobStatus.error}</span>
                 </div>
             </div>
         </div>

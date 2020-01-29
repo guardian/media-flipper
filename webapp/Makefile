@@ -8,5 +8,8 @@ webapp: $(GOFILES)
 dev: $(GOFILES)
 	go build
 
+test: $(GOFILES)
+	go test ./...
+
 clean:
 	rm -f webapp

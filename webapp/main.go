@@ -8,6 +8,8 @@ import (
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
+	"github.com/guardian/mediaflipper/webapp/jobtemplate"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
@@ -17,6 +19,7 @@ type MyHttpApp struct {
 	index       IndexHandler
 	healthcheck HealthcheckHandler
 	static      StaticFilesHandler
+	templates   jobtemplate.TemplateEndpoints
 	initiators  initiator.InitiatorEndpoints
 	jobs        jobs.JobsEndpoints
 	analysers   analysis.AnalysisEndpoints
@@ -82,7 +85,13 @@ func main() {
 
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, 10, 2)
+	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
+
+	if mgrLoadErr != nil {
+		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
+	}
+
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 2)
 
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
@@ -90,8 +99,9 @@ func main() {
 	app.static.basePath = "static"
 	app.static.uriTrim = 2
 	app.initiators = initiator.NewInitiatorEndpoints(config, redisClient, &runner)
-	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client)
+	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client, templateMgr)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
+	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -100,6 +110,7 @@ func main() {
 	app.initiators.WireUp("/api/flip")
 	app.jobs.WireUp("/api/job")
 	app.analysers.WireUp("/api/analysis")
+	app.templates.WireUp("/api/jobtemplate")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)

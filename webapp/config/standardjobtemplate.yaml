@@ -1,0 +1,10 @@
+---
+- Id: 846F823E-C0D3-4AF0-AD51-0F9573379057
+  Name: Standard thumbnail-and-transcode
+  Steps:
+    - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
+      PredeterminedType: analysis
+      KubernetesTemplateFile: AnalysisJobTemplate.yaml
+    - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
+      PredeterminedType: thumbnail
+      KubernetesTemplateFile: AnalysisJobTemplate.yaml

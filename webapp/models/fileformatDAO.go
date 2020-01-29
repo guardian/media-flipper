@@ -40,7 +40,7 @@ func GetFileFormat(forId uuid.UUID, redisClient *redis.Client) (*FileFormatInfo,
 Save the given job object to the datastore. Returns nil if successful, or an error
 */
 func PutFileFormat(record *FileFormatInfo, redisClient *redis.Client) error {
-	jobKey := keyForFileId(record.ForJob)
+	jobKey := keyForFileId(record.Id)
 
 	encoded, encodErr := json.Marshal(*record)
 	if encodErr != nil {

@@ -2,9 +2,11 @@ package jobrunner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/webapp/models"
 	"log"
 	"time"
 )
@@ -20,15 +22,11 @@ func keyForJobId(id uuid.UUID) string {
 	return fmt.Sprintf("mediaflipper:jobrequest:%s", id.String())
 }
 
-func getNextRequestQueueEntry(client *redis.Client) (*JobRunnerRequest, error) {
+func getNextRequestQueueEntry(client *redis.Client) (*models.JobContainer, error) {
 	return getNextJobRunnerRequest(client, REQUEST_QUEUE)
 }
 
-func getNextRunningQueueEntry(client *redis.Client) (*JobRunnerRequest, error) {
-	return getNextJobRunnerRequest(client, REQUEST_QUEUE)
-}
-
-func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRunnerRequest, error) {
+func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models.JobContainer, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	result := client.LPop(jobKey)
@@ -46,7 +44,7 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 		log.Print("DEBUG: no items in queue right now")
 		return nil, nil
 	}
-	var rq JobRunnerRequest
+	var rq models.JobContainer
 	log.Printf("DEBUG: Got %s for %s", content, jobKey)
 
 	marshalErr := json.Unmarshal([]byte(content), &rq)
@@ -58,22 +56,28 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*JobRun
 	return &rq, nil
 }
 
-func pushToRequestQueue(client *redis.Client, item *JobRunnerRequest) error {
-	return pushToQueue(client, item, REQUEST_QUEUE)
-}
-
-func pushToRunningQueue(client *redis.Client, item *JobRunnerRequest) error {
-	return pushToQueue(client, item, RUNNING_QUEUE)
-}
-
-func pushToQueue(client *redis.Client, item *JobRunnerRequest, queueName QueueName) error {
-	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
-
+func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
 		return marshalErr
 	}
+
+	return pushToQueue(client, encodedContent, REQUEST_QUEUE)
+}
+
+func pushToRunningQueue(client *redis.Client, item *models.JobStep) error {
+	encodedContent, marshalErr := json.Marshal(*item)
+	if marshalErr != nil {
+		log.Print("Could not encode content for ", item, ": ", marshalErr)
+		return marshalErr
+	}
+
+	return pushToQueue(client, encodedContent, RUNNING_QUEUE)
+}
+
+func pushToQueue(client *redis.Client, encodedContent []byte, queueName QueueName) error {
+	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	//log.Printf("DEBUG: Pushed %s to %s", string(encodedContent), jobKey)
 
@@ -105,14 +109,60 @@ func getQueueLength(client *redis.Client, queueName QueueName) (int64, error) {
 	return count, err
 }
 
-func copyRunningQueueContent(client *redis.Client) (*[]JobRunnerRequest, error) {
-	return copyQueueContent(client, RUNNING_QUEUE)
+func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
+	jobType, isStr := fromMap["stepType"].(string)
+	if !isStr {
+		log.Printf("Could not determine job type, stepType parameter missing or wrong format")
+		return nil, errors.New("Could not determine job type")
+	}
+	switch jobType {
+	case "analysis":
+		aJobPtr, anErr := models.JobStepAnalysisFromMap(fromMap)
+		if anErr == nil {
+			log.Printf("Got JobStepAnalysis")
+			return aJobPtr, nil
+		}
+	case "thumbnail":
+		tJobPtr, tErr := models.JobStepThumbnailFromMap(fromMap)
+		if tErr == nil && tJobPtr.JobStepType == "thumbnail" {
+			log.Printf("Got JobStepThumbnail")
+			return tJobPtr, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("Could not decode to any known job type, got %s", fromMap["stepType"]))
+}
+
+func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
+	result, getErr := copyQueueContent(client, RUNNING_QUEUE)
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	rtn := make([]models.JobStep, len(*result))
+	for i, resultString := range *result {
+		var rq map[string]interface{}
+		log.Printf("content before unmarshal: %s", resultString)
+		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
+		if unmarshalEr != nil {
+			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", unmarshalEr)
+			return nil, unmarshalEr
+		}
+
+		step, stepErr := getJobFromMap(rq)
+		if stepErr != nil {
+			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", stepErr)
+			return nil, stepErr
+		}
+		rtn[i] = step
+	}
+
+	return &rtn, nil
 }
 
 /**
 download a snapshot of the current queue
 */
-func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRequest, error) {
+func copyQueueContent(client *redis.Client, queueName QueueName) (*[]string, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	cmd := client.LRange(jobKey, 0, -1)
@@ -122,34 +172,24 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]JobRunnerRe
 		log.Printf("Could not range %s: %s", jobKey, err)
 		return nil, err
 	}
-
-	rtn := make([]JobRunnerRequest, len(result))
-	for i, resultString := range result {
-		var rq JobRunnerRequest
-		//log.Printf("content before unmarshal: %s", resultString)
-		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
-		if unmarshalEr != nil {
-			log.Print("ERROR: Corrupted information in ", queueName, " queue: ", unmarshalEr)
-			return nil, unmarshalEr
-		}
-		rtn[i] = rq
-	}
-
-	return &rtn, nil
+	return &result, nil
 }
 
 /**
 remove the given item from the given queue.
 */
-func removeFromQueue(client *redis.Client, queueName QueueName, entry *JobRunnerRequest) error {
+func removeFromQueue(client *redis.Client, queueName QueueName, entry *models.JobStep) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 	content, _ := json.Marshal(entry)
 	//log.Printf("Removing item %s from queue %s", string(content), jobKey)
 
-	_, err := client.LRem(jobKey, 0, string(content)).Result()
+	result, err := client.LRem(jobKey, 0, string(content)).Result()
 	if err != nil {
 		log.Printf("Could not remove element from queue %s: %s", queueName, err)
 		return err
+	}
+	if result == 0 {
+		log.Printf("ERROR: Could not remove item %s from queue %s, not found", string(content), jobKey)
 	}
 	return nil
 }
@@ -157,7 +197,7 @@ func removeFromQueue(client *redis.Client, queueName QueueName, entry *JobRunner
 /**
 check if the given queue lock is set
 */
-func checkQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
+func CheckQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 
 	result, err := client.Exists(jobKey).Result()
@@ -175,16 +215,82 @@ func checkQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
 /**
 set the given queue lock
 */
-func setQueueLock(client *redis.Client, queueName QueueName) {
+func SetQueueLock(client *redis.Client, queueName QueueName) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 
-	client.SetXX(jobKey, "set", 2*time.Second)
+	client.Set(jobKey, "set", 2*time.Second)
 }
 
 /**
 release the given queue lock
 */
-func releaseQueueLock(client *redis.Client, queueName QueueName) {
+func ReleaseQueueLock(client *redis.Client, queueName QueueName) {
 	jobKey := fmt.Sprintf("mediaflipper:%s:lock", queueName)
 	client.Del(jobKey)
+}
+
+/*
+block until the given queue lock is available or the timeout occurs
+*/
+func WaitForQueueLock(client *redis.Client, queueName QueueName, timeout time.Duration) error {
+	timeoutTimer := time.NewTicker(timeout)
+	clearedChannel := make(chan error)
+
+	go func() {
+		for {
+			locked, checkErr := CheckQueueLock(client, queueName)
+			if checkErr != nil {
+				clearedChannel <- checkErr
+			} else {
+				if locked {
+					time.Sleep(50 * time.Millisecond)
+				} else {
+					clearedChannel <- nil
+				}
+			}
+		}
+	}()
+
+	select {
+	case <-timeoutTimer.C:
+		return errors.New(fmt.Sprintf("Timed out waiting for lock on %s", queueName))
+	case checkErr := <-clearedChannel:
+		return checkErr
+	}
+}
+
+type QueueLockCallback func(error)
+
+/*
+call the given callback (in a subthread) as soon as the queue becomes unlocked.
+optionally, assert the queue lock by calling SetQueueLock/ReleaseQueueLock either side of the callback
+remember that the callback is in a background goroutine, concurrency warnings apply
+*/
+func WhenQueueAvailable(client *redis.Client, queueName QueueName, callback QueueLockCallback, assertingQueue bool) {
+	intervalTicker := time.NewTicker(50 * time.Millisecond)
+	go func() {
+		for {
+			select {
+			case <-intervalTicker.C:
+				locked, checkErr := CheckQueueLock(client, queueName)
+				if checkErr != nil {
+					log.Printf("ERROR: Could not check lock for %s: %s", queueName, checkErr)
+					intervalTicker.Stop()
+					callback(checkErr)
+					return
+				}
+				if !locked {
+					intervalTicker.Stop()
+					if assertingQueue {
+						SetQueueLock(client, queueName)
+					}
+					callback(nil)
+					if assertingQueue {
+						ReleaseQueueLock(client, queueName)
+					}
+					return
+				}
+			}
+		}
+	}()
 }

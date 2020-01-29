@@ -45,7 +45,7 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	jobRecord, jobErr := models.GetJobForId(jobId, h.redisClient)
+	jobRecord, jobErr := models.JobContainerForId(jobId, h.redisClient)
 	if jobErr != nil {
 		log.Printf("Could not retrieve job record for %s: %s", jobId, jobErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Could not retrieve record"}, w, 500)
@@ -73,11 +73,11 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	bytesCopied, writeErr := io.Copy(fp, r.Body)
 
 	if writeErr != nil {
-		log.Printf("Could not write data to %s: %s", fp.Name())
+		log.Printf("Could not write data to %s: %s", fp.Name(), writeErr)
 	}
 
-	jobRecord.MediaFile = fp.Name()
-	jobUpdateErr := models.PutJob(jobRecord, h.redisClient)
+	jobRecord.SetMediaFile(fp.Name())
+	jobUpdateErr := jobRecord.Store(h.redisClient)
 	if jobUpdateErr != nil {
 		log.Printf("ERROR: Could not update job record: %s", writeErr)
 		defer os.Remove(fp.Name())
@@ -85,7 +85,7 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	runErr := h.runner.AddJob(jobRecord, "analysis")
+	runErr := h.runner.AddJob(jobRecord)
 	if runErr != nil {
 		log.Print("ERROR: Could not add job to processing queue: ", runErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not enqueue job for processing"}, w, 500)
