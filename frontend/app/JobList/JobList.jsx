@@ -6,6 +6,7 @@ import HidableExpander from "../Common/HidableExpander.jsx";
 import JobStatusComponent from "./JobStatusComponent.jsx";
 import MenuBanner from "../MenuBanner.jsx";
 import MediaFileInfo from "./MediaFileInfo.jsx";
+import TimestampFormatter from "../Common/TimestampFormatter.jsx";
 
 class JobList extends React.Component {
     constructor(props) {
@@ -72,7 +73,7 @@ class JobList extends React.Component {
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
                     <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
                     <div className="job-list-entry-cell baseline">Format Analysis</div>
-                    <div className="job-list-entry-cell baseline">{step.analysisResult && step.analysisResult!=="00000000-0000-0000-0000-000000000000" ? <MediaFileInfo jobId={step.analysisResult}/> : <span/>}</div>
+                    <div className="job-list-entry-cell baseline">{step.analysisResult && step.analysisResult!=="00000000-0000-0000-0000-000000000000" ? <MediaFileInfo jobId={step.analysisResult} initialExpanderState={true}/> : <span/>}</div>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
                     </div>;
             case "thumbnail":
@@ -98,9 +99,15 @@ class JobList extends React.Component {
                     this.state.jobList.map(entry=><li className="job-list-entry" key={entry.id}>
                         <div className="job-list-container">
                             <div className="job-list-entry-cell mini"><FontAwesomeIcon icon="tools"/></div>
-                            <div className="job-list-entry-cell baseline">{entry.id}</div>
+                            <div className="job-list-entry-cell baseline">
+                                <p style={{marginBottom: "0.2em", marginTop: 0}}>{entry.id}</p>
+                            </div>
                             <div className="job-list-entry-cell baseline"><JobStatusComponent status={entry.status}/></div>
-                            <div className="job-list-entry-cell wide">{this.getTemplateName(entry.templateId)}</div>
+                            <div className="job-list-entry-cell wide">
+                                <p style={{marginBottom: "0.2em", marginTop: 0}}>{this.getTemplateName(entry.templateId)}</p>
+                                <TimestampFormatter relative={false} formatString="HH:mm:ss dd Do MMM" value={entry.start_time} prefix="Started " nullValueString="Not started yet"/><br/>
+                                <TimestampFormatter relative={false} formatString="HH:mm:ss dd Do MMM" value={entry.end_time} prefix="Completed " nullValueString="Not finished yet"/><br/>
+                            </div>
                             <div className="job-list-entry-cell wide">Completed {entry.completed_steps} steps out of {entry.steps.length}<br/><span className="error-text">{entry.error_message}</span></div>
                         </div>
                         <div className="job-list-content-indented">

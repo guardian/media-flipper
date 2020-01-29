@@ -183,10 +183,13 @@ func removeFromQueue(client *redis.Client, queueName QueueName, entry *models.Jo
 	content, _ := json.Marshal(entry)
 	//log.Printf("Removing item %s from queue %s", string(content), jobKey)
 
-	_, err := client.LRem(jobKey, 0, string(content)).Result()
+	result, err := client.LRem(jobKey, 0, string(content)).Result()
 	if err != nil {
 		log.Printf("Could not remove element from queue %s: %s", queueName, err)
 		return err
+	}
+	if result == 0 {
+		log.Printf("ERROR: Could not remove item %s from queue %s, not found", string(content), jobKey)
 	}
 	return nil
 }

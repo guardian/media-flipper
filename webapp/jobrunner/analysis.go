@@ -3,7 +3,6 @@ package jobrunner
 import (
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
 	v1 "k8s.io/api/batch/v1"
@@ -86,9 +85,6 @@ func CreateAnalysisJob(jobDesc models.JobStepAnalysis, k8client *kubernetes.Clie
 		{Name: "MAX_RETRIES", Value: "10"},
 	}
 	jobPtr.ObjectMeta.Name = fmt.Sprintf("mediaflipper-analysis-%s", path.Base(jobDesc.MediaFile))
-
-	spew.Dump(jobPtr.Spec.Template.Spec)
-	spew.Dump(jobPtr.Spec.Template.Spec.RestartPolicy)
 
 	if jobPtr.Spec.Template.Spec.RestartPolicy == "" {
 		jobPtr.Spec.Template.Spec.RestartPolicy = "Never"

@@ -58,8 +58,15 @@ func (c *JobContainer) CurrentStep() JobStep {
 }
 
 func (c *JobContainer) CompleteStepAndMoveOn() JobStep {
-	c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_COMPLETED, nil)
-	c.CompletedSteps += 1
+	log.Printf("completing step %d / %d", c.CompletedSteps, len(c.Steps))
+
+	if len(c.Steps) > c.CompletedSteps {
+		c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_COMPLETED, nil)
+		c.CompletedSteps += 1
+	} else {
+		log.Printf("WARNING: data issue, completedsteps counter is larger than step list length?")
+	}
+
 	if c.CompletedSteps >= len(c.Steps) {
 		c.Status = JOB_COMPLETED
 		nowTime := time.Now()
@@ -133,7 +140,6 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	spew.Dump(rawDataMap)
 	rawSteps := rawDataMap["steps"].([]interface{})
 	steps := make([]JobStep, len(rawSteps))
 	//spew.Dump(rawSteps)
@@ -170,7 +176,8 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.ErrorMessage = rawDataMap["error_message"].(string)
 	c.Id = uuid.MustParse(rawDataMap["id"].(string))
 	c.JobTemplateId = uuid.MustParse(rawDataMap["templateId"].(string))
-
+	c.StartTime = timeFromOptionalString(rawDataMap["start_time"])
+	c.EndTime = timeFromOptionalString(rawDataMap["end_time"])
 	return nil
 }
 

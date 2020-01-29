@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"log"
+	"reflect"
 	"time"
 )
 
@@ -50,6 +51,27 @@ func getUUID(from interface{}) uuid.UUID {
 	return parsed
 }
 
+func timeFromOptionalString(maybeStringPtr interface{}) *time.Time {
+	if maybeStringPtr == nil {
+		return nil
+	}
+
+	stringVal, isString := maybeStringPtr.(string)
+	if !isString {
+		log.Printf("timeFromOptionalString: passed value was %s, expected string", reflect.TypeOf(maybeStringPtr))
+		return nil
+	}
+
+	//t := time.Time{}
+	//marshalErr := t.UnmarshalJSON([]byte(stringVal))	//no idea WHY it fails to unmarshal what it marshalled fine...
+	t, marshalErr := time.Parse(time.RFC3339Nano, stringVal)
+	if marshalErr != nil {
+		log.Printf("ERROR: Could not unmarshal time from string '%s': %s", stringVal, marshalErr)
+		return nil
+	}
+	return &t
+}
+
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
 	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
 	if stepIdParseErr != nil {
@@ -80,6 +102,8 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
+		StartTime:              timeFromOptionalString(mapData["startTime"]),
+		EndTime:                timeFromOptionalString(mapData["endTime"]),
 	}
 	return &rtn, nil
 }

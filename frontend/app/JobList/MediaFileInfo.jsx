@@ -7,7 +7,8 @@ import css from './MediaFileInfo.css';
 class MediaFileInfo extends React.Component {
     static propTypes = {
         fileInfo: PropTypes.object,  //see models/fileformat.go
-        jobId: PropTypes.string.isRequired
+        jobId: PropTypes.string.isRequired,
+        initialExpanderState: PropTypes.bool
     };
 
     constructor(props) {
@@ -58,7 +59,7 @@ class MediaFileInfo extends React.Component {
         }
 
         const showheader = filedata.format_long_name + ", " + Math.round(filedata.duration) + " seconds";
-        return <HidableExpander headerText={showheader}>
+        return <HidableExpander headerText={showheader} initialExpanderState={this.props.initialExpanderState}>
             <table className="media-file-info">
                 <tbody>
                 <tr>

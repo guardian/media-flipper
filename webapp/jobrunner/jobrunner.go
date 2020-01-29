@@ -3,7 +3,6 @@ package jobrunner
 import (
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/models"
 	_ "github.com/jinzhu/copier"
@@ -65,32 +64,12 @@ func (j *JobRunner) requestProcessor() {
 	}
 }
 
-///**
-//trigger the action for a given item and put it onto the running queue if successful
-//*/
-//func (j *JobRunner) actionRequest(rq *JobRunnerRequest) error {
-//	if rq.PredefinedType == "analysis" {
-//		err := CreateAnalysisJob(rq.ForJob, j.k8client)
-//		if err != nil {
-//			log.Print("Could not create analysis job! ", err)
-//			return err
-//		}
-//		log.Printf("External job created for %s with type %s", rq.ForJob.JobId, rq.PredefinedType)
-//		pushErr := pushToRunningQueue(j.redisClient, rq)
-//		if pushErr != nil {
-//			log.Print("Could not update running queue! ", pushErr)
-//			return pushErr
-//		}
-//		return nil
-//	} else {
-//		log.Print("Other job types not yet implemented! ", rq.PredefinedType)
-//		return errors.New("other job types not yet implemented")
-//	}
-//}
-
+/**
+trigger the action for a given item and put it onto the running queue if successful
+*/
 func (j *JobRunner) actionRequest(container *models.JobContainer) error {
 	initialStep := container.InitialStep()
-	log.Printf("actionRequest: initialStep is %s", spew.Sdump(initialStep))
+	//log.Printf("actionRequest: initialStep is %s", spew.Sdump(initialStep))
 	return j.actionStep(initialStep)
 }
 
@@ -165,7 +144,11 @@ func (j *JobRunner) clearCompletedTick() {
 				remove the given step from the RUNNING_QUEUE and set its status to complete. Action the next step if there is one
 				or if not complete the job and save.
 			*/
-			removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+			removeErr := removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+
+			if removeErr != nil {
+				log.Printf("Could not remove jobstep from running queue: %s", removeErr)
+			}
 
 			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
 			if getErr != nil {
@@ -189,6 +172,8 @@ func (j *JobRunner) clearCompletedTick() {
 					log.Print("Could not action next step: ", runErr)
 					container.Status = models.JOB_FAILED
 					container.ErrorMessage = runErr.Error()
+					t := time.Now()
+					container.EndTime = &t
 					storErr = container.Store(j.redisClient)
 					if storErr != nil {
 						log.Printf("Could not store updated job container: %s", storErr)
@@ -232,8 +217,13 @@ func (j *JobRunner) clearCompletedTick() {
 				pushToRunningQueue(j.redisClient, &updatedJobStep)
 
 				container.Steps[container.CompletedSteps] = updatedJobStep
-				container.Status = models.JOB_STARTED
-				spew.Dump(container)
+
+				if container.Status != models.JOB_STARTED {
+					container.Status = models.JOB_STARTED
+					t := time.Now()
+					container.StartTime = &t
+				}
+
 				storErr := container.Store(j.redisClient)
 				if storErr != nil {
 					log.Printf("Could not store job container: %s", storErr)
@@ -250,6 +240,19 @@ internal function to process items on the waiting queue, up until we either run 
 max running jobs
 */
 func (j *JobRunner) waitingQueueTick() {
+	set, checkErr := CheckQueueLock(j.redisClient, RUNNING_QUEUE)
+	if checkErr != nil {
+		log.Printf("Could not check running queue lock: %s", checkErr)
+		return
+	}
+
+	if set {
+		log.Printf("Running queue is locked, not performing waiting queue chek")
+		return
+	}
+
+	SetQueueLock(j.redisClient, RUNNING_QUEUE)
+
 	for {
 		queuelen, getErr := getRunningQueueLength(j.redisClient)
 		if getErr != nil {
@@ -264,10 +267,9 @@ func (j *JobRunner) waitingQueueTick() {
 		newJob, getErr := getNextRequestQueueEntry(j.redisClient)
 		if getErr == nil {
 			if newJob == nil {
-				//log.Printf("No more jobs to get")
 				break
 			} else {
-				log.Printf("Actioning job")
+				//log.Printf("Actioning job")
 				actioningErr := j.actionRequest(newJob)
 				if actioningErr != nil {
 					log.Printf("Could not action job: %s", actioningErr)
@@ -289,4 +291,6 @@ func (j *JobRunner) waitingQueueTick() {
 			break
 		}
 	}
+
+	ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
 }
