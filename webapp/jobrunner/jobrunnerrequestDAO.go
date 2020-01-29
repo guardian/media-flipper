@@ -141,7 +141,7 @@ func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
 	rtn := make([]models.JobStep, len(*result))
 	for i, resultString := range *result {
 		var rq map[string]interface{}
-		//log.Printf("content before unmarshal: %s", resultString)
+		log.Printf("content before unmarshal: %s", resultString)
 		unmarshalEr := json.Unmarshal([]byte(resultString), &rq)
 		if unmarshalEr != nil {
 			log.Print("ERROR: Corrupted information in ", RUNNING_QUEUE, " queue: ", unmarshalEr)

@@ -23,8 +23,10 @@ class TimestampFormatter extends React.Component {
         const m = moment(this.props.value);
 
         const formatted = this.props.relative ? m.fromNow(false) : m.format(formatToUse);
-        const out = this.props.prefix ? this.props.prefix + formatted : formatted;
-        return <span className="timestamp">{out}</span>
+        return <span className="timestamp-container">
+            <span className="timestamp-prefix">{this.props.prefix ? this.props.prefix : ""}</span>
+            <span className="timestamp">{formatted}</span>
+        </span>
     }
 }
 
