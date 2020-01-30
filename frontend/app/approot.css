@@ -19,3 +19,7 @@ h6 { font-size: 1.0em; }
 .inline-icon {
     margin-right: 0.4em;
 }
+
+.clickable {
+    cursor: pointer;
+}

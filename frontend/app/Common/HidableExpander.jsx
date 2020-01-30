@@ -27,9 +27,9 @@ class HidableExpander extends React.Component {
     }
 
     render() {
-        return <div className="hidable-expander" onClick={this.expanderClicked}>
-            <FontAwesomeIcon className="expander-icon" icon={this.state.expanded ? "caret-down" : "caret-right"}/>
-            <span className="hidable-expander-header">{this.props.headerText}</span>
+        return <div className="hidable-expander">
+            <FontAwesomeIcon className="expander-icon" icon={this.state.expanded ? "caret-down" : "caret-right"} onClick={this.expanderClicked}/>
+            <span className="hidable-expander-header" onClick={this.expanderClicked}>{this.props.headerText}</span>
             {this.state.expanded ? this.props.children : ""}
         </div>
     }
