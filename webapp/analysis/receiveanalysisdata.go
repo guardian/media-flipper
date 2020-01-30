@@ -3,6 +3,7 @@ package analysis
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/models"
@@ -49,7 +50,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var incoming models.AnalysisResult
+	var incoming models2.AnalysisResult
 	readErr := helpers.ReadJsonBody(r.Body, &incoming)
 	if readErr != nil {
 		log.Printf("ERROR: Could not parse incoming data to ReceiveAnalysisData: %s", readErr)

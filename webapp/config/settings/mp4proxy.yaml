@@ -1,0 +1,18 @@
+---
+- settingsid: "7FEC2963-6A1D-46A2-8DE1-62DF939F6755"
+  name: mp4proxy
+  description: Small MP4 file suitable for use as a video proxy
+  wrapper:
+    format: mp4
+  audio:
+    codec: libfaac
+    bitrate: 128000
+    channels: 2
+    samplerate: 48000
+  video:
+    codec: h264
+    bitrate: 1048576  #1mbit/s
+    scale:
+      scalex: 1280
+      scaley: -1
+      allowupscaling: false

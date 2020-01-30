@@ -12,6 +12,7 @@ import (
 	"github.com/guardian/mediaflipper/webapp/jobtemplate"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"github.com/guardian/mediaflipper/webapp/thumbnail"
+	"github.com/guardian/mediaflipper/webapp/transcodesettings"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
@@ -27,6 +28,7 @@ type MyHttpApp struct {
 	analysers   analysis.AnalysisEndpoints
 	thumbnails  thumbnail.ThumbnailEndpoints
 	files       files.FilesEndpoints
+	tsettings   transcodesettings.TranscodeSettingsEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -87,6 +89,12 @@ func main() {
 		log.Fatal("Could not connect to redis")
 	}
 
+	settingsMgr, mgrLoadErr := models.NewTranscodeSettingsManager("config/settings")
+
+	if mgrLoadErr != nil {
+		log.Fatal("Could not load in any transcode settings: ", mgrLoadErr)
+	}
+
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
 	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
@@ -108,6 +116,7 @@ func main() {
 	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
 	app.thumbnails = thumbnail.NewThumbnailEndpoints(redisClient)
 	app.files = files.NewFilesEndpoints(redisClient)
+	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -119,6 +128,7 @@ func main() {
 	app.templates.WireUp("/api/jobtemplate")
 	app.thumbnails.WireUp("/api/thumbnail")
 	app.files.WireUp("/api/file")
+	app.tsettings.WireUp("/api/transcodesettings")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
