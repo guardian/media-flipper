@@ -63,6 +63,17 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var fileEntry models.FileEntry
+	if incoming.OutPath != nil {
+		f, fileEntryErr := models.NewFileEntry(*incoming.OutPath, jobContainerId, models.TYPE_THUMBNAIL)
+		if fileEntryErr != nil {
+			log.Printf("Could not get information for incoming thumbnail %s: %s", spew.Sprint(incoming), fileEntryErr)
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not get file info"}, w, 500)
+			return
+		}
+		fileEntry = f
+	}
+
 	completionChan := make(chan bool)
 
 	whenQueueReady := func(waitErr error) {
@@ -100,7 +111,20 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		thumbStep.Result = &incoming
+		if fileEntry.ServerPath != "" {
+			//we got a valid file
+			storErr := fileEntry.Store(h.redisClient)
+			if storErr != nil {
+				log.Printf("Could not store new file entry: %s", storErr)
+				helpers.WriteJsonContent(helpers.GenericErrorResponse{
+					Status: "db_error",
+					Detail: "could not write file entry to database",
+				}, w, 500)
+				return
+			}
+			thumbStep.ResultId = &fileEntry.Id
+		}
+
 		var updatedStep models.JobStep
 		if incoming.ErrorMessage == nil || *incoming.ErrorMessage == "" {
 			updatedStep = thumbStep.WithNewStatus(models.JOB_COMPLETED, nil)

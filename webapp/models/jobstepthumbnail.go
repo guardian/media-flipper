@@ -17,17 +17,18 @@ type ThumbnailResult struct {
 }
 
 type JobStepThumbnail struct {
-	JobStepType            string           `json:"stepType"` //this field is vital so we can correctly unmarshal json data from the store
-	JobStepId              uuid.UUID        `json:"id"`
-	JobContainerId         uuid.UUID        `json:"jobContainerId"`
-	ContainerData          *JobRunnerDesc   `json:"containerData"`
-	StatusValue            JobStatus        `json:"jobStepStatus"`
-	LastError              string           `json:"errorMessage",struct:"errorMessage"`
-	MediaFile              string           `json:"mediaFile",struct:"mediaFile"`
-	Result                 *ThumbnailResult `json:"thumbnailResult"`
-	KubernetesTemplateFile string           `json:"templateFile"`
-	StartTime              *time.Time       `json:"startTime",struct:"startTime"`
-	EndTime                *time.Time       `json:"endTime",struct:"startTime"`
+	JobStepType            string         `json:"stepType"` //this field is vital so we can correctly unmarshal json data from the store
+	JobStepId              uuid.UUID      `json:"id"`
+	JobContainerId         uuid.UUID      `json:"jobContainerId"`
+	ContainerData          *JobRunnerDesc `json:"containerData"`
+	StatusValue            JobStatus      `json:"jobStepStatus"`
+	LastError              string         `json:"errorMessage",struct:"errorMessage"`
+	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
+	ResultId               *uuid.UUID     `json:"thumbnailResult"`
+	TimeTakenValue         float64        `json:"timeTaken",struct:"timeTaken"`
+	KubernetesTemplateFile string         `json:"templateFile"`
+	StartTime              *time.Time     `json:"startTime",struct:"startTime"`
+	EndTime                *time.Time     `json:"endTime",struct:"startTime"`
 }
 
 func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail, error) {
@@ -50,19 +51,15 @@ func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail,
 		}
 	}
 
-	var aResult ThumbnailResult
-	resultDecodeErr := mapstructure.Decode(mapData["thumbnailResult"], &aResult)
-	if resultDecodeErr != nil {
-		return nil, resultDecodeErr
-	}
-
+	resultId := safeGetUUID(mapData["thumbnailResult"])
 	rtn := JobStepThumbnail{
 		JobStepType:            "thumbnail",
 		JobStepId:              stepId,
 		JobContainerId:         contId,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		Result:                 &aResult,
+		ResultId:               &resultId,
+		TimeTakenValue:         safeFloat(mapData["timeTaken"], 0),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: mapData["templateFile"].(string),
 		StartTime:              timeFromOptionalString(mapData["startTime"]),
@@ -79,16 +76,8 @@ func (j JobStepThumbnail) Status() JobStatus {
 	return j.StatusValue
 }
 
-func (j JobStepThumbnail) OutputPath() string {
-	if j.Result != nil {
-		if j.Result.OutPath != nil {
-			return ""
-		} else {
-			return *j.Result.OutPath
-		}
-	} else {
-		return ""
-	}
+func (j JobStepThumbnail) OutputId() *uuid.UUID {
+	return j.ResultId
 }
 
 func (j JobStepThumbnail) OutputData() interface{} {
@@ -100,19 +89,11 @@ func (j JobStepThumbnail) RunnerDesc() *JobRunnerDesc {
 }
 
 func (j JobStepThumbnail) TimeTaken() float64 {
-	if j.Result != nil {
-		return j.Result.TimeTaken
-	} else {
-		return -1
-	}
+	return j.TimeTakenValue
 }
 
 func (j JobStepThumbnail) ErrorMessage() string {
-	if j.Result != nil && j.Result.ErrorMessage != nil {
-		return *j.Result.ErrorMessage
-	} else {
-		return ""
-	}
+	return j.LastError
 }
 
 func (j JobStepThumbnail) Store(redisClient *redis.Client) error {

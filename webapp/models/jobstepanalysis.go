@@ -3,12 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"log"
-	"reflect"
 	"time"
 )
 
@@ -24,52 +22,6 @@ type JobStepAnalysis struct {
 	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
 	StartTime              *time.Time     `json:"startTime",struct:"startTime"`
 	EndTime                *time.Time     `json:"endTime",struct:"startTime"`
-}
-
-func safeGetString(from interface{}) string {
-	if from == nil {
-		return ""
-	}
-	stringContent, isString := from.(string)
-	if !isString {
-		log.Printf("WARNING: expected string, got %s", spew.Sdump(from))
-		return ""
-	}
-	return stringContent
-}
-
-func getUUID(from interface{}) uuid.UUID {
-	stringContent := safeGetString(from)
-	if stringContent == "" {
-		return uuid.UUID{}
-	}
-	parsed, parseErr := uuid.Parse(stringContent)
-	if parseErr != nil {
-		log.Printf("Could not decode UUID from '%s' (jobstepanalysis.go/getUUID)", parseErr)
-		return uuid.UUID{}
-	}
-	return parsed
-}
-
-func timeFromOptionalString(maybeStringPtr interface{}) *time.Time {
-	if maybeStringPtr == nil {
-		return nil
-	}
-
-	stringVal, isString := maybeStringPtr.(string)
-	if !isString {
-		log.Printf("timeFromOptionalString: passed value was %s, expected string", reflect.TypeOf(maybeStringPtr))
-		return nil
-	}
-
-	//t := time.Time{}
-	//marshalErr := t.UnmarshalJSON([]byte(stringVal))	//no idea WHY it fails to unmarshal what it marshalled fine...
-	t, marshalErr := time.Parse(time.RFC3339Nano, stringVal)
-	if marshalErr != nil {
-		log.Printf("ERROR: Could not unmarshal time from string '%s': %s", stringVal, marshalErr)
-		return nil
-	}
-	return &t
 }
 
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
@@ -98,7 +50,7 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		JobContainerId:         contId,
 		ContainerData:          runnerDescPtr,
 		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		ResultId:               getUUID(mapData["analysisResult"]),
+		ResultId:               safeGetUUID(mapData["analysisResult"]),
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
@@ -120,8 +72,8 @@ func (j JobStepAnalysis) Status() JobStatus {
 	return j.StatusValue
 }
 
-func (j JobStepAnalysis) OutputPath() string {
-	return ""
+func (j JobStepAnalysis) OutputId() *uuid.UUID {
+	return &j.ResultId
 }
 
 func (j JobStepAnalysis) OutputData() interface{} {

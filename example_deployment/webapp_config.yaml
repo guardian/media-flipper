@@ -50,7 +50,7 @@ data:
       Steps:
         - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
           PredeterminedType: analysis
-          KubernetesTemplateFile: AnalysisJobTemplate.yaml
+          KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
         - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
           PredeterminedType: thumbnail
-          KubernetesTemplateFile: AnalysisJobTemplate.yaml
+          KubernetesTemplateFile: config/AnalysisJobTemplate.yaml

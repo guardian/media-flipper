@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/analysis"
+	"github.com/guardian/mediaflipper/webapp/files"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
@@ -25,6 +26,7 @@ type MyHttpApp struct {
 	jobs        jobs.JobsEndpoints
 	analysers   analysis.AnalysisEndpoints
 	thumbnails  thumbnail.ThumbnailEndpoints
+	files       files.FilesEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -105,6 +107,7 @@ func main() {
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
 	app.thumbnails = thumbnail.NewThumbnailEndpoints(redisClient)
+	app.files = files.NewFilesEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -115,6 +118,7 @@ func main() {
 	app.analysers.WireUp("/api/analysis")
 	app.templates.WireUp("/api/jobtemplate")
 	app.thumbnails.WireUp("/api/thumbnail")
+	app.files.WireUp("/api/file")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)

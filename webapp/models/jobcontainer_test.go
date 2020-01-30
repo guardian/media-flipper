@@ -26,7 +26,7 @@ func TestJobContainer_InitialStep(t *testing.T) {
 			JobContainerId:         containerId,
 			ContainerData:          nil,
 			StatusValue:            0,
-			Result:                 nil,
+			ResultId:               nil,
 			KubernetesTemplateFile: "",
 		},
 	}
@@ -73,7 +73,7 @@ func TestJobContainer_InitialStepEmpty(t *testing.T) {
 	}
 
 	if container.EndTime == nil {
-
+		t.Errorf("Expected container completed time to be set")
 	}
 }
 
@@ -98,7 +98,7 @@ func TestJobContainer_CompleteStepAndMoveOn(t *testing.T) {
 			JobContainerId:         containerId,
 			ContainerData:          nil,
 			StatusValue:            0,
-			Result:                 nil,
+			ResultId:               nil,
 			KubernetesTemplateFile: "",
 		},
 	}
