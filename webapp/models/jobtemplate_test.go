@@ -62,7 +62,7 @@ func TestNewJobContainer(t *testing.T) {
 		if !isAnalysis {
 			t.Error("Expected job step 1 to be analysis")
 		}
-		if analysisStep.KubernetesTemplateFile != "AnalysisJobTemplate.yaml" {
+		if analysisStep.KubernetesTemplateFile != "config/AnalysisJobTemplate.yaml" {
 			t.Error("Got unexpected template file: ", analysisStep.KubernetesTemplateFile)
 		}
 		if analysisStep.JobContainerId != result.Id {
@@ -76,7 +76,7 @@ func TestNewJobContainer(t *testing.T) {
 		if !isThumb {
 			t.Error("Expected job step 1 to be analysis")
 		}
-		if thumbStep.KubernetesTemplateFile != "AnalysisJobTemplate.yaml" {
+		if thumbStep.KubernetesTemplateFile != "config/AnalysisJobTemplate.yaml" {
 			t.Error("Got unexpected template file: ", analysisStep.KubernetesTemplateFile)
 		}
 		if thumbStep.JobContainerId != result.Id {

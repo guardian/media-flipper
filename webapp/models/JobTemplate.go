@@ -84,7 +84,9 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
 				StatusValue:            JOB_PENDING,
-				Result:                 nil,
+				ResultId:               nil,
+				TimeTakenValue:         0,
+				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
 			}
 			steps[idx] = newStep

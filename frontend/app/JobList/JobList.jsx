@@ -7,6 +7,8 @@ import JobStatusComponent from "./JobStatusComponent.jsx";
 import MenuBanner from "../MenuBanner.jsx";
 import MediaFileInfo from "./MediaFileInfo.jsx";
 import TimestampFormatter from "../Common/TimestampFormatter.jsx";
+import ThumbnailPreview from "./ThumbnailPreview.jsx";
+import Modal from 'react-responsive-modal';
 
 class JobList extends React.Component {
     constructor(props) {
@@ -16,7 +18,9 @@ class JobList extends React.Component {
             loading: false,
             lastError: null,
             jobTemplateLookup: {},
-            nextPageCursor: 0
+            nextPageCursor: 0,
+            showModal: false,
+            modalThumbnailId: null
         }
     }
 
@@ -82,7 +86,7 @@ class JobList extends React.Component {
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
                     <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
                     <div className="job-list-entry-cell baseline">Generate thumbnail</div>
-                    <div className="job-list-entry-cell baseline"/>
+                    <div className="job-list-entry-cell baseline"><ThumbnailPreview fileId={step.thumbnailResult} clickable={true} className="thumbnail-preview" onClick={()=>this.setState({showModal: true, modalThumbnailId: step.thumbnailResult})}/></div>
                     <div className="job-list-entry-cell wide">{step.thumbnailResult.errorMessage}</div>
                 </div>;
             default:
@@ -123,6 +127,9 @@ class JobList extends React.Component {
                     </li>)
                 }
             </ul>
+            <Modal open={this.state.showModal} onClose={()=>this.setState({showModal: false})} center>
+                <ThumbnailPreview className="thumbnail-large" clickable={false} fileId={this.state.modalThumbnailId}/>
+            </Modal>
         </div>
     }
 }

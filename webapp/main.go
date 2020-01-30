@@ -4,12 +4,14 @@ import (
 	"flag"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/webapp/analysis"
+	"github.com/guardian/mediaflipper/webapp/files"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
 	"github.com/guardian/mediaflipper/webapp/jobtemplate"
 	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/webapp/thumbnail"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
@@ -23,6 +25,8 @@ type MyHttpApp struct {
 	initiators  initiator.InitiatorEndpoints
 	jobs        jobs.JobsEndpoints
 	analysers   analysis.AnalysisEndpoints
+	thumbnails  thumbnail.ThumbnailEndpoints
+	files       files.FilesEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -102,6 +106,8 @@ func main() {
 	app.jobs = jobs.NewJobsEndpoints(redisClient, k8Client, templateMgr)
 	app.analysers = analysis.NewAnalysisEndpoints(redisClient)
 	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
+	app.thumbnails = thumbnail.NewThumbnailEndpoints(redisClient)
+	app.files = files.NewFilesEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -111,6 +117,8 @@ func main() {
 	app.jobs.WireUp("/api/job")
 	app.analysers.WireUp("/api/analysis")
 	app.templates.WireUp("/api/jobtemplate")
+	app.thumbnails.WireUp("/api/thumbnail")
+	app.files.WireUp("/api/file")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
