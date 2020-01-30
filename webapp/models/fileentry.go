@@ -112,7 +112,7 @@ func FileEntryForId(forId uuid.UUID, redisClient *redis.Client) (*FileEntry, err
 retrieves a list of the file IDs for the given job ID. Called internally by FilesForJobContainer.
 returns a pointer to a list of UUIDs on success or an error on error.
 */
-func FileIdsForJobContainer(jobMasterId uuid.UUID, client redis.Client) (*[]uuid.UUID, error) {
+func FileIdsForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]uuid.UUID, error) {
 	indexKey := fmt.Sprintf("mediaflipper:jobfile:%s", jobMasterId)
 
 	indexResult, indexErr := client.HGetAll(indexKey).Result()
@@ -129,6 +129,7 @@ func FileIdsForJobContainer(jobMasterId uuid.UUID, client redis.Client) (*[]uuid
 		if uuidErr != nil {
 			log.Printf("Could not parse uuid from %s: %s", idString, uuidErr)
 		}
+		i += 1
 	}
 	return &uuidList, nil
 }
@@ -136,7 +137,7 @@ func FileIdsForJobContainer(jobMasterId uuid.UUID, client redis.Client) (*[]uuid
 /**
 retrieves a list of FileEntries for the given job ID
 */
-func FilesForJobContainer(jobMasterId uuid.UUID, client redis.Client) (*[]FileEntry, error) {
+func FilesForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]FileEntry, error) {
 	fileIdList, idGetErr := FileIdsForJobContainer(jobMasterId, client)
 	if idGetErr != nil {
 		return nil, idGetErr
