@@ -10,6 +10,7 @@ data:
       address: redis-mediaflipper:6379
       password: changeme
       dbNum: 0
+    settingspath: /opt/mediaflipper/settings
   AnalysisJobTemplate.yaml: |
     apiVersion: batch/v1
     kind: Job

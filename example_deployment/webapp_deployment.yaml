@@ -36,6 +36,8 @@ spec:
               name: shared-data
             - mountPath: /opt/mediaflipper/config
               name: webapp-config
+            - mountPath: /opt/mediaflipper/settings
+              name: webapp-settings
       restartPolicy: Always
       volumes:
         - name: shared-data
@@ -44,3 +46,6 @@ spec:
         - name: webapp-config
           configMap:
             name: mediaflipper-webapp-config
+        - name: webapp-settings
+          configMap:
+            name: mediaflipper-webapp-settings

@@ -160,7 +160,8 @@ func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
 }
 
 /**
-download a snapshot of the current queue
+download a snapshot of the current queue. it's a good idea to assert the queue lock before taking the snapshot
+and release it when the processing is done, so that the queue content remains valid.
 */
 func copyQueueContent(client *redis.Client, queueName QueueName) (*[]string, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
@@ -283,11 +284,9 @@ func WhenQueueAvailable(client *redis.Client, queueName QueueName, callback Queu
 					intervalTicker.Stop()
 					if assertingQueue {
 						SetQueueLock(client, queueName)
+						defer ReleaseQueueLock(client, queueName)
 					}
 					callback(nil)
-					if assertingQueue {
-						ReleaseQueueLock(client, queueName)
-					}
 					return
 				}
 			}

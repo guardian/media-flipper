@@ -4,3 +4,4 @@ redis:
   address: localhost:6379
 #  password: changeme
   dbNum: 0
+settingspath: config/settings

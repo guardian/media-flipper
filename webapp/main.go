@@ -89,7 +89,7 @@ func main() {
 		log.Fatal("Could not connect to redis")
 	}
 
-	settingsMgr, mgrLoadErr := models.NewTranscodeSettingsManager("config/settings")
+	settingsMgr, mgrLoadErr := models.NewTranscodeSettingsManager(config.SettingsPath)
 
 	if mgrLoadErr != nil {
 		log.Fatal("Could not load in any transcode settings: ", mgrLoadErr)

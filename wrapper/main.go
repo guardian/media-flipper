@@ -43,7 +43,6 @@ func main() {
 		filename = *testFilePtr
 	}
 
-	sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 	switch os.Getenv("WRAPPER_MODE") {
 	case "analyse":
 		result, err := RunAnalysis(filename)
@@ -53,6 +52,7 @@ func main() {
 		}
 
 		log.Print("Got analysis result: ", result)
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
@@ -69,6 +69,7 @@ func main() {
 		result := RunThumbnail(filename, thumbFrame)
 		log.Print("Got thumbnail result: ", result)
 
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
@@ -80,6 +81,8 @@ func main() {
 		}
 		result := RunTranscode(filename, transcodeSettings)
 		log.Print("Got transcode result: ", result)
+
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
