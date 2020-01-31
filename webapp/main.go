@@ -97,7 +97,7 @@ func main() {
 
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
-	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
+	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml", settingsMgr)
 
 	if mgrLoadErr != nil {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)

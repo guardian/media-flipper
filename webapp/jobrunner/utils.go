@@ -191,12 +191,17 @@ func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models.JobRunner
 	for i, jobDesc := range response.Items {
 		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
 		var statusVal models.ContainerStatus
-		if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
+		cond := jobDesc.Status.Conditions
+		if len(cond) > 0 && cond[0].Type == v1batch.JobFailed {
+			statusVal = models.CONTAINER_FAILED
+		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
 			statusVal = models.CONTAINER_ACTIVE
 		} else if jobDesc.Status.Failed > 0 && jobDesc.Status.Succeeded == 0 {
 			statusVal = models.CONTAINER_FAILED
 		} else if jobDesc.Status.Succeeded > 0 {
 			statusVal = models.CONTAINER_COMPLETED
+		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 && jobDesc.Status.Active == 0 { //no pods left!
+			statusVal = models.CONTAINER_FAILED
 		} else {
 			statusVal = models.CONTAINER_UNKNOWN_STATE
 		}

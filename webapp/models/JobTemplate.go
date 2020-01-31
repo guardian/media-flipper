@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/models"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -14,6 +15,7 @@ type JobStepTemplateDefinition struct {
 	Id                     uuid.UUID `yaml:"Id"`
 	PredeterminedType      string    `yaml:"PredeterminedType"`
 	KubernetesTemplateFile string    `yaml:"KubernetesTemplateFile"`
+	TranscodeSettingsId    string    `yaml:"TranscodeSettingsId"`
 }
 
 type JobTemplateDefinition struct {
@@ -23,13 +25,14 @@ type JobTemplateDefinition struct {
 }
 
 type JobTemplateManager struct {
-	loadedTemplates map[uuid.UUID]JobTemplateDefinition
+	loadedTemplates      map[uuid.UUID]JobTemplateDefinition
+	transcodeSettingsMgr *TranscodeSettingsManager
 }
 
 /**
 build a new JobTemplateManager
 */
-func NewJobTemplateManager(fromFilePath string) (*JobTemplateManager, error) {
+func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeSettingsManager) (*JobTemplateManager, error) {
 	content, readErr := ioutil.ReadFile(fromFilePath)
 	if readErr != nil {
 		log.Printf("Could not read job template data from %s: %s", fromFilePath, readErr)
@@ -49,7 +52,8 @@ func NewJobTemplateManager(fromFilePath string) (*JobTemplateManager, error) {
 		loadedTemplates[templateDef.Id] = templateDef
 	}
 	mgr := JobTemplateManager{
-		loadedTemplates: loadedTemplates,
+		loadedTemplates:      loadedTemplates,
+		transcodeSettingsMgr: transcodeSettingsMgr,
 	}
 	return &mgr, nil
 }
@@ -92,7 +96,30 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 			steps[idx] = newStep
 			break
 		case "transcode":
-			log.Printf("transcode type not implemented yet")
+			var s *models.JobSettings
+			if stepTemplate.TranscodeSettingsId != "" {
+				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
+				if uuidErr != nil {
+					log.Printf("template step had an invalid transcode settings id, %s", stepTemplate.TranscodeSettingsId)
+					s = nil
+				} else {
+					s = mgr.transcodeSettingsMgr.GetSetting(uuid)
+				}
+			}
+
+			newStep := JobStepTranscode{
+				JobStepType:            "transcode",
+				JobStepId:              stepTemplate.Id,
+				JobContainerId:         newContainerId,
+				ContainerData:          nil,
+				StatusValue:            JOB_PENDING,
+				ResultId:               nil,
+				TimeTakenValue:         0,
+				MediaFile:              "",
+				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				TranscodeSettings:      s,
+			}
+			steps[idx] = newStep
 			break
 		case "custom":
 			log.Printf("custom type not implemented yet")

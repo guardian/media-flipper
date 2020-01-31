@@ -128,6 +128,12 @@ func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
 			log.Printf("Got JobStepThumbnail")
 			return tJobPtr, nil
 		}
+	case "transcode":
+		tJobPtr, tErr := models.JobStepTranscodeFromMap(fromMap)
+		if tErr == nil && tJobPtr.JobStepType == "transcode" {
+			log.Printf("Got JobStepTranscode")
+			return tJobPtr, nil
+		}
 	}
 	return nil, errors.New(fmt.Sprintf("Could not decode to any known job type, got %s", fromMap["stepType"]))
 }

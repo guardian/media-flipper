@@ -57,6 +57,7 @@ func main() {
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
+		break
 	case "thumbnail":
 		var thumbFrame int
 		if os.Getenv("THUMBNAIL_FRAME") != "" {
@@ -74,6 +75,7 @@ func main() {
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
+		break
 	case "transcode":
 		transcodeSettings, settingsErr := ParseSettings(os.Getenv("TRANSCODE_SETTINGS"))
 		if settingsErr != nil {
@@ -87,9 +89,10 @@ func main() {
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
-
+		break
 	default:
 		log.Fatalf("WRAPPER_MODE '%s' is not recognised", os.Getenv("WRAPPER_MODE"))
+		break
 	}
 
 }

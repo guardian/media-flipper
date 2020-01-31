@@ -8,6 +8,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
+	"reflect"
 	"time"
 )
 
@@ -155,7 +156,12 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	steps := make([]JobStep, len(rawSteps))
 	//spew.Dump(rawSteps)
 	for i, untypedRawStep := range rawSteps {
-		rawStep := untypedRawStep.(map[string]interface{})
+		rawStep, isMap := untypedRawStep.(map[string]interface{})
+		if !isMap {
+			log.Printf("ERROR: job data is not valid, had a step that is of type %s not map", reflect.TypeOf(untypedRawStep))
+			log.Printf("Offending job data: %s", spew.Sdump(rawDataMap))
+			continue
+		}
 		stepType, typeIsString := rawStep["stepType"].(string)
 		if !typeIsString {
 			return errors.New("stepType was not a string")
@@ -170,6 +176,13 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 			steps[i] = decodedStep
 		case "thumbnail":
 			decodedStep, decErr := JobStepThumbnailFromMap(rawStep)
+			if decErr != nil {
+				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				return decErr
+			}
+			steps[i] = decodedStep
+		case "transcode":
+			decodedStep, decErr := JobStepTranscodeFromMap(rawStep)
 			if decErr != nil {
 				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr

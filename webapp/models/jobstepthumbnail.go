@@ -1,12 +1,8 @@
 package models
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
-	"log"
 	"time"
 )
 
@@ -94,22 +90,6 @@ func (j JobStepThumbnail) TimeTaken() float64 {
 
 func (j JobStepThumbnail) ErrorMessage() string {
 	return j.LastError
-}
-
-func (j JobStepThumbnail) Store(redisClient *redis.Client) error {
-	j.JobStepType = "thumbnail"
-	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", j.JobStepId.String())
-	content, marshalErr := json.Marshal(j)
-	if marshalErr != nil {
-		log.Printf("Could not marshal content for jobstep %s: %s", j.JobStepId.String(), marshalErr)
-		return marshalErr
-	}
-	_, dbErr := redisClient.Set(dbKey, string(content), -1).Result()
-	if dbErr != nil {
-		log.Printf("Could not save key for jobstep %s: %s", j.JobStepId.String(), dbErr)
-		return dbErr
-	}
-	return nil
 }
 
 func (j JobStepThumbnail) WithNewStatus(newStatus JobStatus, errMsg *string) JobStep {

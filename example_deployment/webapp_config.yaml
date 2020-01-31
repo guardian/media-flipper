@@ -52,6 +52,10 @@ data:
         - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
           PredeterminedType: analysis
           KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
-        - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
+        - Id: 5F64F20F-B748-4930-B22E-4178F730BD4F
           PredeterminedType: thumbnail
           KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
+        - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
+          PredeterminedType: transcode
+          KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
+          TranscodeSettingsId: 7FEC2963-6A1D-46A2-8DE1-62DF939F6755

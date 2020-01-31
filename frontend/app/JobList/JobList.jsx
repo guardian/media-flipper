@@ -118,6 +118,7 @@ class JobList extends React.Component {
                             <HidableExpander headerText="Details">
                                 <ul className="job-details-list">{
                                     entry.steps.map((step,idx)=>
+                                        step===null ? <li className="job-sublist-entry">(invalid data)</li> :
                                         <li className="job-sublist-entry" key={step.id}>{
                                                 this.renderJobStepDetails(step,idx)
                                         }</li>)
