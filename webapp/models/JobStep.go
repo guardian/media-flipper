@@ -14,7 +14,6 @@ type JobStep interface {
 	TimeTaken() float64
 	ErrorMessage() string
 	RunnerDesc() *JobRunnerDesc
-	//Store(redisClient *redis.Client) error
 	WithNewMediaFile(newMediaFile string) JobStep
 }
 

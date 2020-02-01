@@ -34,8 +34,14 @@ func TestNewJobTemplateManager(t *testing.T) {
 }
 
 func TestNewJobContainer(t *testing.T) {
+	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../config/settings")
+	if settingsLoadErr != nil {
+		t.Errorf("Could not load transcode settings: %s", settingsLoadErr)
+		t.FailNow()
+	}
+
 	//NewJobContainer should create a JobContainer with a new UUID that links in a JobStep for each specified in the template
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", nil)
+	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", settingsMgr)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
@@ -83,6 +89,20 @@ func TestNewJobContainer(t *testing.T) {
 		}
 		if thumbStep.JobStepId == thumbStep.JobContainerId {
 			t.Error("Job step id was the same as container ID")
+		}
+
+		tcStep, isTc := result.Steps[2].(JobStepTranscode)
+		if !isTc {
+			t.Error("Expected job step 2 to be transcode")
+		} else {
+			if tcStep.JobStepId != uuid.MustParse("6FF216B6-A395-4237-A9F2-2FEB3F24823E") {
+				t.Errorf("Step 2 had incorrect id, expected 6FF216B6-A395-4237-A9F2-2FEB3F24823E got %s", tcStep.JobStepId.String())
+			}
+			if tcStep.TranscodeSettings == nil {
+				t.Errorf("Step 2 had no transcode settings, expecting some")
+			} else {
+
+			}
 		}
 	}
 }

@@ -11,3 +11,4 @@
     - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
       PredeterminedType: transcode
       KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
+      TranscodeSettingsId: 7FEC2963-6A1D-46A2-8DE1-62DF939F6755

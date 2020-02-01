@@ -9,6 +9,10 @@ const (
 	CONTAINER_UNKNOWN_STATE
 )
 
+/**
+a more convenient representation of job metadata from the kubernetes server
+this object is not stored, it's simply translated from the fuller data to make processin easier
+*/
 type JobRunnerDesc struct {
 	JobUID         string          `json:"jobUid"`
 	Status         ContainerStatus `json:"status"`

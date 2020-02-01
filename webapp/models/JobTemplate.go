@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/models"
 	"gopkg.in/yaml.v2"
@@ -97,6 +98,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 			break
 		case "transcode":
 			var s *models.JobSettings
+			spew.Dump(stepTemplate)
 			if stepTemplate.TranscodeSettingsId != "" {
 				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
 				if uuidErr != nil {
@@ -104,7 +106,12 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 					s = nil
 				} else {
 					s = mgr.transcodeSettingsMgr.GetSetting(uuid)
+					if s == nil {
+						log.Printf("template step has an invalid transcode settings id %s, nothing found that matches it", stepTemplate.TranscodeSettingsId)
+					}
 				}
+			} else {
+				log.Printf("template step was missing transcode settings id!")
 			}
 
 			newStep := JobStepTranscode{

@@ -77,6 +77,7 @@ func main() {
 		}
 		break
 	case "transcode":
+		log.Printf("Raw transcode settings: %s", os.Getenv("TRANSCODE_SETTINGS"))
 		transcodeSettings, settingsErr := ParseSettings(os.Getenv("TRANSCODE_SETTINGS"))
 		if settingsErr != nil {
 			log.Fatalf("Could not parse settings from TRANSCODE_SETTINGS var: %s", settingsErr)

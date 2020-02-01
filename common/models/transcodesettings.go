@@ -13,41 +13,41 @@ type TranscodeTypeSettings interface {
 }
 
 type ScaleSettings struct {
-	ScaleX         int32 `json,yaml:"scalex"`         //set to -1 for "preserve aspect"
-	ScaleY         int32 `json,yaml:"scaley"`         //set to -1 for "preserve aspect"
-	AllowUpscaling bool  `json,yaml:"allowupscaling"` //default false. if set allows the result to be made bigger
+	ScaleX         int32 `json:"scalex" yaml:"scalex"`                 //set to -1 for "preserve aspect"
+	ScaleY         int32 `json:"scaley" yaml:"scaley"`                 //set to -1 for "preserve aspect"
+	AllowUpscaling bool  `json:"allowupscaling" yaml:"allowupscaling"` //default false. if set allows the result to be made bigger
 }
 
 type VideoSettings struct {
-	Codec   string         `json,yaml:"codec"`
-	Bitrate int64          `json,yaml:"bitrate"` //in BYTES per sec
-	Scale   *ScaleSettings `json,yaml:"scale"`
+	Codec   string         `json:"codec" yaml:"codec"`
+	Bitrate int64          `json:"bitrate" yaml:"bitrate"` //in BYTES per sec
+	Scale   *ScaleSettings `json:"scale" yaml:"scale"`
 }
 
 type AudioSettings struct {
-	Codec      string `json,yaml:"codec"`
-	Bitrate    int64  `json,yaml:"bitrate"` //in BYTES per sec
-	Channels   int8   `json,yaml:"channels"`
-	Samplerate int32  `json,yaml:"samplerate"`
+	Codec      string `json:"codec" yaml:"codec"`
+	Bitrate    int64  `json:"bitrate" yaml:"bitrate"` //in BYTES per sec
+	Channels   int8   `json:"channels" yaml:"channels"`
+	Samplerate int32  `json:"samplerate" yaml:"samplerate"`
 }
 
 type WrapperSettings struct {
-	Format string `json,yaml:"format"`
+	Format string `json:"format" yaml:"format"`
 }
 
 type JobSettings struct {
-	SettingsId  uuid.UUID       `json,yaml:"settingsid"`
-	Name        string          `json,yaml:"name"`
-	Description string          `json,yaml:"description"`
-	Video       VideoSettings   `json,yaml:"video"`
-	Audio       AudioSettings   `json,yaml:"audio"`
-	Wrapper     WrapperSettings `json,yaml:"format"`
+	SettingsId  uuid.UUID       `json:"settingsid" yaml:"settingsid"`
+	Name        string          `json:"name" yaml:"name"`
+	Description string          `json:"description" yaml:"description"`
+	Video       VideoSettings   `json:"video" yaml:"video"`
+	Audio       AudioSettings   `json:"audio" yaml:"audio"`
+	Wrapper     WrapperSettings `json:"wrapper" yaml:"wrapper"`
 }
 
 type JobSettingsSummary struct {
-	SettingsId  uuid.UUID `json,yaml:"settingsid"`
-	Name        string    `json,yaml:"name"`
-	Description string    `json,yaml:"description"`
+	SettingsId  uuid.UUID `json:"settingsid" yaml:"settingsid"`
+	Name        string    `json:"name" yaml:"name"`
+	Description string    `json:"description" yaml:"description"`
 }
 
 func (s ScaleSettings) MarshalToString() string {

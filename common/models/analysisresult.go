@@ -1,8 +1,5 @@
 package models
 
-/**
-keep this in-sync with the corresponding file in wrapper
-*/
 type FormatAnalysis struct {
 	StreamCount    int16   `json:"nb_streams"`
 	ProgCount      int16   `json:"nb_programs"`

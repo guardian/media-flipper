@@ -21,6 +21,7 @@ func CreateTranscodeJob(jobDesc models.JobStepTranscode, k8client *kubernetes.Cl
 	if marshalErr != nil {
 		log.Printf("Could not convert settings into json: %s", marshalErr)
 		log.Printf("Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))
+		return marshalErr
 	}
 	vars := map[string]string{
 		"WRAPPER_MODE":       "transcode",
