@@ -8,16 +8,18 @@ import (
 )
 
 type JobsEndpoints struct {
-	GetHandler    GetJobHandler
-	CreateHandler CreateJobHandler
-	ListHandler   ListJobHandler
+	GetHandler     GetJobHandler
+	CreateHandler  CreateJobHandler
+	ListHandler    ListJobHandler
+	ReindexHandler ReindexHandler
 }
 
 func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset, jobTemplateMgr *models.JobTemplateManager) JobsEndpoints {
 	return JobsEndpoints{
-		GetHandler:    GetJobHandler{redisClient},
-		CreateHandler: CreateJobHandler{redisClient, k8client, jobTemplateMgr},
-		ListHandler:   ListJobHandler{redisClient},
+		GetHandler:     GetJobHandler{redisClient},
+		CreateHandler:  CreateJobHandler{redisClient, k8client, jobTemplateMgr},
+		ListHandler:    ListJobHandler{redisClient},
+		ReindexHandler: ReindexHandler{redisClient},
 	}
 }
 
@@ -25,4 +27,5 @@ func (e JobsEndpoints) WireUp(baseUrlPath string) {
 	http.Handle(baseUrlPath+"/get", e.GetHandler)
 	http.Handle(baseUrlPath+"/new", e.CreateHandler)
 	http.Handle(baseUrlPath+"", e.ListHandler)
+	http.Handle(baseUrlPath+"/reindex", e.ReindexHandler)
 }
