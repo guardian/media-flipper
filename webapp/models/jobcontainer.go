@@ -59,6 +59,11 @@ func (c JobContainer) Store(redisClient *redis.Client) error {
 		log.Printf("Could not save data for job container %s: %s", c.Id, saveErr)
 		return saveErr
 	}
+	idxErr := indexSingleEntry(&c, redisClient)
+	if idxErr != nil {
+		log.Printf("Could not store index data for job container %s: %s", c.Id, idxErr)
+		return idxErr
+	}
 	return nil
 }
 
@@ -298,6 +303,17 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 		}
 	}
 	return &rtn, nextCursor, nil
+}
+
+/**
+adds a single entry to the ctime index
+*/
+func indexSingleEntry(ent *JobContainer, client *redis.Client) error {
+	_, err := client.ZAdd(REDIDX_CTIME, &redis.Z{
+		Score:  float64(ent.StartTime.UnixNano()),
+		Member: ent.Id.String(),
+	}).Result()
+	return err
 }
 
 /**

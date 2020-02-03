@@ -9,6 +9,7 @@ import MediaFileInfo from "./MediaFileInfo.jsx";
 import TimestampFormatter from "../Common/TimestampFormatter.jsx";
 import ThumbnailPreview from "./ThumbnailPreview.jsx";
 import Modal from 'react-responsive-modal';
+import MediaPreview from "./MediaPreview.jsx";
 
 class JobList extends React.Component {
     constructor(props) {
@@ -87,7 +88,15 @@ class JobList extends React.Component {
                     <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
                     <div className="job-list-entry-cell baseline">Generate thumbnail</div>
                     <div className="job-list-entry-cell baseline"><ThumbnailPreview fileId={step.thumbnailResult} clickable={true} className="thumbnail-preview" onClick={()=>this.setState({showModal: true, modalThumbnailId: step.thumbnailResult})}/></div>
-                    <div className="job-list-entry-cell wide">{step.thumbnailResult.errorMessage}</div>
+                    <div className="job-list-entry-cell wide">{step.errorMessage}</div>
+                </div>;
+            case "transcode":
+                return <div className="job-list-container">
+                    <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
+                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">Transcode</div>
+                    <div className="job-list-entry-cell baseline"><MediaPreview className="thumbnail-preview" fileId={step.transcodeResult}/></div>
+                    <div className="job-list-entry-cell wide">{step.errorMessage}</div>
                 </div>;
             default:
                 return <div className="job-list-container"><div className="job-list-entry-cell wide">Unknown job step type {step.stepType}</div></div>

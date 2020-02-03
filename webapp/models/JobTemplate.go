@@ -17,6 +17,7 @@ type JobStepTemplateDefinition struct {
 	PredeterminedType      string    `yaml:"PredeterminedType"`
 	KubernetesTemplateFile string    `yaml:"KubernetesTemplateFile"`
 	TranscodeSettingsId    string    `yaml:"TranscodeSettingsId"`
+	ThumbnailFrameSeconds  float64   `yaml:"ThumbnailFrameSeconds"`
 }
 
 type JobTemplateDefinition struct {
@@ -89,6 +90,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
 				StatusValue:            JOB_PENDING,
+				ThumbnailFrameSeconds:  stepTemplate.ThumbnailFrameSeconds,
 				ResultId:               nil,
 				TimeTakenValue:         0,
 				MediaFile:              "",

@@ -55,6 +55,7 @@ data:
         - Id: 5F64F20F-B748-4930-B22E-4178F730BD4F
           PredeterminedType: thumbnail
           KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
+          ThumbnailFrameSeconds: 2
         - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
           PredeterminedType: transcode
           KubernetesTemplateFile: config/AnalysisJobTemplate.yaml

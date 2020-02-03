@@ -17,7 +17,7 @@ data:
         samplerate: 48000
       video:
         codec: h264
-        bitrate: 1048576  #1mbit/s
+        bitrate: 8388608  #1mbit/s, the value is given in bps
         scale:
           scalex: 1280
           scaley: -1
