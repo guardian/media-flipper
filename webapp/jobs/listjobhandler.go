@@ -5,6 +5,8 @@ import (
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"net/http"
+	"net/url"
+	"strconv"
 )
 
 type ListJobHandler struct {
@@ -17,12 +19,47 @@ type ListJobResponse struct {
 	Entries    *[]models.JobContainer `json:"entries"`
 }
 
+/**
+list out job items in order of creation time
+
+query parameters:
+- startindex - the first item to get. Defaults to 0, i.e. the latet
+- limit - the maximum number of items to get. Defaults to 100
+*/
 func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !helpers.AssertHttpMethod(r, w, "GET") {
 		return
 	}
 
-	jobs, nextCursor, getErr := models.ListJobContainers(0, 50, h.RedisClient)
+	requestUrl, _ := url.ParseRequestURI(r.RequestURI)
+
+	var windowStart int64
+	windowStartString := requestUrl.Query().Get("startindex")
+	if windowStartString == "" {
+		windowStart = 0
+	} else {
+		var parseErr error
+		windowStart, parseErr = strconv.ParseInt(windowStartString, 10, 64)
+		if parseErr != nil {
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_data", "latest parameter must be a unix timestamp"}, w, 400)
+			return
+		}
+	}
+
+	var windowEnd int64
+	windowEndString := requestUrl.Query().Get("limit")
+	if windowEndString == "" {
+		windowEnd = 100
+	} else {
+		var parseErr error
+		windowEnd, parseErr = strconv.ParseInt(windowEndString, 10, 64)
+		if parseErr != nil {
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_data", "earliest parameter must be a unix timestamp"}, w, 400)
+			return
+		}
+	}
+
+	jobs, nextCursor, getErr := models.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models.SORT_CTIME)
 	if getErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",
@@ -30,13 +67,6 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}, w, 500)
 		return
 	}
-
-	//finalJsonString := "[" + strings.Join(*jsonBlobs, ",") + "]"
-	//helpers.WriteJsonContent(ListJobResponse{
-	//	Status:     "ok",
-	//	NextCursor: nextCursor,
-	//	Entries:    finalJsonString,
-	//}, w, 200)
 
 	response := ListJobResponse{
 		Status:     "ok",
