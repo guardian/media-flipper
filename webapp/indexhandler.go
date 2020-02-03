@@ -34,6 +34,7 @@ func (h IndexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Status: "not_found",
 			Detail: "invalid api endpoint",
 		}, w, 404)
+		return
 	}
 
 	f, openErr := os.Open(h.filePath)

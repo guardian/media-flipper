@@ -11,7 +11,7 @@ data:
       wrapper:
         format: mp4
       audio:
-        codec: libfaac
+        codec: aac
         bitrate: 128000
         channels: 2
         samplerate: 48000

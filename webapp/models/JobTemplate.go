@@ -85,7 +85,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 		case "thumbnail":
 			newStep := JobStepThumbnail{
 				JobStepType:            "thumbnail",
-				JobStepId:              stepTemplate.Id,
+				JobStepId:              uuid.New(),
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
 				StatusValue:            JOB_PENDING,
@@ -116,7 +116,7 @@ func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId u
 
 			newStep := JobStepTranscode{
 				JobStepType:            "transcode",
-				JobStepId:              stepTemplate.Id,
+				JobStepId:              uuid.New(),
 				JobContainerId:         newContainerId,
 				ContainerData:          nil,
 				StatusValue:            JOB_PENDING,

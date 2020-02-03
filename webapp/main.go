@@ -12,6 +12,7 @@ import (
 	"github.com/guardian/mediaflipper/webapp/jobtemplate"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"github.com/guardian/mediaflipper/webapp/thumbnail"
+	transcode2 "github.com/guardian/mediaflipper/webapp/transcode"
 	"github.com/guardian/mediaflipper/webapp/transcodesettings"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -29,6 +30,7 @@ type MyHttpApp struct {
 	thumbnails  thumbnail.ThumbnailEndpoints
 	files       files.FilesEndpoints
 	tsettings   transcodesettings.TranscodeSettingsEndpoints
+	transcode   transcode2.TranscodeEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -117,6 +119,7 @@ func main() {
 	app.thumbnails = thumbnail.NewThumbnailEndpoints(redisClient)
 	app.files = files.NewFilesEndpoints(redisClient)
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
+	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -129,6 +132,7 @@ func main() {
 	app.thumbnails.WireUp("/api/thumbnail")
 	app.files.WireUp("/api/file")
 	app.tsettings.WireUp("/api/transcodesettings")
+	app.transcode.WireUp("/api/transcode")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
