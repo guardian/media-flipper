@@ -20,7 +20,9 @@ type ScaleSettings struct {
 
 type VideoSettings struct {
 	Codec   string         `json:"codec" yaml:"codec"`
-	Bitrate int64          `json:"bitrate" yaml:"bitrate"` //in BYTES per sec
+	Bitrate int64          `json:"bitrate" yaml:"bitrate"` //in BYTES per sec. Or specify CRF...
+	CRF     int8           `json:"crf" yaml:"crf"`         //A lower value generally leads to higher quality, and a subjectively sane range is 17–28. Consider 17 or 18 to be visually lossless or nearly so
+	Preset  string         `json:"preset" yaml:"preset"`   //see https://trac.ffmpeg.org/wiki/Encode/H.264
 	Scale   *ScaleSettings `json:"scale" yaml:"scale"`
 }
 
@@ -68,6 +70,7 @@ func (v VideoSettings) MarshalToArray() []string {
 		v.Codec,
 		"-b:v",
 		strconv.FormatInt(v.Bitrate, 10),
+		//"-pix_fmt yuv420p",
 	}
 	if v.Scale != nil {
 		out = append(out, "-vf", v.Scale.MarshalToString())
@@ -83,7 +86,7 @@ func (a AudioSettings) MarshalToArray() []string {
 	return []string{
 		"-acodec",
 		a.Codec,
-		"-b:v",
+		"-b:a",
 		strconv.FormatInt(a.Bitrate, 10),
 		"-ac",
 		strconv.FormatInt(int64(a.Channels), 10),

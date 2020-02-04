@@ -20,7 +20,7 @@ data:
       template:
         spec:
           containers:
-            - name: analyser
+            - name: mediaflipper
               image: guardianmultimedia/mediaflipper:DEV
               imagePullPolicy: Always
               env:
