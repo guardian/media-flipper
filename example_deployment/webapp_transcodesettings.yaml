@@ -17,7 +17,8 @@ data:
         samplerate: 48000
       video:
         codec: h264
-        bitrate: 1048576  #1mbit/s
+        crf: 26
+        preset: fast
         scale:
           scalex: 1280
           scaley: -1

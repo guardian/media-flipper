@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -68,9 +69,18 @@ func (v VideoSettings) MarshalToArray() []string {
 	out := []string{
 		"-vcodec",
 		v.Codec,
-		"-b:v",
-		strconv.FormatInt(v.Bitrate, 10),
 		//"-pix_fmt yuv420p",
+	}
+	if v.CRF > 0 {
+		if v.CRF < 17 || v.CRF > 28 {
+			log.Printf("WARNING: Provided CRF value %d is outside the recommended range of 17-28. See https://trac.ffmpeg.org/wiki/Encode/H.264", v.CRF)
+		}
+		out = append(out, "-crf", strconv.FormatInt(int64(v.CRF), 10))
+	} else {
+		out = append(out, "-b:v", strconv.FormatInt(v.Bitrate, 10))
+	}
+	if v.Preset != "" {
+		out = append(out, "-preset", v.Preset)
 	}
 	if v.Scale != nil {
 		out = append(out, "-vf", v.Scale.MarshalToString())
