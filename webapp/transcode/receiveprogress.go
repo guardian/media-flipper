@@ -23,7 +23,7 @@ func (h ReceiveProgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rawContent, readErr := ioutil.ReadAll(r.Body)
 	if readErr != nil {
-		log.Printf("ERROR: Could not read in content for progress update: ", readErr)
+		log.Print("ERROR: Could not read in content for progress update: ", readErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not read in content"}, w, 500)
 		return
 	}
