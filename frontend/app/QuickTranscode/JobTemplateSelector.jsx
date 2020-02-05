@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 
 class JobTemplateSelector extends React.Component {
     static propTypes = {
+        jobTemplateList: PropTypes.array.isRequired,
         onChange: PropTypes.func.isRequired,
         value: PropTypes.string.isRequired
     };
@@ -17,32 +18,17 @@ class JobTemplateSelector extends React.Component {
         };
 
         this.setStatePromise = this.setStatePromise.bind(this);
-        this.loadData = this.loadData.bind(this);
     }
 
     setStatePromise(newState){
         return new Promise((resolve, reject)=>this.setState(newState, ()=>resolve()))
     }
 
-    async loadData() {
-        await this.setStatePromise({loading: true, lastError: null});
-
-        const response = await fetch("/api/jobtemplate");
-        if(response.status===200){
-            const serverData = await response.json();
-
-            const templateEntries = serverData.entries.map(ent=>{ return { key: ent.JobTypeName, value: ent.Id}});
-            await this.setStatePromise({loading: false, lastError: null, templateEntries: templateEntries});
-            if(templateEntries.length>0) this.props.onChange({target:{value:templateEntries[0].value}});
-        } else {
-            const bodyText = await response.text();
-
-            return this.setStatePromise({loading: false, lastError: bodyText})
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        if(prevProps.jobTemplateList!==this.props.jobTemplateList) {
+            const templateEntries = this.props.jobTemplateList.map(ent=>{ return { key: ent.JobTypeName, value: ent.Id}});
+            this.setState({loading: false, lastError: null, templateEntries: templateEntries});
         }
-    }
-
-    componentDidMount() {
-        this.loadData();
     }
 
     render(){
