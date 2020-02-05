@@ -44,7 +44,7 @@ func getMultiplierFrom(mulString string) int64 {
 	}
 }
 
-var progressParser = regexp.MustCompile(`^frame=\s*(?P<frameNo>\d+)\s*fps=\s*(?P<fps>\d+)\s*q=\s*(?P<qfactor>[\d\.]+)\s*.size=\s*(?P<encodedSizeBytes>\d+)(?P<encodedSizeMultiplier>\w+)\s*time=(?P<encTimeHrs>\d{2}):(?P<encTimeMin>\d{2}):(?P<encTimeSec>[\d\.]+)\s*bitrate=\s*(?P<bitrateBytes>[\d\.]+)(?P<bitrateMultiplier>[\w/]+)\s*speed=\s*(?P<speedFactor>[\d\.]+)`)
+var progressParser = regexp.MustCompile(`^frame=\s*(?P<frameNo>\d+)\s*fps=\s*(?P<fps>\d+)\s*q=\s*(?P<qfactor>[\d\.\-]+)\s*.size=\s*(?P<encodedSizeBytes>\d+)(?P<encodedSizeMultiplier>\w+)\s*time=(?P<encTimeHrs>\d{2}):(?P<encTimeMin>\d{2}):(?P<encTimeSec>[\d\.]+)\s*bitrate=\s*(?P<bitrateBytes>[\d\.]+)(?P<bitrateMultiplier>[\w/]+)\s*(dup=)?(?P<dupFrames>\d+)?\s*(drop=)?(?P<dropFrames>\d+)?\s*speed=\s*(?P<speedFactor>[\d\.]+)`)
 
 /**
 try to parse the given string as an output and build a TranscodeProgress struct
