@@ -2,19 +2,24 @@ package models
 
 import (
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type TranscodeProgress struct {
-	FramesProcessed int64   `json:"framesProcessed"`
-	FramesPerSecond int32   `json:"fps"`
-	QFactor         float32 `json:"qfactor"`
-	SizeEncoded     int64   `json:"sizeEncoded"`
-	TimeEncoded     float64 `json:"timeEncoded"`
-	Bitrate         float64 `json:"bitrate"`
-	SpeedFactor     float32 `json:"speedFactor"`
+	FramesProcessed int64     `json:"framesProcessed"`
+	FramesPerSecond int32     `json:"fps"`
+	QFactor         float32   `json:"qfactor"`
+	SizeEncoded     int64     `json:"sizeEncoded"`
+	TimeEncoded     float64   `json:"timeEncoded"`
+	Bitrate         float64   `json:"bitrate"`
+	SpeedFactor     float32   `json:"speedFactor"`
+	Timestamp       int64     `json:"timestamp"`
+	JobContainerId  uuid.UUID `json:"jobContainerId"`
+	JobStepId       uuid.UUID `json:"jobStepId"`
 }
 
 type NoMatchError struct {
@@ -77,6 +82,7 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 		TimeEncoded:     (float64(encTimeHrs) * 3600.0) + (float64(encTimeMin) * 60.0) + encTimeSec,
 		Bitrate:         bitrateBytes * float64(bitrateMul),
 		SpeedFactor:     float32(speedFactor),
+		Timestamp:       time.Now().UnixNano(),
 	}
 	spew.Dump(result)
 	return &result, nil

@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
-	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"reflect"
 )
 
@@ -25,26 +23,10 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return //response should already be sent here
 	}
 
-	requestUrl, urlErr := url.ParseRequestURI(r.RequestURI)
-	if urlErr != nil {
-		log.Print("requestURI could not parse, this should not happen: ", urlErr)
-		return
-	}
-	uuidText := requestUrl.Query().Get("forJob")
-	jobContainerId, uuidErr := uuid.Parse(uuidText)
-
-	if uuidErr != nil {
-		log.Printf("Could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Invalid forJob parameter"}, w, 400)
-		return
-	}
-
-	jobStepText := requestUrl.Query().Get("stepId")
-	jobStepId, uuidErr := uuid.Parse(jobStepText)
-
-	if uuidErr != nil {
-		log.Printf("Could not parse stepId parameter %s into a UUID: %s", jobStepText, uuidErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Invalid stepId parameter"}, w, 400)
+	_, jobContainerId, jobStepId, paramsErr := helpers.GetReceiverJobIds(r.RequestURI)
+	if paramsErr != nil {
+		//paramsErr is NOT a golang error object, but a premade GenericErrorResponse
+		helpers.WriteJsonContent(paramsErr, w, 400)
 		return
 	}
 
@@ -65,7 +47,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var fileEntry models.FileEntry
 	if incoming.OutPath != nil {
-		f, fileEntryErr := models.NewFileEntry(*incoming.OutPath, jobContainerId, models.TYPE_THUMBNAIL)
+		f, fileEntryErr := models.NewFileEntry(*incoming.OutPath, *jobContainerId, models.TYPE_THUMBNAIL)
 		if fileEntryErr != nil {
 			log.Printf("Could not get information for incoming thumbnail %s: %s", spew.Sprint(incoming), fileEntryErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not get file info"}, w, 500)
@@ -84,7 +66,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models.JobContainerForId(jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -92,7 +74,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobStepCopyPtr := jobContainerInfo.FindStepById(jobStepId)
+		jobStepCopyPtr := jobContainerInfo.FindStepById(*jobStepId)
 		if jobStepCopyPtr == nil {
 			log.Printf("Job container %s does not have any step with the id %s", jobContainerId.String(), jobStepId.String())
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"not_found", "no jobstep with that id in the given job"}, w, 404)

@@ -95,9 +95,6 @@ func TestNewJobContainer(t *testing.T) {
 		if !isTc {
 			t.Error("Expected job step 2 to be transcode")
 		} else {
-			if tcStep.JobStepId != uuid.MustParse("6FF216B6-A395-4237-A9F2-2FEB3F24823E") {
-				t.Errorf("Step 2 had incorrect id, expected 6FF216B6-A395-4237-A9F2-2FEB3F24823E got %s", tcStep.JobStepId.String())
-			}
 			if tcStep.TranscodeSettings == nil {
 				t.Errorf("Step 2 had no transcode settings, expecting some")
 			} else {

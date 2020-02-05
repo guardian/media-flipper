@@ -9,7 +9,6 @@ import (
 	"github.com/guardian/mediaflipper/webapp/models"
 	"log"
 	"net/http"
-	"net/url"
 	"reflect"
 )
 
@@ -27,26 +26,10 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestUrl, urlErr := url.ParseRequestURI(r.RequestURI)
-	if urlErr != nil {
-		log.Print("requestURI could not parse, this should not happen: ", urlErr)
-		return
-	}
-	uuidText := requestUrl.Query().Get("forJob")
-	jobContainerId, uuidErr := uuid.Parse(uuidText)
-
-	if uuidErr != nil {
-		log.Printf("Could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Invalid forJob parameter"}, w, 400)
-		return
-	}
-
-	jobStepText := requestUrl.Query().Get("stepId")
-	jobStepId, uuidErr := uuid.Parse(jobStepText)
-
-	if uuidErr != nil {
-		log.Printf("Could not parse stepId parameter %s into a UUID: %s", jobStepText, uuidErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Invalid stepId parameter"}, w, 400)
+	_, jobContainerId, jobStepId, paramsErr := helpers.GetReceiverJobIds(r.RequestURI)
+	if paramsErr != nil {
+		//paramsErr is NOT a golang error object, but a premade GenericErrorResponse
+		helpers.WriteJsonContent(paramsErr, w, 400)
 		return
 	}
 
@@ -75,7 +58,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models.JobContainerForId(jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -83,7 +66,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobStepCopyPtr := jobContainerInfo.FindStepById(jobStepId)
+		jobStepCopyPtr := jobContainerInfo.FindStepById(*jobStepId)
 		if jobStepCopyPtr == nil {
 			log.Printf("Job container %s does not have any step with the id %s", jobContainerId.String(), jobStepId.String())
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"not_found", "no jobstep with that id in the given job"}, w, 404)
@@ -121,7 +104,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updateErr := jobContainerInfo.UpdateStepById(jobStepId, analysisStep)
+		updateErr := jobContainerInfo.UpdateStepById(*jobStepId, analysisStep)
 		if updateErr != nil {
 			log.Printf("Could not set jobstep info for %s in job %s: %s", jobStepId, jobContainerId, updateErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{

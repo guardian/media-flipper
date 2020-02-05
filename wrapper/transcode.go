@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/common/results"
 	"log"
@@ -29,15 +30,27 @@ func ParseSettings(rawString string) (*models.JobSettings, error) {
 /**
 goroutine to monitor the output from the encoding app
 */
-func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan chan bool) {
+func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan chan bool, jobContainerId uuid.UUID, jobStepId uuid.UUID) {
+	webAppUri := os.Getenv("WEBAPP_BASE") + "/api/transcode/newprogress"
+
 	for {
 		select {
-		case line := <-stdOutChan:
-			log.Printf("STDOUT: %s", line)
+		case <-stdOutChan:
+			//log.Printf("STDOUT: %s", line)
 		case line := <-stdErrChan:
-			log.Printf("STDERR: %s", line)
+			//log.Printf("STDERR: %s", line)
 			if strings.HasPrefix(line, "frame=") {
-				models.ParseTranscodeProgress(line)
+				parsedProgress, parseErr := models.ParseTranscodeProgress(line)
+				if parseErr != nil {
+					log.Printf("WARNING: Could not parse output: %s. Offending data was '%s'", parseErr, line)
+				} else {
+					parsedProgress.JobContainerId = jobContainerId
+					parsedProgress.JobStepId = jobStepId
+					sendErr := SendToWebapp(webAppUri, parsedProgress, 0, 2)
+					if sendErr != nil {
+						log.Printf("WARNING: Could not update progress in webabb: %s", sendErr)
+					}
+				}
 			}
 		case <-closeChan:
 			log.Print("monitorOutput completed")
@@ -46,7 +59,7 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 	}
 }
 
-func RunTranscode(fileName string, settings *models.JobSettings) results.TranscodeResult {
+func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
 	outFileName := RemoveExtension(fileName) + "_transcoded"
 
 	commandArgs := []string{"-i", fileName}
@@ -55,7 +68,7 @@ func RunTranscode(fileName string, settings *models.JobSettings) results.Transco
 
 	startTime := time.Now()
 
-	cmd := exec.Command("/usr/local/bin/ffmpeg", commandArgs...)
+	cmd := exec.Command("/usr/bin/ffmpeg", commandArgs...)
 
 	closeChan := make(chan bool)
 	stdOutChan, stdErrChan, runErr := RunCommandStreaming(cmd)
@@ -70,7 +83,7 @@ func RunTranscode(fileName string, settings *models.JobSettings) results.Transco
 		}
 	}
 
-	go monitorOutput(stdOutChan, stdErrChan, closeChan)
+	go monitorOutput(stdOutChan, stdErrChan, closeChan, jobContainerId, jobStepId)
 
 	waitErr := cmd.Wait()
 

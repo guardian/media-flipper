@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/google/uuid"
 	"log"
 	"os"
 	"strconv"
@@ -82,7 +83,16 @@ func main() {
 		if settingsErr != nil {
 			log.Fatalf("Could not parse settings from TRANSCODE_SETTINGS var: %s", settingsErr)
 		}
-		result := RunTranscode(filename, transcodeSettings)
+		jobId, jobIdErr := uuid.Parse(os.Getenv("JOB_CONTAINER_ID"))
+		if jobIdErr != nil {
+			log.Fatal("Could not parse JOB_CONTAINER_ID as a uuid: ", jobIdErr)
+		}
+		stepId, stepIdErr := uuid.Parse(os.Getenv("JOB_STEP_ID"))
+		if stepIdErr != nil {
+			log.Fatal("Could not parse JOB_STEP_ID as a uuid: ", stepIdErr)
+		}
+
+		result := RunTranscode(filename, transcodeSettings, jobId, stepId)
 		log.Print("Got transcode result: ", result)
 
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
