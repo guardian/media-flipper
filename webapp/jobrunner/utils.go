@@ -8,14 +8,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
+	v1batch "k8s.io/api/batch/v1"
 	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"os"
+	"reflect"
 	"time"
 	//
 	// Uncomment to load all auth plugins
@@ -27,6 +31,10 @@ import (
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
+
+type k8ClientWrapper interface {
+	GetJobClient()
+}
 
 /**
 initialise connection to Kubernetes from a pod within the cluster
@@ -70,7 +78,7 @@ func OutOfClusterClient(kubeConfigPath string) (*kubernetes.Clientset, error) {
 /**
 determine the namespace that we are running in.  This (obviously) assumes that it is running inside a cluster
 */
-func GetMyNamespace(client *kubernetes.Clientset) (string, error) {
+func GetMyNamespace() (string, error) {
 	//if we are in the cluster then this file should be present
 	_, statErr := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if statErr != nil {
@@ -94,13 +102,22 @@ func GetMyNamespace(client *kubernetes.Clientset) (string, error) {
 helper function to get a "Jobs" client from the clientset
 */
 func GetJobClient(k8client *kubernetes.Clientset) (v1.JobInterface, error) {
-	ns, nsErr := GetMyNamespace(k8client)
+	ns, nsErr := GetMyNamespace()
 	if nsErr != nil {
 		return nil, nsErr
 	}
 
 	jobClient := k8client.BatchV1().Jobs(ns)
 	return jobClient, nil
+}
+
+func GetServiceClient(k8client *kubernetes.Clientset) (v13.ServiceInterface, error) {
+	ns, nsErr := GetMyNamespace()
+	if nsErr != nil {
+		return nil, nsErr
+	}
+
+	return k8client.CoreV1().Services(ns), nil
 }
 
 /**
@@ -120,17 +137,12 @@ func findPortInList(portName string, in *[]v12.ServicePort) *int32 {
 Assuming the server is running inside the cluster, determine the URL to access it from by locating the
 Service description
 */
-func FindServiceUrl(k8client *kubernetes.Clientset) (*string, error) {
-	ns, nsErr := GetMyNamespace(k8client)
-	if nsErr != nil {
-		return nil, nsErr
-	}
-
+func FindServiceUrl(serviceClient v13.ServiceInterface) (*string, error) {
 	listOpts := metav1.ListOptions{
 		LabelSelector: "app=webapp,stack=MediaFlipper",
 	}
 
-	response, listErr := k8client.CoreV1().Services(ns).List(listOpts)
+	response, listErr := serviceClient.List(listOpts)
 	if listErr != nil {
 		return nil, listErr
 	}
@@ -161,12 +173,7 @@ func safeStartTimeString(timeval *metav1.Time) string {
 /**
 look up the Kubernetes Job associated with the given mediaflipper job ID
 */
-func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.JobRunnerDesc, error) {
-	ns, nsErr := GetMyNamespace(client)
-	if nsErr != nil {
-		return nil, nsErr
-	}
-
+func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models.JobRunnerDesc, error) {
 	listOpts := metav1.ListOptions{
 		LabelSelector:  fmt.Sprintf("mediaflipper.jobStepId=%s", jobId),
 		Watch:          false,
@@ -174,7 +181,7 @@ func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.Job
 		Limit:          0,
 	}
 
-	response, err := client.BatchV1().Jobs(ns).List(listOpts)
+	response, err := client.List(listOpts)
 	if err != nil {
 		log.Print("ERROR: Could not list k8s job containers: ", err)
 		return nil, err
@@ -184,12 +191,17 @@ func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.Job
 	for i, jobDesc := range response.Items {
 		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
 		var statusVal models.ContainerStatus
-		if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
+		cond := jobDesc.Status.Conditions
+		if len(cond) > 0 && cond[0].Type == v1batch.JobFailed {
+			statusVal = models.CONTAINER_FAILED
+		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
 			statusVal = models.CONTAINER_ACTIVE
 		} else if jobDesc.Status.Failed > 0 && jobDesc.Status.Succeeded == 0 {
 			statusVal = models.CONTAINER_FAILED
 		} else if jobDesc.Status.Succeeded > 0 {
 			statusVal = models.CONTAINER_COMPLETED
+		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 && jobDesc.Status.Active == 0 { //no pods left!
+			statusVal = models.CONTAINER_FAILED
 		} else {
 			statusVal = models.CONTAINER_UNKNOWN_STATE
 		}
@@ -203,4 +215,31 @@ func FindRunnerFor(jobId uuid.UUID, client *kubernetes.Clientset) (*[]models.Job
 		}
 	}
 	return &rtn, nil
+}
+
+/**
+Loads up template data for an analysis job
+*/
+func LoadFromTemplate(fileName string) (*v1batch.Job, error) {
+	bytes, readErr := ioutil.ReadFile(fileName)
+	if readErr != nil {
+		return nil, readErr
+	}
+	//THIS is the right way to read k8s manifests.... https://github.com/kubernetes/client-go/issues/193
+	decode := scheme.Codecs.UniversalDeserializer()
+
+	obj, _, err := decode.Decode(bytes, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	//log.Print("DEBUG: groupVersionKind is ", groupVersionKind)
+
+	switch obj.(type) {
+	case *v1batch.Job:
+		return obj.(*v1batch.Job), nil
+	default:
+		log.Printf("Expected to get a job from template %s but got %s instead", fileName, reflect.TypeOf(obj).String())
+		return nil, errors.New("Wrong manifest type")
+	}
 }

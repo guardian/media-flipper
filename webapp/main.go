@@ -12,6 +12,8 @@ import (
 	"github.com/guardian/mediaflipper/webapp/jobtemplate"
 	"github.com/guardian/mediaflipper/webapp/models"
 	"github.com/guardian/mediaflipper/webapp/thumbnail"
+	transcode2 "github.com/guardian/mediaflipper/webapp/transcode"
+	"github.com/guardian/mediaflipper/webapp/transcodesettings"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"net/http"
@@ -27,6 +29,8 @@ type MyHttpApp struct {
 	analysers   analysis.AnalysisEndpoints
 	thumbnails  thumbnail.ThumbnailEndpoints
 	files       files.FilesEndpoints
+	tsettings   transcodesettings.TranscodeSettingsEndpoints
+	transcode   transcode2.TranscodeEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -87,9 +91,15 @@ func main() {
 		log.Fatal("Could not connect to redis")
 	}
 
+	settingsMgr, mgrLoadErr := models.NewTranscodeSettingsManager(config.SettingsPath)
+
+	if mgrLoadErr != nil {
+		log.Fatal("Could not load in any transcode settings: ", mgrLoadErr)
+	}
+
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
-	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml")
+	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml", settingsMgr)
 
 	if mgrLoadErr != nil {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
@@ -108,6 +118,8 @@ func main() {
 	app.templates = jobtemplate.NewTemplateEndpoints(templateMgr)
 	app.thumbnails = thumbnail.NewThumbnailEndpoints(redisClient)
 	app.files = files.NewFilesEndpoints(redisClient)
+	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
+	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -119,6 +131,8 @@ func main() {
 	app.templates.WireUp("/api/jobtemplate")
 	app.thumbnails.WireUp("/api/thumbnail")
 	app.files.WireUp("/api/file")
+	app.tsettings.WireUp("/api/transcodesettings")
+	app.transcode.WireUp("/api/transcode")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)

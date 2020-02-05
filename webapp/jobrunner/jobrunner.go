@@ -106,10 +106,32 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 		return nil
 	}
 
+	tcJob, isTc := step.(*models.JobStepTranscode)
+	if isTc {
+		err := CreateTranscodeJob(*tcJob, j.k8client)
+		if err != nil {
+			log.Print("Could not create transcode job! ", err)
+			return err
+		}
+		log.Printf("External job created for %s with type transcode", tcJob.JobStepId)
+		pushErr := pushToRunningQueue(j.redisClient, &step)
+		if pushErr != nil {
+			log.Print("Could not save job to queue: ", pushErr)
+			return err
+		}
+		return nil
+	}
+
 	return errors.New(fmt.Sprintf("Did not recognise step type %s", reflect.TypeOf(step)))
 }
 
 func (j *JobRunner) clearCompletedTick() {
+	jobClient, clientGetErr := GetJobClient(j.k8client)
+	if clientGetErr != nil {
+		log.Printf("Can't clear jobs as not able to access cluster")
+		return
+	}
+
 	set, checkErr := CheckQueueLock(j.redisClient, RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
@@ -134,7 +156,7 @@ func (j *JobRunner) clearCompletedTick() {
 	for _, jobStep := range *queueSnapshot {
 		jobId := jobStep.StepId()
 
-		runners, runErr := FindRunnerFor(jobId, j.k8client)
+		runners, runErr := FindRunnerFor(jobId, jobClient)
 		if runErr != nil {
 			log.Print("Could not get runner for ", jobId, ": ", runErr)
 			continue //proceed to next one, don't abort

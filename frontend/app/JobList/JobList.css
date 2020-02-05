@@ -66,13 +66,13 @@ span.timestamp {
     text-align: left;
 }
 
-img.thumbnail-preview {
+.thumbnail-preview {
     max-height: 200px;
     max-width: 200px;
     overflow: hidden;
 }
 
-img.thumbnail-large {
+.thumbnail-large {
     max-width: 95%;
     max-height: 95%;
     overflow: hidden;

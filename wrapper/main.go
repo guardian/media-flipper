@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/google/uuid"
 	"log"
 	"os"
 	"strconv"
@@ -28,6 +29,7 @@ JOB_CONTAINER_ID={uuid-string}
 WEBAPP_BASE={url-string}  [url to contact main webapp]
 MAX_RETRIES={count}
 THUMBNAIL_FRAME={int} [thumbnail only]
+TRANSCODE_SETTINGS={jsonstring} [transcode only]
 */
 func main() {
 	testFilePtr := flag.String("filename", "", "testing option, run on this file")
@@ -56,6 +58,7 @@ func main() {
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
+		break
 	case "thumbnail":
 		var thumbFrame int
 		if os.Getenv("THUMBNAIL_FRAME") != "" {
@@ -67,15 +70,40 @@ func main() {
 
 		result := RunThumbnail(filename, thumbFrame)
 		log.Print("Got thumbnail result: ", result)
+
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
+		break
 	case "transcode":
-		log.Fatal("Not yet implemented")
+		log.Printf("Raw transcode settings: %s", os.Getenv("TRANSCODE_SETTINGS"))
+		transcodeSettings, settingsErr := ParseSettings(os.Getenv("TRANSCODE_SETTINGS"))
+		if settingsErr != nil {
+			log.Fatalf("Could not parse settings from TRANSCODE_SETTINGS var: %s", settingsErr)
+		}
+		jobId, jobIdErr := uuid.Parse(os.Getenv("JOB_CONTAINER_ID"))
+		if jobIdErr != nil {
+			log.Fatal("Could not parse JOB_CONTAINER_ID as a uuid: ", jobIdErr)
+		}
+		stepId, stepIdErr := uuid.Parse(os.Getenv("JOB_STEP_ID"))
+		if stepIdErr != nil {
+			log.Fatal("Could not parse JOB_STEP_ID as a uuid: ", stepIdErr)
+		}
+
+		result := RunTranscode(filename, transcodeSettings, jobId, stepId)
+		log.Print("Got transcode result: ", result)
+
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+		if sendErr != nil {
+			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+		}
+		break
 	default:
 		log.Fatalf("WRAPPER_MODE '%s' is not recognised", os.Getenv("WRAPPER_MODE"))
+		break
 	}
 
 }

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 /*
@@ -32,6 +33,8 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 	jobMasterId := uuid.MustParse("E6D1337A-6850-4C15-8938-18907B2FF311")
 	jobStepId := uuid.MustParse("815206e7-3c09-4e0f-ad87-3a4d67767315")
 
+	startTime := time.Now()
+
 	fakeJobContainer := models.JobContainer{
 		Id: jobMasterId,
 		Steps: []models.JobStep{
@@ -45,6 +48,7 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 		JobTemplateId:     uuid.New(),
 		ErrorMessage:      "",
 		IncomingMediaFile: "",
+		StartTime:         &startTime,
 	}
 
 	s, err := miniredis.Run()
@@ -146,6 +150,7 @@ func TestReceiveData_ServeHTTP_NoCorrectSteps(t *testing.T) {
 
 	jobMasterId := uuid.MustParse("95C2E86F-C0C3-4D9F-B9E1-0AC878BE6B10")
 	jobStepId := uuid.MustParse("15B4342F-12EA-4986-9668-9943A153F280")
+	startTime := time.Now()
 
 	fakeJobContainer := models.JobContainer{
 		Id: jobMasterId,
@@ -164,6 +169,7 @@ func TestReceiveData_ServeHTTP_NoCorrectSteps(t *testing.T) {
 		JobTemplateId:     uuid.New(),
 		ErrorMessage:      "",
 		IncomingMediaFile: "",
+		StartTime:         &startTime,
 	}
 
 	s, err := miniredis.Run()

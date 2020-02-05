@@ -9,7 +9,7 @@ spec:
         - name: analyser
           image: guardianmultimedia/mediaflipper:DEV
           imagePullPolicy: Always
-          env:
+          env:  #the environment section is over-written when the template is used
             - name: WRAPPER_MODE
               value: analyse
             - name: JOB_ID

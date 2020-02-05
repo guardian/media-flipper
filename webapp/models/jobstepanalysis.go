@@ -1,12 +1,8 @@
 package models
 
 import (
-	"encoding/json"
-	"fmt"
-	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
-	"log"
 	"time"
 )
 
@@ -92,23 +88,6 @@ func (j JobStepAnalysis) ErrorMessage() string {
 	return ""
 }
 
-func (j JobStepAnalysis) Store(redisClient *redis.Client) error {
-	j.JobStepType = "analysis"
-	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", j.JobStepId.String())
-	content, marshalErr := json.Marshal(j)
-	if marshalErr != nil {
-		log.Printf("Could not marshal content for jobstep %s: %s", j.JobStepId.String(), marshalErr)
-		return marshalErr
-	}
-
-	_, dbErr := redisClient.Set(dbKey, string(content), -1).Result()
-	if dbErr != nil {
-		log.Printf("Could not save key for jobstep %s: %s", j.JobStepId.String(), dbErr)
-		return dbErr
-	}
-	return nil
-}
-
 func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus, errMsg *string) JobStep {
 	j.StatusValue = newStatus
 	if errMsg != nil {
@@ -133,24 +112,4 @@ func (j JobStepAnalysis) WithNewStatus(newStatus JobStatus, errMsg *string) JobS
 func (j JobStepAnalysis) WithNewMediaFile(newMediaFile string) JobStep {
 	j.MediaFile = newMediaFile
 	return j
-}
-
-func LoadJobStepAnalysis(fromId uuid.UUID, redisClient *redis.Client) (*JobStepAnalysis, error) {
-	dbKey := fmt.Sprintf("mediaflipper:JobStepAnalysis:%s", fromId.String())
-	content, getErr := redisClient.Get(dbKey).Result()
-
-	if getErr != nil {
-		log.Printf("Could not load key for jobstep %s: %s", fromId.String(), getErr)
-		return nil, getErr
-	}
-
-	var rtn JobStepAnalysis
-	marshalErr := json.Unmarshal([]byte(content), &rtn)
-	if marshalErr != nil {
-		log.Printf("Could not understand data for jobstep %s: %s", fromId.String(), marshalErr)
-		log.Printf("Offending data was %s", content)
-		return nil, marshalErr
-	}
-
-	return &rtn, nil
 }

@@ -1,9 +1,10 @@
-package thumbnail
+package transcode
 
 import (
 	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/results"
 	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/models"
@@ -30,30 +31,32 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var incoming models.ThumbnailResult
-	contentBytes, readErr := ioutil.ReadAll(r.Body)
-	if readErr != nil {
-		log.Printf("could not read in request body: %s", readErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not read response body"}, w, 400)
+	var incoming results.TranscodeResult
+	rawContent, _ := ioutil.ReadAll(r.Body)
+	parseErr := json.Unmarshal(rawContent, &incoming)
+
+	if parseErr != nil {
+		log.Printf("Could not understand content body: %s", parseErr)
+		log.Printf("Offending data was: %s", string(rawContent))
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_request", parseErr.Error()}, w, 400)
 		return
 	}
 
-	marshalErr := json.Unmarshal(contentBytes, &incoming)
-	if marshalErr != nil {
-		log.Printf("malformed contant body, could not unmarshal json: %s", marshalErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_input", "Could not parse/marshal json content"}, w, 400)
-		return
-	}
-
-	var fileEntry models.FileEntry
-	if incoming.OutPath != nil {
-		f, fileEntryErr := models.NewFileEntry(*incoming.OutPath, *jobContainerId, models.TYPE_THUMBNAIL)
+	var fileEntry *models.FileEntry = nil
+	if incoming.OutFile != "" {
+		f, fileEntryErr := models.NewFileEntry(incoming.OutFile, *jobContainerId, models.TYPE_TRANSCODE)
 		if fileEntryErr != nil {
 			log.Printf("Could not get information for incoming thumbnail %s: %s", spew.Sprint(incoming), fileEntryErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not get file info"}, w, 500)
 			return
 		}
-		fileEntry = f
+		fileEntry = &f
+		storErr := fileEntry.Store(h.redisClient)
+		if storErr != nil {
+			log.Printf("Could not store file entry: %s", storErr)
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", storErr.Error()}, w, 500)
+			return
+		}
 	}
 
 	completionChan := make(chan bool)
@@ -82,36 +85,26 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobStepCopy := *jobStepCopyPtr
-
-		thumbStep, isThumb := jobStepCopy.(*models.JobStepThumbnail)
-
-		if !isThumb {
-			log.Printf("Expected step %s of job %s to be thumbnail type but got %s", jobStepId, jobContainerId, reflect.TypeOf(jobStepCopy))
-			helpers.WriteJsonContent(helpers.GenericErrorResponse{"not_found", "identified jobstep was not thumbnail"}, w, 404)
+		tcStep, isTc := (*jobStepCopyPtr).(*models.JobStepTranscode)
+		if !isTc {
+			log.Printf("Job step was not transcode type, got %s", reflect.TypeOf(jobStepCopyPtr))
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{
+				Status: "bad_request",
+				Detail: "job step was not transcode",
+			}, w, 400)
 			completionChan <- false
 			return
 		}
 
-		if fileEntry.ServerPath != "" {
-			//we got a valid file
-			storErr := fileEntry.Store(h.redisClient)
-			if storErr != nil {
-				log.Printf("Could not store new file entry: %s", storErr)
-				helpers.WriteJsonContent(helpers.GenericErrorResponse{
-					Status: "db_error",
-					Detail: "could not write file entry to database",
-				}, w, 500)
-				return
-			}
-			thumbStep.ResultId = &fileEntry.Id
+		if fileEntry != nil {
+			tcStep.ResultId = &(fileEntry.Id)
 		}
 
 		var updatedStep models.JobStep
-		if incoming.ErrorMessage == nil || *incoming.ErrorMessage == "" {
-			updatedStep = thumbStep.WithNewStatus(models.JOB_COMPLETED, nil)
+		if incoming.ErrorMessage != "" {
+			updatedStep = tcStep.WithNewStatus(models.JOB_FAILED, &incoming.ErrorMessage)
 		} else {
-			updatedStep = thumbStep.WithNewStatus(models.JOB_FAILED, incoming.ErrorMessage)
+			updatedStep = tcStep.WithNewStatus(models.JOB_COMPLETED, nil)
 		}
 
 		updateErr := jobContainerInfo.UpdateStepById(updatedStep.StepId(), updatedStep)

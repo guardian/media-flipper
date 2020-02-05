@@ -17,8 +17,9 @@ type ScratchStorage struct {
 }
 
 type Config struct {
-	Redis   RedisConfig    `yaml:"redis"`
-	Scratch ScratchStorage `yaml:"scratch"`
+	Redis        RedisConfig    `yaml:"redis"`
+	Scratch      ScratchStorage `yaml:"scratch"`
+	SettingsPath string         `yaml:"settingspath"`
 }
 
 func ReadConfig(configFile string) (*Config, error) {

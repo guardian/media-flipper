@@ -8,6 +8,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
+	"reflect"
 	"time"
 )
 
@@ -57,6 +58,11 @@ func (c JobContainer) Store(redisClient *redis.Client) error {
 	if saveErr != nil {
 		log.Printf("Could not save data for job container %s: %s", c.Id, saveErr)
 		return saveErr
+	}
+	idxErr := indexSingleEntry(&c, redisClient)
+	if idxErr != nil {
+		log.Printf("Could not store index data for job container %s: %s", c.Id, idxErr)
+		return idxErr
 	}
 	return nil
 }
@@ -155,7 +161,12 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	steps := make([]JobStep, len(rawSteps))
 	//spew.Dump(rawSteps)
 	for i, untypedRawStep := range rawSteps {
-		rawStep := untypedRawStep.(map[string]interface{})
+		rawStep, isMap := untypedRawStep.(map[string]interface{})
+		if !isMap {
+			log.Printf("ERROR: job data is not valid, had a step that is of type %s not map", reflect.TypeOf(untypedRawStep))
+			log.Printf("Offending job data: %s", spew.Sdump(rawDataMap))
+			continue
+		}
 		stepType, typeIsString := rawStep["stepType"].(string)
 		if !typeIsString {
 			return errors.New("stepType was not a string")
@@ -170,6 +181,13 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 			steps[i] = decodedStep
 		case "thumbnail":
 			decodedStep, decErr := JobStepThumbnailFromMap(rawStep)
+			if decErr != nil {
+				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				return decErr
+			}
+			steps[i] = decodedStep
+		case "transcode":
+			decodedStep, decErr := JobStepTranscodeFromMap(rawStep)
 			if decErr != nil {
 				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr
@@ -285,6 +303,17 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 		}
 	}
 	return &rtn, nextCursor, nil
+}
+
+/**
+adds a single entry to the ctime index
+*/
+func indexSingleEntry(ent *JobContainer, client *redis.Client) error {
+	_, err := client.ZAdd(REDIDX_CTIME, &redis.Z{
+		Score:  float64(ent.StartTime.UnixNano()),
+		Member: ent.Id.String(),
+	}).Result()
+	return err
 }
 
 /**

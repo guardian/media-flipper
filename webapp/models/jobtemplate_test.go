@@ -7,7 +7,7 @@ import (
 
 func TestNewJobTemplateManager(t *testing.T) {
 	//NewJobTemplateManager should parse a YAML file and unmarshal it
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml")
+	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", nil)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
@@ -22,21 +22,26 @@ func TestNewJobTemplateManager(t *testing.T) {
 		t.Errorf("Got unexpected jobTypeName: %s", mgr.loadedTemplates[expectedUuid].JobTypeName)
 	}
 
-	if len(mgr.loadedTemplates[expectedUuid].Steps) != 2 {
-		t.Errorf("Got %d job steps, expected 2", len(mgr.loadedTemplates[expectedUuid].Steps))
+	if len(mgr.loadedTemplates[expectedUuid].Steps) != 3 {
+		t.Errorf("Got %d job steps, expected 3", len(mgr.loadedTemplates[expectedUuid].Steps))
 	}
 
 	//NewJobTemplateManager should return an error if it can't load the yaml
-
-	_, shouldLoadErr := NewJobTemplateManager("fdsfsdjhsdfk")
+	_, shouldLoadErr := NewJobTemplateManager("fdsfsdjhsdfk", nil)
 	if shouldLoadErr == nil {
 		t.Error("Load should fail on an invalid filename")
 	}
 }
 
 func TestNewJobContainer(t *testing.T) {
+	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../config/settings")
+	if settingsLoadErr != nil {
+		t.Errorf("Could not load transcode settings: %s", settingsLoadErr)
+		t.FailNow()
+	}
+
 	//NewJobContainer should create a JobContainer with a new UUID that links in a JobStep for each specified in the template
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml")
+	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", settingsMgr)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
@@ -54,8 +59,8 @@ func TestNewJobContainer(t *testing.T) {
 		if result.JobTemplateId != expectedUuid {
 			t.Error("New container should store the template uuid, got ", result.JobTemplateId)
 		}
-		if len(result.Steps) != 2 {
-			t.Error("Expected job to have 2 steps, got ", len(result.Steps))
+		if len(result.Steps) != 3 {
+			t.Error("Expected job to have 3 steps, got ", len(result.Steps))
 		}
 
 		analysisStep, isAnalysis := result.Steps[0].(JobStepAnalysis)
@@ -84,6 +89,17 @@ func TestNewJobContainer(t *testing.T) {
 		}
 		if thumbStep.JobStepId == thumbStep.JobContainerId {
 			t.Error("Job step id was the same as container ID")
+		}
+
+		tcStep, isTc := result.Steps[2].(JobStepTranscode)
+		if !isTc {
+			t.Error("Expected job step 2 to be transcode")
+		} else {
+			if tcStep.TranscodeSettings == nil {
+				t.Errorf("Step 2 had no transcode settings, expecting some")
+			} else {
+
+			}
 		}
 	}
 }
