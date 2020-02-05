@@ -7,6 +7,7 @@ import css from "../inline-dialog.css";
 import JobStatusComponent from "../JobList/JobStatusComponent.jsx";
 import MediaFileInfo from "../JobList/MediaFileInfo.jsx";
 import JobTemplateSelector from "./JobTemplateSelector.jsx";
+import JobProgressComponent from "./JobProgressComponent.jsx";
 
 class QuickTranscode extends React.Component {
     //job status values from models/jobentry.go
@@ -34,7 +35,8 @@ class QuickTranscode extends React.Component {
             jobId: null,
             fileName: null,
             templateId: "",
-            templateEntries: []
+            templateEntries: [],
+            selectedJobSteps: []
         };
 
         this.setStatePromise = this.setStatePromise.bind(this);
@@ -81,6 +83,12 @@ class QuickTranscode extends React.Component {
             await this.setStatePromise({analysisCompleted: false})
         }
 
+        if(prevState.templateId!==this.state.templateId) {
+            const matchingEntries = this.state.templateEntries.filter(ent=>ent.Id===this.state.templateId);
+            if(matchingEntries.length>0){
+                await this.setStatePromise({selectedJobSteps: matchingEntries[0].Steps})
+            }
+        }
         if(prevState.analysisResultId !== this.state.analysisResultId) {
             if(this.state.analysisResultId!=="00000000-0000-0000-0000-000000000000") {
                 console.log("Analysis result changed");
@@ -233,22 +241,22 @@ class QuickTranscode extends React.Component {
                 <BasicUploadComponent id="upload-box"
                                       loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + BytesFormatterImplementation.getString(file.size) + " " + file.type + ")"})}
                                       loadCompleted={this.newDataAvailable}/>
-                <label htmlFor="upload-box"><FontAwesomeIcon icon="upload" style={{marginRight: "4px"}}/>Upload a file</label>
+                <label htmlFor="upload-box" style={{display: this.state.phase<1 ? "inherit" : "none"}}><FontAwesomeIcon icon="upload" style={{marginRight: "4px"}}/>Upload a file</label>
                     {
                         this.state.analysisCompleted ? <span className="transcode-info-block"><MediaFileInfo jobId={this.state.jobId} fileInfo={this.state.analysisResult}/> </span>: ""
                     }
 
-                <div id="placeholder" style={{height: "4em", display: "block", overflow: "hidden"}}>
+                <div id="placeholder" style={{height: "6em", display: "block", overflow: "hidden"}}>
                     <span className="transcode-info-block" style={{display: this.state.fileName ? "inherit" : "none"}}>{this.state.fileName}</span>
 
                     <span className="transcode-info-block" style={{display: this.state.phase<1 ? "none" : "block"}}>{
                         this.state.uploadCompleted ? "Uploading... Done!" : "Uploading..."
                     }</span>
-                    <span className="transcode-info-block" style={{display: this.state.phase<2 ? "none" : "block"}}>
-                        {
-                            this.state.analysisCompleted ? "Analysing... Done!" : "Analysing..."
-                        }
-                    </span>
+                    <JobProgressComponent jobStepList={this.state.selectedJobSteps}
+                                          currentJobStep={this.state.jobStatus.completedSteps}
+                                          className=""
+                                          hidden={this.state.phase<2}
+                    />
                     <span className="error-text" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
                 </div>
 
