@@ -23,3 +23,22 @@ data:
           scalex: 1280
           scaley: -1
           allowupscaling: false
+  wmv.yaml: |
+    ---
+    - settingsid: "7B37FEBC-18C1-4626-8941-10A8AFE1B51C"
+      name: wmvconvert
+      description: WMV file suitable for presentations
+      wrapper:
+        format: asf
+      audio:
+        codec: wmav2
+        bitrate: 128000
+        channels: 2
+        samplerate: 48000
+      video:
+        codec: wmv2
+        bitrate: 4194304  #4mbit/s
+        scale:
+          scalex: 1280
+          scaley: -1
+          allowupscaling: false

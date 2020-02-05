@@ -34,4 +34,13 @@
     font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
     font-size: 0.8em;
     text-align: center;
+    display: block;
+}
+
+span.job-step-unreached {
+    color: slategray;
+}
+
+span.job-step-reached {
+    color: darkgreen;
 }

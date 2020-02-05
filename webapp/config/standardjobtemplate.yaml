@@ -13,11 +13,11 @@
       ThumbnailFrameSeconds: 2
     - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
       PredeterminedType: transcode
-      InProgressLabel: Transcoding
+      InProgressLabel: Transcoding...
       KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
       TranscodeSettingsId: 7FEC2963-6A1D-46A2-8DE1-62DF939F6755
 - Id: BAF0DCB9-7DE1-4D33-9DFF-B7AB565C47E8
-  Name: Second entry
+  Name: Convert to WMV
   Steps:
     - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
       PredeterminedType: analysis
@@ -25,23 +25,6 @@
       KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
     - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
       PredeterminedType: transcode
-      InProgressLabel: Transcoding
+      InProgressLabel: Transcoding...
       KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
-      TranscodeSettingsId: 7FEC2963-6A1D-46A2-8DE1-62DF939F6755
-- Id: 850D3690-1998-4D08-9ADF-49EDA046DBC3
-  Name: Third entry
-  Steps:
-    - Id: 702DBDC5-CE51-4760-82E4-01BC1FB4771E
-      PredeterminedType: analysis
-      InProgressLabel: Analysing...
-      KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
-    - Id: 5F64F20F-B748-4930-B22E-4178F730BD4F
-      PredeterminedType: thumbnail
-      InProgressLabel: Extracting thumb...
-      KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
-      ThumbnailFrameSeconds: 2
-    - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
-      PredeterminedType: transcode
-      InProgressLabel: Transcoding
-      KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
-      TranscodeSettingsId: 7FEC2963-6A1D-46A2-8DE1-62DF939F6755
+      TranscodeSettingsId: 7B37FEBC-18C1-4626-8941-10A8AFE1B51C
