@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"regexp"
 	"strconv"
@@ -61,7 +60,6 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 			namedCaptures[name] = match[index]
 		}
 	}
-	spew.Dump(namedCaptures)
 	framesProcessed, _ := strconv.ParseInt(namedCaptures["frameNo"], 10, 64)
 	fps, _ := strconv.ParseInt(namedCaptures["fps"], 10, 32)
 	qFac, _ := strconv.ParseFloat(namedCaptures["qfactor"], 32)
@@ -84,6 +82,5 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 		SpeedFactor:     float32(speedFactor),
 		Timestamp:       time.Now().UnixNano(),
 	}
-	spew.Dump(result)
 	return &result, nil
 }
