@@ -30,18 +30,16 @@ class QuickTranscode extends React.Component {
             analysisCompleted: false,
             analysisResultId: null,
             analysisResult: null,
-            analysisTimer: null,
             jobTimer: null,
             jobId: null,
             fileName: null,
-            settingsId: "63AD5DFB-F6F6-4C75-9F54-821D56458279",  //FAKE value for testing
-            templateId: null
+            templateId: "",
+            templateEntries: []
         };
 
         this.setStatePromise = this.setStatePromise.bind(this);
         this.newDataAvailable = this.newDataAvailable.bind(this);
         this.pollJobState = this.pollJobState.bind(this);
-        this.pollAnalysisState = this.pollAnalysisState.bind(this);
     }
 
     setStatePromise(newState) {
@@ -53,22 +51,34 @@ class QuickTranscode extends React.Component {
      * @returns {Promise<unknown>}
      */
     clearAllTimers(){
-        if(this.state.analysisTimer) window.clearInterval(this.state.analysisTimer);
         if(this.state.jobTimer) window.clearInterval(this.state.jobTimer);
-        return this.setStatePromise({analysisTimer: null, jobTimer: null});
+        return this.setStatePromise({jobTimer: null});
+    }
+
+    async loadTemplatesList() {
+        await this.setStatePromise({loading: true, lastError: null});
+
+        const response = await fetch("/api/jobtemplate");
+        if(response.status===200){
+            const serverData = await response.json();
+            const templateEntries = serverData.entries;
+            const templateIdUpdate = templateEntries.length>0 ? {templateId: templateEntries[0].Id} : {};
+
+            await this.setStatePromise(Object.assign({loading: false, lastError: null, templateEntries: templateEntries}, templateIdUpdate));
+        } else {
+            const bodyText = await response.text();
+
+            return this.setStatePromise({loading: false, lastError: bodyText})
+        }
+    }
+
+    componentDidMount() {
+        this.loadTemplatesList();
     }
 
     async componentDidUpdate(prevProps, prevState, snapshot) {
         if(prevState.phase !== this.state.phase && this.state.phase===2){
-            console.log("Entered analysis phase, starting timer");
-            //const timerId = window.setInterval(this.pollAnalysisState, 500);
-            //this.setStatePromise({analysisCompleted: false, analysisTimer: timerId});
             await this.setStatePromise({analysisCompleted: false})
-        }
-        if(prevState.phase !== this.state.phase && this.state.phase!==2 && this.state.analysisTimer){
-            console.log("Changed phase to not analysis with a timer set, removing it");
-            window.clearTimeout(this.state.analysisTimer);
-            await this.setStatePromise({analysisTimer: null });
         }
 
         if(prevState.analysisResultId !== this.state.analysisResultId) {
@@ -119,7 +129,6 @@ class QuickTranscode extends React.Component {
     async createJobEntry() {
         //see webapp/jobs/jobrequest.go
         const requestContent = JSON.stringify({
-            settingsId: this.state.settingsId,
             jobTemplateId: this.state.templateId,
         });
 
@@ -167,37 +176,28 @@ class QuickTranscode extends React.Component {
             .catch(err=>this.setState({loading: false, lastError: err}))
     }
 
-    /**
-     * called from a timer in phase 2 to check on analysis state
-     * @returns {Promise<unknown>}
-     */
-    async pollAnalysisState() {
-        const url = "/api/analysis/get?forId=" + this.state.jobId;
-        const response = await fetch(url);
-        if(response.status===200) {
-            const content = await response.json();
-            //FileFormatInfo, see models/fileformat.go
-            const fileInfo = content.entry;
-            return this.setStatePromise({analysisCompleted: true, analysisResult: fileInfo, phase: 3});
-        } else if(response.status===500 || response.status===400){
-            const content = await response.text();
-            if(this.state.analysisTimer) window.clearInterval(this.state.analysisTimer);
-            return this.setStatePromise({analysisCompleted: true, phase: 2, lastError: content, analysisTimer: null});
+    getAnalysisResultId(stepList) {
+        const analysisStep = this.findAnalysisStep(stepList);
+        if(analysisStep==null) {
+            return null;
         } else {
-            await response.body.cancel();
-            console.log("Server returned ", response.status, response.statusText);
+            return analysisStep.analysisResult;
         }
     }
 
+    /**
+     * called from a timer to check the job status at regular intervals
+     * @returns {Promise<unknown>}
+     */
     async pollJobState() {
         const url = "/api/job/get?jobId=" + this.state.jobId;
         const response = await fetch(url);
         if(response.status===200) {
             const jobData = await response.json();
 
-            const analysisStep = this.findAnalysisStep(jobData.entry.steps);
-            console.log("analysis step: ", analysisStep);
-            const analysisResultUpdate = analysisStep===null ? {} : {analysisResultId: analysisStep.analysisResult};
+            const analysisResultId = this.getAnalysisResultId(jobData.entry.steps);
+
+            const analysisResultUpdate = analysisResultId===null ? {} : {analysisResultId: analysisResultId};
 
             console.log("analysisResultUpdate: ", analysisResultUpdate);
 
@@ -225,7 +225,10 @@ class QuickTranscode extends React.Component {
                 <h2 className="inline-dialog-title">Quick transcode</h2>
                 <div className="inline-dialog-content" style={{marginTop: "1em"}}>
                     <span className="transcode-info-block" style={{marginBottom: "1em", display:"block"}}>
-                        <JobTemplateSelector value={this.state.templateId} onChange={evt=>this.setState({templateId: evt.target.value})}/>
+                        <JobTemplateSelector value={this.state.templateId}
+                                             onChange={evt=>this.setState({templateId: evt.target.value})}
+                                             jobTemplateList={this.state.templateEntries}
+                        />
                     </span>
                 <BasicUploadComponent id="upload-box"
                                       loadStart={(file)=>this.setState({loading: true, fileName: file.name + " (" + BytesFormatterImplementation.getString(file.size) + " " + file.type + ")"})}

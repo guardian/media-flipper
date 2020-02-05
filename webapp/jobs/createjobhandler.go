@@ -37,7 +37,7 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.SettingsId, rq.JobTemplateId)
+	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.JobTemplateId)
 	if createErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"server_error", createErr.Error()}, w, 500)
 		return
