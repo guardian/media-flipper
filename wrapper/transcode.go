@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,26 @@ func ParseSettings(rawString string) (*models.JobSettings, error) {
 	return &s, nil
 }
 
+/**
+goroutine to monitor the output from the encoding app
+*/
+func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan chan bool) {
+	for {
+		select {
+		case line := <-stdOutChan:
+			log.Printf("STDOUT: %s", line)
+		case line := <-stdErrChan:
+			log.Printf("STDERR: %s", line)
+			if strings.HasPrefix(line, "frame=") {
+				models.ParseTranscodeProgress(line)
+			}
+		case <-closeChan:
+			log.Print("monitorOutput completed")
+			return
+		}
+	}
+}
+
 func RunTranscode(fileName string, settings *models.JobSettings) results.TranscodeResult {
 	outFileName := RemoveExtension(fileName) + "_transcoded"
 
@@ -34,15 +55,30 @@ func RunTranscode(fileName string, settings *models.JobSettings) results.Transco
 
 	startTime := time.Now()
 
-	cmd := exec.Command("/usr/bin/ffmpeg", commandArgs...)
+	cmd := exec.Command("/usr/local/bin/ffmpeg", commandArgs...)
 
-	_, _, runErr := RunCommand(cmd)
+	closeChan := make(chan bool)
+	stdOutChan, stdErrChan, runErr := RunCommandStreaming(cmd)
+	if runErr != nil {
+		endTime := time.Now()
+		duration := endTime.UnixNano() - startTime.UnixNano()
+		log.Printf("Could not execute command: %s", runErr)
+		return results.TranscodeResult{
+			OutFile:      "",
+			TimeTaken:    float64(duration) / 1e9,
+			ErrorMessage: fmt.Sprintf("Could not execute command: %s", runErr),
+		}
+	}
+
+	go monitorOutput(stdOutChan, stdErrChan, closeChan)
+
+	waitErr := cmd.Wait()
+
+	closeChan <- true
 
 	endTime := time.Now()
-
 	duration := endTime.UnixNano() - startTime.UnixNano()
-
-	if runErr != nil {
+	if waitErr != nil {
 		log.Printf("Could not execute command: %s", runErr)
 		return results.TranscodeResult{
 			OutFile:      "",
