@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	_ "github.com/jinzhu/copier"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -17,14 +17,14 @@ type JobRunner struct {
 	k8client        *kubernetes.Clientset
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
-	templateMgr     *models.JobTemplateManager
+	templateMgr     *models2.JobTemplateManager
 	maxJobs         int32
 }
 
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, channelBuffer int, maxJobs int32) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models2.JobTemplateManager, channelBuffer int, maxJobs int32) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
@@ -43,7 +43,7 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 /**
 add the provided JobEntry to the queue for processing
 */
-func (j *JobRunner) AddJob(container *models.JobContainer) error {
+func (j *JobRunner) AddJob(container *models2.JobContainer) error {
 	result := pushToRequestQueue(j.redisClient, container)
 	log.Printf("Enqueued job for processing: %s", container.Id)
 	return result
@@ -67,14 +67,14 @@ func (j *JobRunner) requestProcessor() {
 /**
 trigger the action for a given item and put it onto the running queue if successful
 */
-func (j *JobRunner) actionRequest(container *models.JobContainer) error {
+func (j *JobRunner) actionRequest(container *models2.JobContainer) error {
 	initialStep := container.InitialStep()
 	//log.Printf("actionRequest: initialStep is %s", spew.Sdump(initialStep))
 	return j.actionStep(initialStep)
 }
 
-func (j *JobRunner) actionStep(step models.JobStep) error {
-	analysisJob, isAnalysis := step.(*models.JobStepAnalysis)
+func (j *JobRunner) actionStep(step models2.JobStep) error {
+	analysisJob, isAnalysis := step.(*models2.JobStepAnalysis)
 	if isAnalysis {
 		err := CreateAnalysisJob(*analysisJob, j.k8client)
 		if err != nil {
@@ -90,7 +90,7 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 		return nil
 	}
 
-	thumbJob, isThumb := step.(*models.JobStepThumbnail)
+	thumbJob, isThumb := step.(*models2.JobStepThumbnail)
 	if isThumb {
 		err := CreateThumbnailJob(*thumbJob, j.k8client)
 		if err != nil {
@@ -106,7 +106,7 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 		return nil
 	}
 
-	tcJob, isTc := step.(*models.JobStepTranscode)
+	tcJob, isTc := step.(*models2.JobStepTranscode)
 	if isTc {
 		err := CreateTranscodeJob(*tcJob, j.k8client)
 		if err != nil {
@@ -171,7 +171,7 @@ func (j *JobRunner) clearCompletedTick() {
 		}
 		runner := (*runners)[0]
 		switch runner.Status {
-		case models.CONTAINER_COMPLETED:
+		case models2.CONTAINER_COMPLETED:
 			/*
 				remove the given step from the RUNNING_QUEUE and set its status to complete. Action the next step if there is one
 				or if not complete the job and save.
@@ -182,7 +182,7 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("Could not remove jobstep from running queue: %s", removeErr)
 			}
 
-			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
 			if getErr != nil {
 				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
 				continue //pick it up on the next iteration
@@ -202,7 +202,7 @@ func (j *JobRunner) clearCompletedTick() {
 				runErr := j.actionStep(nextStep)
 				if runErr != nil {
 					log.Print("Could not action next step: ", runErr)
-					container.Status = models.JOB_FAILED
+					container.Status = models2.JOB_FAILED
 					container.ErrorMessage = runErr.Error()
 					t := time.Now()
 					container.EndTime = &t
@@ -212,7 +212,7 @@ func (j *JobRunner) clearCompletedTick() {
 					}
 				}
 			}
-		case models.CONTAINER_FAILED:
+		case models2.CONTAINER_FAILED:
 			/*
 				remove the given step from the RUNNING_QUEUE, set the job and step status to FAILED and save
 			*/
@@ -220,7 +220,7 @@ func (j *JobRunner) clearCompletedTick() {
 
 			log.Printf("External job step %s failed", jobStep.StepId())
 
-			container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
 			if getErr != nil {
 				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
 				continue //pick it up on the next iteration
@@ -233,26 +233,26 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("Job failed and saved")
 			}
 
-		case models.CONTAINER_ACTIVE:
+		case models2.CONTAINER_ACTIVE:
 			/*
 				check the state of the current job step. If it's not STARTED, then update it and the container statuses
 				and save
 			*/
-			if jobStep.Status() != models.JOB_STARTED {
-				container, getErr := models.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			if jobStep.Status() != models2.JOB_STARTED {
+				container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
 				if getErr != nil {
 					log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
 					continue //pick it up on the next iteration
 				}
-				updatedJobStep := jobStep.WithNewStatus(models.JOB_STARTED, nil)
+				updatedJobStep := jobStep.WithNewStatus(models2.JOB_STARTED, nil)
 				//it's necessary to remove and re-add, beccause list removal in redis is by-value. if the value changes=> we lose it and go out-of-sync with the main model.
 				removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
 				pushToRunningQueue(j.redisClient, &updatedJobStep)
 
 				container.Steps[container.CompletedSteps] = updatedJobStep
 
-				if container.Status != models.JOB_STARTED {
-					container.Status = models.JOB_STARTED
+				if container.Status != models2.JOB_STARTED {
+					container.Status = models2.JOB_STARTED
 					t := time.Now()
 					container.StartTime = &t
 				}
@@ -305,7 +305,7 @@ func (j *JobRunner) waitingQueueTick() {
 				actioningErr := j.actionRequest(newJob)
 				if actioningErr != nil {
 					log.Printf("Could not action job: %s", actioningErr)
-					newJob.Status = models.JOB_FAILED
+					newJob.Status = models2.JOB_FAILED
 					newJob.ErrorMessage = actioningErr.Error()
 					storeErr := newJob.Store(j.redisClient)
 					if storeErr != nil {

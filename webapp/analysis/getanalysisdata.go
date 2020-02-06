@@ -3,8 +3,8 @@ package analysis
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"log"
 	"net/http"
 	"net/url"
@@ -36,7 +36,7 @@ func (h GetData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := models.GetFileFormat(jobId, h.redisClient)
+	content, err := models2.GetFileFormat(jobId, h.redisClient)
 	if err != nil {
 		if strings.Contains(err.Error(), "redis: nil") { //FIXME: there must be a better way of doing this??
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{

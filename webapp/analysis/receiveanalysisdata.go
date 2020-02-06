@@ -3,10 +3,9 @@ package analysis
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
-	"github.com/guardian/mediaflipper/webapp/models"
 	"log"
 	"net/http"
 	"reflect"
@@ -44,7 +43,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	completionChan := make(chan models.FileFormatInfo)
+	completionChan := make(chan models2.FileFormatInfo)
 	errorChan := make(chan error)
 
 	//the following block is only run when the queue is not busy, so we know that job completion notifications
@@ -58,7 +57,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models2.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -76,7 +75,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		jobStepCopy := *jobStepCopyPtr
 
-		analysisStep, isAnalysis := jobStepCopy.(*models.JobStepAnalysis)
+		analysisStep, isAnalysis := jobStepCopy.(*models2.JobStepAnalysis)
 
 		if !isAnalysis {
 			log.Printf("Expected step %s of job %s to be analysis type but got %s", jobStepId, jobContainerId, reflect.TypeOf(jobStepCopy))
@@ -85,15 +84,15 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		analysisStep.StatusValue = models.JOB_COMPLETED
+		analysisStep.StatusValue = models2.JOB_COMPLETED
 		analysisStep.ResultId = uuid.New()
 
-		newRecord := models.FileFormatInfo{
+		newRecord := models2.FileFormatInfo{
 			Id:             analysisStep.ResultId,
 			FormatAnalysis: incoming.Format,
 		}
 
-		putErr := models.PutFileFormat(&newRecord, h.redisClient)
+		putErr := models2.PutFileFormat(&newRecord, h.redisClient)
 		if putErr != nil {
 			log.Printf("Could not save record to datastore")
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{

@@ -2,8 +2,8 @@ package jobs
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"log"
 	"net/http"
 )
@@ -17,7 +17,7 @@ func (h ReindexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := models.ReIndexJobContainers(h.redisClient)
+	err := models2.ReIndexJobContainers(h.redisClient)
 	if err != nil {
 		log.Printf("Reindex operation failed!")
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
-	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,7 +30,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var incoming models.ThumbnailResult
+	var incoming models2.ThumbnailResult
 	contentBytes, readErr := ioutil.ReadAll(r.Body)
 	if readErr != nil {
 		log.Printf("could not read in request body: %s", readErr)
@@ -45,9 +45,9 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fileEntry models.FileEntry
+	var fileEntry models2.FileEntry
 	if incoming.OutPath != nil {
-		f, fileEntryErr := models.NewFileEntry(*incoming.OutPath, *jobContainerId, models.TYPE_THUMBNAIL)
+		f, fileEntryErr := models2.NewFileEntry(*incoming.OutPath, *jobContainerId, models2.TYPE_THUMBNAIL)
 		if fileEntryErr != nil {
 			log.Printf("Could not get information for incoming thumbnail %s: %s", spew.Sprint(incoming), fileEntryErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not get file info"}, w, 500)
@@ -66,7 +66,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models2.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -84,7 +84,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		jobStepCopy := *jobStepCopyPtr
 
-		thumbStep, isThumb := jobStepCopy.(*models.JobStepThumbnail)
+		thumbStep, isThumb := jobStepCopy.(*models2.JobStepThumbnail)
 
 		if !isThumb {
 			log.Printf("Expected step %s of job %s to be thumbnail type but got %s", jobStepId, jobContainerId, reflect.TypeOf(jobStepCopy))
@@ -107,11 +107,11 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			thumbStep.ResultId = &fileEntry.Id
 		}
 
-		var updatedStep models.JobStep
+		var updatedStep models2.JobStep
 		if incoming.ErrorMessage == nil || *incoming.ErrorMessage == "" {
-			updatedStep = thumbStep.WithNewStatus(models.JOB_COMPLETED, nil)
+			updatedStep = thumbStep.WithNewStatus(models2.JOB_COMPLETED, nil)
 		} else {
-			updatedStep = thumbStep.WithNewStatus(models.JOB_FAILED, incoming.ErrorMessage)
+			updatedStep = thumbStep.WithNewStatus(models2.JOB_FAILED, incoming.ErrorMessage)
 		}
 
 		updateErr := jobContainerInfo.UpdateStepById(updatedStep.StepId(), updatedStep)

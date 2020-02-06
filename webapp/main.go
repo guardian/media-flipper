@@ -3,14 +3,14 @@ package main
 import (
 	"flag"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/analysis"
 	"github.com/guardian/mediaflipper/webapp/files"
-	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"github.com/guardian/mediaflipper/webapp/jobs"
 	"github.com/guardian/mediaflipper/webapp/jobtemplate"
-	"github.com/guardian/mediaflipper/webapp/models"
 	"github.com/guardian/mediaflipper/webapp/thumbnail"
 	transcode2 "github.com/guardian/mediaflipper/webapp/transcode"
 	"github.com/guardian/mediaflipper/webapp/transcodesettings"
@@ -91,7 +91,7 @@ func main() {
 		log.Fatal("Could not connect to redis")
 	}
 
-	settingsMgr, mgrLoadErr := models.NewTranscodeSettingsManager(config.SettingsPath)
+	settingsMgr, mgrLoadErr := models2.NewTranscodeSettingsManager(config.SettingsPath)
 
 	if mgrLoadErr != nil {
 		log.Fatal("Could not load in any transcode settings: ", mgrLoadErr)
@@ -99,7 +99,7 @@ func main() {
 
 	k8Client, _ := GetK8Client(kubeConfigPath)
 
-	templateMgr, mgrLoadErr := models.NewJobTemplateManager("config/standardjobtemplate.yaml", settingsMgr)
+	templateMgr, mgrLoadErr := models2.NewJobTemplateManager("config/standardjobtemplate.yaml", settingsMgr)
 
 	if mgrLoadErr != nil {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)

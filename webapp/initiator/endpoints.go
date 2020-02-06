@@ -2,7 +2,7 @@ package initiator
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"net/http"
 )

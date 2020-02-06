@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
 )

@@ -2,8 +2,8 @@ package jobs
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,9 +14,9 @@ type ListJobHandler struct {
 }
 
 type ListJobResponse struct {
-	Status     string                 `json:"status"`
-	NextCursor uint64                 `json:"nextCursor"`
-	Entries    *[]models.JobContainer `json:"entries"`
+	Status     string                  `json:"status"`
+	NextCursor uint64                  `json:"nextCursor"`
+	Entries    *[]models2.JobContainer `json:"entries"`
 }
 
 /**
@@ -59,7 +59,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jobs, nextCursor, getErr := models.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models.SORT_CTIME)
+	jobs, nextCursor, getErr := models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME)
 	if getErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",

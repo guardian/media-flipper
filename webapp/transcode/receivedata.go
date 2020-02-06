@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/common/results"
-	"github.com/guardian/mediaflipper/webapp/helpers"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
-	"github.com/guardian/mediaflipper/webapp/models"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -42,9 +42,9 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fileEntry *models.FileEntry = nil
+	var fileEntry *models2.FileEntry = nil
 	if incoming.OutFile != "" {
-		f, fileEntryErr := models.NewFileEntry(incoming.OutFile, *jobContainerId, models.TYPE_TRANSCODE)
+		f, fileEntryErr := models2.NewFileEntry(incoming.OutFile, *jobContainerId, models2.TYPE_TRANSCODE)
 		if fileEntryErr != nil {
 			log.Printf("Could not get information for incoming thumbnail %s: %s", spew.Sprint(incoming), fileEntryErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not get file info"}, w, 500)
@@ -69,7 +69,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models2.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -85,7 +85,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tcStep, isTc := (*jobStepCopyPtr).(*models.JobStepTranscode)
+		tcStep, isTc := (*jobStepCopyPtr).(*models2.JobStepTranscode)
 		if !isTc {
 			log.Printf("Job step was not transcode type, got %s", reflect.TypeOf(jobStepCopyPtr))
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{
@@ -100,11 +100,11 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			tcStep.ResultId = &(fileEntry.Id)
 		}
 
-		var updatedStep models.JobStep
+		var updatedStep models2.JobStep
 		if incoming.ErrorMessage != "" {
-			updatedStep = tcStep.WithNewStatus(models.JOB_FAILED, &incoming.ErrorMessage)
+			updatedStep = tcStep.WithNewStatus(models2.JOB_FAILED, &incoming.ErrorMessage)
 		} else {
-			updatedStep = tcStep.WithNewStatus(models.JOB_COMPLETED, nil)
+			updatedStep = tcStep.WithNewStatus(models2.JOB_COMPLETED, nil)
 		}
 
 		updateErr := jobContainerInfo.UpdateStepById(updatedStep.StepId(), updatedStep)

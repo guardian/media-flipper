@@ -3,8 +3,8 @@ package jobs
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 	"net/url"
 )
@@ -27,7 +27,7 @@ func (h GetJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, jobErr := models.JobContainerForId(jobId, h.RedisClient)
+	result, jobErr := models2.JobContainerForId(jobId, h.RedisClient)
 	if jobErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "Could not retrieve entry"}, w, 500)
 		return

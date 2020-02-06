@@ -26,6 +26,7 @@ type JobSort int
 const (
 	SORT_NONE JobSort = iota
 	SORT_CTIME
+	SORT_CTIME_OLDEST
 )
 
 const (
@@ -205,8 +206,8 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.ErrorMessage = rawDataMap["error_message"].(string)
 	c.Id = uuid.MustParse(rawDataMap["id"].(string))
 	c.JobTemplateId = uuid.MustParse(rawDataMap["templateId"].(string))
-	c.StartTime = timeFromOptionalString(rawDataMap["start_time"])
-	c.EndTime = timeFromOptionalString(rawDataMap["end_time"])
+	c.StartTime = TimeFromOptionalString(rawDataMap["start_time"])
+	c.EndTime = TimeFromOptionalString(rawDataMap["end_time"])
 	return nil
 }
 
@@ -248,6 +249,17 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 		keys, nextCursor, scanErr = redisclient.Scan(cursor, "mediaflipper:JobContainer:*", limit).Result()
 		break
 	case SORT_CTIME:
+		jobIdList, err := redisclient.ZRevRange(REDIDX_CTIME, int64(cursor), limit).Result()
+		scanErr = err
+
+		if err == nil {
+			keys = make([]string, len(jobIdList))
+			for i, jobId := range jobIdList {
+				keys[i] = "mediaflipper:JobContainer:" + jobId
+			}
+		}
+		break
+	case SORT_CTIME_OLDEST:
 		jobIdList, err := redisclient.ZRevRange(REDIDX_CTIME, int64(cursor), limit).Result()
 		scanErr = err
 

@@ -2,8 +2,8 @@ package transcodesettings
 
 import (
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	"github.com/guardian/mediaflipper/common/models"
 	"net/http"
 	"net/url"
 )

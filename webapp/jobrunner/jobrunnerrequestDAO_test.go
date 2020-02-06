@@ -6,7 +6,7 @@ import (
 	"github.com/alicebob/miniredis"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"log"
 	"reflect"
 	"testing"
@@ -28,19 +28,19 @@ func TestCopyRunningQueueContent(t *testing.T) {
 	})
 
 	jobStepId := uuid.New()
-	testStep1 := models.JobStepAnalysis{
+	testStep1 := models2.JobStepAnalysis{
 		JobStepType:            "analysis",
 		JobStepId:              jobStepId,
 		JobContainerId:         uuid.New(),
 		ContainerData:          nil,
-		StatusValue:            models.JOB_STARTED,
+		StatusValue:            models2.JOB_STARTED,
 		ResultId:               uuid.New(),
 		MediaFile:              "path/to/something",
 		KubernetesTemplateFile: "mytemplate.yaml",
 	}
 
 	testStep1Enc, _ := json.Marshal(testStep1)
-	testStep2 := models.JobStepThumbnail{
+	testStep2 := models2.JobStepThumbnail{
 		JobStepType: "thumbnail",
 	}
 	testStep2Enc, _ := json.Marshal(testStep2)
@@ -59,7 +59,7 @@ func TestCopyRunningQueueContent(t *testing.T) {
 		t.Errorf("expected 2 items from queue, got %d", len(*result))
 		t.FailNow()
 	}
-	decoded := make([]models.JobStep, len(*result))
+	decoded := make([]models2.JobStep, len(*result))
 	for i, jsonBlob := range *result {
 		var rawData map[string]interface{}
 		json.Unmarshal([]byte(jsonBlob), &rawData)
@@ -71,12 +71,12 @@ func TestCopyRunningQueueContent(t *testing.T) {
 		}
 	}
 
-	_, isAnalysis := decoded[0].(*models.JobStepAnalysis)
+	_, isAnalysis := decoded[0].(*models2.JobStepAnalysis)
 	if !isAnalysis {
 		t.Error("Step 0 was not analysis, got ", reflect.TypeOf(decoded[0]))
 	}
 
-	_, isThumb := decoded[1].(*models.JobStepThumbnail)
+	_, isThumb := decoded[1].(*models2.JobStepThumbnail)
 	if !isThumb {
 		t.Error("Step 1 was not thumbnail, got ", reflect.TypeOf(decoded[0]))
 	}
