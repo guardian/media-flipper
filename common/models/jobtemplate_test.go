@@ -7,7 +7,7 @@ import (
 
 func TestNewJobTemplateManager(t *testing.T) {
 	//NewJobTemplateManager should parse a YAML file and unmarshal it
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", nil)
+	mgr, loadErr := NewJobTemplateManager("../../webapp/config/standardjobtemplate.yaml", nil)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
@@ -34,14 +34,14 @@ func TestNewJobTemplateManager(t *testing.T) {
 }
 
 func TestNewJobContainer(t *testing.T) {
-	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../config/settings")
+	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../../webapp/config/settings")
 	if settingsLoadErr != nil {
 		t.Errorf("Could not load transcode settings: %s", settingsLoadErr)
 		t.FailNow()
 	}
 
 	//NewJobContainer should create a JobContainer with a new UUID that links in a JobStep for each specified in the template
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", settingsMgr)
+	mgr, loadErr := NewJobTemplateManager("../../webapp/config/standardjobtemplate.yaml", settingsMgr)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()

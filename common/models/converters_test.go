@@ -87,37 +87,37 @@ func TestSafeGetUUID(t *testing.T) {
 }
 
 func TestTimeFromOptionalString(t *testing.T) {
-	//timeFromOptionalString should return a time from an interface{} containing an RFC timestamp
+	//TimeFromOptionalString should return a time from an interface{} containing an RFC timestamp
 	string := "2020-02-03T04:05:06Z"
 	var untyped interface{} = string
 
-	result := timeFromOptionalString(untyped)
+	result := TimeFromOptionalString(untyped)
 	expected, _ := time.Parse(time.RFC3339, string)
 	if result == nil {
-		t.Errorf("timeFromOptionalString returned nil for valid data")
+		t.Errorf("TimeFromOptionalString returned nil for valid data")
 	}
 	if result != nil && *result != expected {
-		t.Errorf("timeFromOptionalString returned wrong value, expected '%s' got '%s'", expected.String(), result.String())
+		t.Errorf("TimeFromOptionalString returned wrong value, expected '%s' got '%s'", expected.String(), result.String())
 	}
 
-	//timeFromOptionalString should return nil if the incoming value is nil
+	//TimeFromOptionalString should return nil if the incoming value is nil
 	untyped = nil
-	nilResult := timeFromOptionalString(untyped)
+	nilResult := TimeFromOptionalString(untyped)
 	if nilResult != nil {
-		t.Errorf("timeFromOptionalString should return nil if given nil, but got '%s'", nilResult.String())
+		t.Errorf("TimeFromOptionalString should return nil if given nil, but got '%s'", nilResult.String())
 	}
 
-	//timeFromOptionalString should return nil if the string does not parse
+	//TimeFromOptionalString should return nil if the string does not parse
 	untyped = "gfddgfdjkhdsgfjkhdgf"
-	wrongFormatResult := timeFromOptionalString(untyped)
+	wrongFormatResult := TimeFromOptionalString(untyped)
 	if wrongFormatResult != nil {
-		t.Errorf("timeFromOptionalString should return nil if given the wrong format, but got '%s'", wrongFormatResult.String())
+		t.Errorf("TimeFromOptionalString should return nil if given the wrong format, but got '%s'", wrongFormatResult.String())
 	}
 
-	//timeFromOptionalString should return nil if the data is the wrong type
+	//TimeFromOptionalString should return nil if the data is the wrong type
 	untyped = 4.5678
-	wrongTypeResult := timeFromOptionalString(untyped)
+	wrongTypeResult := TimeFromOptionalString(untyped)
 	if wrongFormatResult != nil {
-		t.Errorf("timeFromOptionalString should return nil if given the wrong data type, but got '%s'", wrongTypeResult.String())
+		t.Errorf("TimeFromOptionalString should return nil if given the wrong data type, but got '%s'", wrongTypeResult.String())
 	}
 }

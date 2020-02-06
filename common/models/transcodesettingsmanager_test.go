@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewTranscodeSettingsManager(t *testing.T) {
-	mgr, loadErr := NewTranscodeSettingsManager("../config/settings")
+	mgr, loadErr := NewTranscodeSettingsManager("../../webapp/config/settings")
 	if loadErr != nil {
 		t.Errorf("Couldn't initialise: %s", loadErr)
 		t.FailNow()
