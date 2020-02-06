@@ -15,6 +15,7 @@ type JobStepTemplateDefinition struct {
 	Id                     uuid.UUID `yaml:"Id"`
 	PredeterminedType      string    `yaml:"PredeterminedType"`
 	KubernetesTemplateFile string    `yaml:"KubernetesTemplateFile"`
+	InProgressLabel        string    `yaml:"InProgressLabel"`
 	TranscodeSettingsId    string    `yaml:"TranscodeSettingsId"`
 	ThumbnailFrameSeconds  float64   `yaml:"ThumbnailFrameSeconds"`
 }
@@ -59,7 +60,7 @@ func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeS
 	return &mgr, nil
 }
 
-func (mgr JobTemplateManager) NewJobContainer(settingsId uuid.UUID, templateId uuid.UUID) (*JobContainer, error) {
+func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContainer, error) {
 	tplEntry, tplExists := mgr.loadedTemplates[templateId]
 	if !tplExists {
 		return nil, errors.New(fmt.Sprintf("Request for non-existent template with id %s", templateId))
@@ -156,4 +157,9 @@ func (mgr JobTemplateManager) ListTemplates() []JobTemplateDefinition {
 		i += 1
 	}
 	return rtn
+}
+
+func (mgr JobTemplateManager) GetJob(jobId uuid.UUID) (JobTemplateDefinition, bool) {
+	template, exists := mgr.loadedTemplates[jobId]
+	return template, exists
 }

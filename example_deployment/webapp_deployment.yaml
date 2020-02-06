@@ -19,16 +19,16 @@ spec:
         stack: MediaFlipper
     spec:
       containers:
-        - image: guardianmultimedia/mediaflipper:22
-          #imagePullPolicy: Always
+        - image: guardianmultimedia/mediaflipper:16
+#          imagePullPolicy: Always
           name: webapp-mediaflipper
           resources:
             requests:
               cpu: 0.5
-              memory: 2Gi
+              memory: 0.5Gi
             limits:
               cpu: 2
-              memory: 2Gi
+              memory: 1Gi
           ports:
           - containerPort: 9000
           volumeMounts:

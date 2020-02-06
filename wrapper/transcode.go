@@ -35,10 +35,10 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 
 	for {
 		select {
-		case <-stdOutChan:
-			//log.Printf("STDOUT: %s", line)
+		case line := <-stdOutChan:
+			log.Print(line)
 		case line := <-stdErrChan:
-			//log.Printf("STDERR: %s", line)
+
 			if strings.HasPrefix(line, "frame=") {
 				parsedProgress, parseErr := models.ParseTranscodeProgress(line)
 				if parseErr != nil {
@@ -51,6 +51,8 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 						log.Printf("WARNING: Could not update progress in webabb: %s", sendErr)
 					}
 				}
+			} else {
+				log.Print(line)
 			}
 		case <-closeChan:
 			log.Print("monitorOutput completed")
@@ -92,11 +94,11 @@ func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId 
 	endTime := time.Now()
 	duration := endTime.UnixNano() - startTime.UnixNano()
 	if waitErr != nil {
-		log.Printf("Could not execute command: %s", runErr)
+		log.Printf("Could not execute command: %s", waitErr)
 		return results.TranscodeResult{
 			OutFile:      "",
 			TimeTaken:    float64(duration) / 1e9,
-			ErrorMessage: fmt.Sprintf("Could not execute command: %s", runErr),
+			ErrorMessage: fmt.Sprintf("Could not execute command: %s", waitErr),
 		}
 	}
 
@@ -107,7 +109,7 @@ func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId 
 		return results.TranscodeResult{
 			OutFile:      "",
 			TimeTaken:    float64(duration) / 1e9,
-			ErrorMessage: fmt.Sprintf("Could not execute command: %s", runErr),
+			ErrorMessage: fmt.Sprintf("Transcode completed but could not find output file: %s", statErr),
 		}
 	}
 

@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,7 +44,7 @@ func getMultiplierFrom(mulString string) int64 {
 	}
 }
 
-var progressParser = regexp.MustCompile(`^frame=\s*(?P<frameNo>\d+)\s*fps=\s*(?P<fps>\d+)\s*q=\s*(?P<qfactor>[\d\.]+)\s*.size=\s*(?P<encodedSizeBytes>\d+)(?P<encodedSizeMultiplier>\w+)\s*time=(?P<encTimeHrs>\d{2}):(?P<encTimeMin>\d{2}):(?P<encTimeSec>[\d\.]+)\s*bitrate=\s*(?P<bitrateBytes>[\d\.]+)(?P<bitrateMultiplier>[\w/]+)\s*speed=\s*(?P<speedFactor>[\d\.]+)`)
+var progressParser = regexp.MustCompile(`^frame=\s*(?P<frameNo>\d+)\s*fps=\s*(?P<fps>[\d\.]+)\s*q=\s*(?P<qfactor>[\d\.\-]+)\s*.size=\s*(?P<encodedSizeBytes>\d+)(?P<encodedSizeMultiplier>\w+)\s*time=(?P<encTimeHrs>\d{2}):(?P<encTimeMin>\d{2}):(?P<encTimeSec>[\d\.]+)\s*bitrate=\s*(?P<bitrateBytes>[\d\.]+)(?P<bitrateMultiplier>[\w/]+)\s*(dup=)?(?P<dupFrames>\d+)?\s*(drop=)?(?P<dropFrames>\d+)?\s*speed=\s*(?P<speedFactor>[\d\.]+)`)
 
 /**
 try to parse the given string as an output and build a TranscodeProgress struct
@@ -61,9 +61,8 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 			namedCaptures[name] = match[index]
 		}
 	}
-	spew.Dump(namedCaptures)
 	framesProcessed, _ := strconv.ParseInt(namedCaptures["frameNo"], 10, 64)
-	fps, _ := strconv.ParseInt(namedCaptures["fps"], 10, 32)
+	fps, _ := strconv.ParseFloat(namedCaptures["fps"], 32)
 	qFac, _ := strconv.ParseFloat(namedCaptures["qfactor"], 32)
 	encSizeBytes, _ := strconv.ParseInt(namedCaptures["encodedSizeBytes"], 10, 64)
 	encSizeMul := getMultiplierFrom(namedCaptures["encodedSizeMultiplier"])
@@ -76,7 +75,7 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 
 	result := TranscodeProgress{
 		FramesProcessed: framesProcessed,
-		FramesPerSecond: int32(fps),
+		FramesPerSecond: int32(math.Floor(fps)),
 		QFactor:         float32(qFac),
 		SizeEncoded:     encSizeBytes * encSizeMul,
 		TimeEncoded:     (float64(encTimeHrs) * 3600.0) + (float64(encTimeMin) * 60.0) + encTimeSec,
@@ -84,6 +83,5 @@ func ParseTranscodeProgress(outputString string) (*TranscodeProgress, error) {
 		SpeedFactor:     float32(speedFactor),
 		Timestamp:       time.Now().UnixNano(),
 	}
-	spew.Dump(result)
 	return &result, nil
 }

@@ -7,14 +7,14 @@ import (
 )
 
 func TestNewTranscodeSettingsManager(t *testing.T) {
-	mgr, loadErr := NewTranscodeSettingsManager("../config/settings")
+	mgr, loadErr := NewTranscodeSettingsManager("../../webapp/config/settings")
 	if loadErr != nil {
 		t.Errorf("Couldn't initialise: %s", loadErr)
 		t.FailNow()
 	}
 
-	if len(mgr.knownSettings) != 1 {
-		t.Errorf("Wrong number of loaded settings, expected 1 got %d", len(mgr.knownSettings))
+	if len(mgr.knownSettings) != 2 {
+		t.Errorf("Wrong number of loaded settings, expected 2 got %d", len(mgr.knownSettings))
 	}
 
 	allSettings := mgr.ListSettings()

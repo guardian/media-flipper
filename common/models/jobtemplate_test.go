@@ -7,15 +7,15 @@ import (
 
 func TestNewJobTemplateManager(t *testing.T) {
 	//NewJobTemplateManager should parse a YAML file and unmarshal it
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", nil)
+	mgr, loadErr := NewJobTemplateManager("../../webapp/config/standardjobtemplate.yaml", nil)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
 	}
 
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	if len(mgr.loadedTemplates) != 1 {
-		t.Errorf("Got %d templates, expected 1", len(mgr.loadedTemplates))
+	if len(mgr.loadedTemplates) != 2 {
+		t.Errorf("Got %d templates, expected 2", len(mgr.loadedTemplates))
 	}
 
 	if mgr.loadedTemplates[expectedUuid].JobTypeName != "Standard thumbnail-and-transcode" {
@@ -34,22 +34,21 @@ func TestNewJobTemplateManager(t *testing.T) {
 }
 
 func TestNewJobContainer(t *testing.T) {
-	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../config/settings")
+	settingsMgr, settingsLoadErr := NewTranscodeSettingsManager("../../webapp/config/settings")
 	if settingsLoadErr != nil {
 		t.Errorf("Could not load transcode settings: %s", settingsLoadErr)
 		t.FailNow()
 	}
 
 	//NewJobContainer should create a JobContainer with a new UUID that links in a JobStep for each specified in the template
-	mgr, loadErr := NewJobTemplateManager("../config/standardjobtemplate.yaml", settingsMgr)
+	mgr, loadErr := NewJobTemplateManager("../../webapp/config/standardjobtemplate.yaml", settingsMgr)
 	if loadErr != nil {
 		t.Error("Load unexpectedly failed: ", loadErr)
 		t.FailNow()
 	}
 
-	fakeSettingsId := uuid.New()
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	result, err := mgr.NewJobContainer(fakeSettingsId, expectedUuid)
+	result, err := mgr.NewJobContainer(expectedUuid)
 	if err != nil {
 		t.Error("NewJobContainer unexpectedly failed: ", err)
 	} else {

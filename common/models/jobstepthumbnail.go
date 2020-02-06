@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"time"
 )
 
@@ -29,41 +28,9 @@ type JobStepThumbnail struct {
 }
 
 func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail, error) {
-	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
-	if stepIdParseErr != nil {
-		return nil, stepIdParseErr
-	}
-	contId, contIdParseErr := uuid.Parse(mapData["jobContainerId"].(string))
-	if contIdParseErr != nil {
-		return nil, contIdParseErr
-	}
-
-	var runnerDescPtr *JobRunnerDesc
-	if mapData["containerData"] == nil {
-		runnerDescPtr = nil
-	} else {
-		contDecodeErr := mapstructure.Decode(mapData["containerData"], runnerDescPtr)
-		if contDecodeErr != nil {
-			return nil, contDecodeErr
-		}
-	}
-
-	resultId := safeGetUUID(mapData["thumbnailResult"])
-	rtn := JobStepThumbnail{
-		JobStepType:            "thumbnail",
-		JobStepId:              stepId,
-		JobContainerId:         contId,
-		ContainerData:          runnerDescPtr,
-		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		ResultId:               &resultId,
-		ThumbnailFrameSeconds:  safeFloat(mapData["thumbnailFrameSeconds"], 0),
-		TimeTakenValue:         safeFloat(mapData["timeTaken"], 0),
-		MediaFile:              safeGetString(mapData["mediaFile"]),
-		KubernetesTemplateFile: mapData["templateFile"].(string),
-		StartTime:              TimeFromOptionalString(mapData["startTime"]),
-		EndTime:                TimeFromOptionalString(mapData["endTime"]),
-	}
-	return &rtn, nil
+	var rtn JobStepThumbnail
+	err := CustomisedMapStructureDecode(mapData, &rtn)
+	return &rtn, err
 }
 
 func (j JobStepThumbnail) StepId() uuid.UUID {

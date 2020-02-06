@@ -2,58 +2,27 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"time"
 )
 
 type JobStepAnalysis struct {
-	JobStepType            string         `json:"stepType",struct:"stepType"`
-	JobStepId              uuid.UUID      `json:"id",struct:"id"`
-	JobContainerId         uuid.UUID      `json:"jobContainerId",struct:"jobContainerId"`
-	ContainerData          *JobRunnerDesc `json:"containerData",struct:"containerData"`
-	StatusValue            JobStatus      `json:"jobStepStatus",struct:"jobStepStatus"`
-	ResultId               uuid.UUID      `json:"analysisResult",struct:"analysisResult"`
-	LastError              string         `json:"errorMessage",struct:"errorMessage"`
-	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
-	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
-	StartTime              *time.Time     `json:"startTime",struct:"startTime"`
-	EndTime                *time.Time     `json:"endTime",struct:"startTime"`
+	JobStepType            string         `json:"stepType" mapstructure:"stepType"`
+	JobStepId              uuid.UUID      `json:"id" mapstructure:"id"`
+	JobContainerId         uuid.UUID      `json:"jobContainerId" mapstructure:"jobContainerId"`
+	ContainerData          *JobRunnerDesc `json:"containerData" mapstructure:"containerData"`
+	StatusValue            JobStatus      `json:"jobStepStatus" mapstructure:"jobStepStatus"`
+	ResultId               uuid.UUID      `json:"analysisResult" mapstructure:"analysisResult"`
+	LastError              string         `json:"errorMessage" mapstructure:"errorMessage"`
+	MediaFile              string         `json:"mediaFile" mapstructure:"mediaFile"`
+	KubernetesTemplateFile string         `json:"templateFile" mapstructure:"templateFile"`
+	StartTime              *time.Time     `json:"startTime" mapstructure:"startTime"`
+	EndTime                *time.Time     `json:"endTime" mapstructure:"startTime"`
 }
 
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
-	stepId, stepIdParseErr := uuid.Parse(mapData["id"].(string))
-	if stepIdParseErr != nil {
-		return nil, stepIdParseErr
-	}
-	contId, contIdParseErr := uuid.Parse(mapData["jobContainerId"].(string))
-	if contIdParseErr != nil {
-		return nil, contIdParseErr
-	}
-
-	var runnerDescPtr *JobRunnerDesc
-	if mapData["containerData"] == nil {
-		runnerDescPtr = nil
-	} else {
-		contDecodeErr := mapstructure.Decode(mapData["containerData"], runnerDescPtr)
-		if contDecodeErr != nil {
-			return nil, contDecodeErr
-		}
-	}
-
-	rtn := JobStepAnalysis{
-		JobStepType:            "analysis",
-		JobStepId:              stepId,
-		JobContainerId:         contId,
-		ContainerData:          runnerDescPtr,
-		StatusValue:            JobStatus(mapData["jobStepStatus"].(float64)),
-		ResultId:               safeGetUUID(mapData["analysisResult"]),
-		LastError:              safeGetString(mapData["errorMessage"]),
-		MediaFile:              safeGetString(mapData["mediaFile"]),
-		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
-		StartTime:              TimeFromOptionalString(mapData["startTime"]),
-		EndTime:                TimeFromOptionalString(mapData["endTime"]),
-	}
-	return &rtn, nil
+	var rtn JobStepAnalysis
+	err := CustomisedMapStructureDecode(mapData, &rtn)
+	return &rtn, err
 }
 
 func (j JobStepAnalysis) StepId() uuid.UUID {
