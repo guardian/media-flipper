@@ -2,7 +2,7 @@ all: reaper
 GOFILES := $(wildcard *.go)
 
 reaper: $(GOFILES)
-	GOOS=linux go build && cp reaper ../docker
+	GOOS=linux CGO_ENABLED=0  go build && cp reaper ../docker
 
 test: $(GOFILES)
 	go test

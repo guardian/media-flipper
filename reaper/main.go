@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -84,6 +85,9 @@ func DeleteK8Job(forId uuid.UUID, jobClient v1.JobInterface, dryRun bool) error 
 	return nil
 }
 
+/**
+called for each job in our datastore, check whether it needs to be removed and remove it if so
+*/
 func ProcessJob(job *models.JobContainer, cutoffTime time.Time, dryRun bool, jobClient v1.JobInterface) error {
 	if job.EndTime != nil && job.EndTime.Before(cutoffTime) {
 		log.Printf("Removing old job with id %s", job.Id)
@@ -93,6 +97,49 @@ func ProcessJob(job *models.JobContainer, cutoffTime time.Time, dryRun bool, job
 		}
 	}
 
+	return nil
+}
+
+func FindOrphanedJobs(cutoffTime time.Time, dryRun bool, jobClient v1.JobInterface, redisClient *redis.Client) error {
+	listOpts := metav1.ListOptions{
+		LabelSelector:  "mediaflipper.jobStepId",
+		Watch:          false,
+		TimeoutSeconds: nil,
+		Limit:          0,
+	}
+
+	var dryRunValue []string
+	if dryRun {
+		dryRunValue = []string{"All"}
+	} else {
+		dryRunValue = nil
+	}
+
+	response, err := jobClient.List(listOpts)
+	if err != nil {
+		log.Print("ERROR: Could not list k8s job containers: ", err)
+		return err
+	}
+	for _, j := range response.Items {
+		ourIdString, hasOurId := j.Labels["mediaflipper.jobStepId"]
+		if hasOurId {
+			ourId, uuidErr := uuid.Parse(ourIdString)
+			if uuidErr != nil {
+				log.Printf("ERROR: invalid job id label on %s: %s. Offending data was %s.", j.Name, uuidErr, ourIdString)
+			} else {
+				_, getErr := models.JobContainerForId(ourId, redisClient)
+				if getErr != nil {
+					if strings.Contains(getErr.Error(), "redis: nil") {
+						log.Printf("Found job %s with non-existing mediaflipper id %s, removing it", j.Name, ourIdString)
+						jobClient.Delete(j.Name, &metav1.DeleteOptions{DryRun: dryRunValue})
+					} else {
+						log.Printf("ERROR: could not look up job container for %s: %s", ourIdString, getErr)
+						return getErr
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -113,6 +160,7 @@ func main() {
 	}
 
 	log.Printf("Dryrun is %t", *dryRun)
+	log.Printf("Maxage is %d hours", *maxAgeHours)
 	redisClient, redisErr := SetupRedis(config)
 	if redisErr != nil {
 		log.Fatal("Could not connect to redis")
@@ -154,6 +202,10 @@ func main() {
 		}
 	}
 
+	findErr := FindOrphanedJobs(cutoffTime, *dryRun, jobClient, redisClient)
+	if findErr != nil {
+		log.Fatal(findErr)
+	}
 	endTime := time.Now()
 
 	log.Printf("Reaping run completed at %s and took %d seconds", endTime, endTime.Unix()-startTime.Unix())
