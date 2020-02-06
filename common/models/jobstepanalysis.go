@@ -50,8 +50,8 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 		LastError:              safeGetString(mapData["errorMessage"]),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: safeGetString(mapData["templateFile"]),
-		StartTime:              timeFromOptionalString(mapData["startTime"]),
-		EndTime:                timeFromOptionalString(mapData["endTime"]),
+		StartTime:              TimeFromOptionalString(mapData["startTime"]),
+		EndTime:                TimeFromOptionalString(mapData["endTime"]),
 	}
 	return &rtn, nil
 }

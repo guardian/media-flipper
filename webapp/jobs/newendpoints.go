@@ -2,7 +2,7 @@ package jobs
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"net/http"
 )
@@ -14,7 +14,7 @@ type JobsEndpoints struct {
 	ReindexHandler ReindexHandler
 }
 
-func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset, jobTemplateMgr *models.JobTemplateManager) JobsEndpoints {
+func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset, jobTemplateMgr *models2.JobTemplateManager) JobsEndpoints {
 	return JobsEndpoints{
 		GetHandler:     GetJobHandler{redisClient},
 		CreateHandler:  CreateJobHandler{redisClient, k8client, jobTemplateMgr},

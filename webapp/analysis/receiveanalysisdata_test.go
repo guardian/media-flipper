@@ -5,8 +5,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 	"strings"
 	"testing"
@@ -35,10 +35,10 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 
 	startTime := time.Now()
 
-	fakeJobContainer := models.JobContainer{
+	fakeJobContainer := models2.JobContainer{
 		Id: jobMasterId,
-		Steps: []models.JobStep{
-			models.JobStepAnalysis{
+		Steps: []models2.JobStep{
+			models2.JobStepAnalysis{
 				JobStepType: "analysis",
 				JobStepId:   jobStepId,
 			},
@@ -91,7 +91,7 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 		if parseErr != nil {
 			t.Errorf("returned EntryId was not a valid UUID: %s", parseErr)
 		} else {
-			fileFormatData, getErr := models.GetFileFormat(parsedUuidValue, testClient)
+			fileFormatData, getErr := models2.GetFileFormat(parsedUuidValue, testClient)
 			if getErr != nil {
 				t.Error("could not retrieve file format information from the datastore")
 			} else {
@@ -112,13 +112,13 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 				}
 			}
 
-			updatedJobContainer, getErr := models.JobContainerForId(jobMasterId, testClient)
+			updatedJobContainer, getErr := models2.JobContainerForId(jobMasterId, testClient)
 			if getErr != nil {
 				t.Error("Could not retrieve saved job")
 			} else {
 				updatedStep := updatedJobContainer.FindStepById(jobStepId)
 				if updatedStep != nil {
-					analysisStep := (*updatedStep).(*models.JobStepAnalysis)
+					analysisStep := (*updatedStep).(*models2.JobStepAnalysis)
 					if analysisStep.ResultId != parsedUuidValue {
 						t.Errorf("saved job step had incorrect value, expected %s got %s", parsedUuidValue, analysisStep.ResultId)
 					}
@@ -152,14 +152,14 @@ func TestReceiveData_ServeHTTP_NoCorrectSteps(t *testing.T) {
 	jobStepId := uuid.MustParse("15B4342F-12EA-4986-9668-9943A153F280")
 	startTime := time.Now()
 
-	fakeJobContainer := models.JobContainer{
+	fakeJobContainer := models2.JobContainer{
 		Id: jobMasterId,
-		Steps: []models.JobStep{
-			models.JobStepAnalysis{
+		Steps: []models2.JobStep{
+			models2.JobStepAnalysis{
 				JobStepType: "analysis",
 				JobStepId:   uuid.New(),
 			},
-			models.JobStepThumbnail{
+			models2.JobStepThumbnail{
 				JobStepType: "thumbnail",
 				JobStepId:   jobStepId,
 			},

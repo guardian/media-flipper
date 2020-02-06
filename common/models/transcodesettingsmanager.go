@@ -3,7 +3,6 @@ package models
 import (
 	"errors"
 	"github.com/google/uuid"
-	cmnmodels "github.com/guardian/mediaflipper/common/models"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -11,30 +10,30 @@ import (
 )
 
 type TranscodeSettingsManager struct {
-	knownSettings map[uuid.UUID]cmnmodels.JobSettings
+	knownSettings map[uuid.UUID]JobSettings
 }
 
 /**
 internal function to load the contents of a given yaml file
 */
-func loadSettingsFromFile(fileName string) ([]cmnmodels.JobSettings, error) {
+func loadSettingsFromFile(fileName string) ([]JobSettings, error) {
 	fileContent, readErr := ioutil.ReadFile(fileName)
 	if readErr != nil {
 		return nil, readErr
 	}
 
 	//try to unmarshal a list of settings
-	var settingsList []cmnmodels.JobSettings
+	var settingsList []JobSettings
 	listMarshalErr := yaml.UnmarshalStrict(fileContent, &settingsList)
 	if listMarshalErr == nil {
 		return settingsList, nil
 	}
 
 	//if that didn't work, try to unmarshal a single setting
-	var singleSetting cmnmodels.JobSettings
+	var singleSetting JobSettings
 	singleMarshalErr := yaml.UnmarshalStrict(fileContent, &singleSetting)
 	if singleMarshalErr == nil {
-		return []cmnmodels.JobSettings{singleSetting}, nil
+		return []JobSettings{singleSetting}, nil
 	}
 
 	log.Printf("Could not unmarshal %s as settings list: %s", fileName, listMarshalErr)
@@ -59,7 +58,7 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 		return nil, err
 	}
 
-	mgr := TranscodeSettingsManager{knownSettings: make(map[uuid.UUID]cmnmodels.JobSettings)}
+	mgr := TranscodeSettingsManager{knownSettings: make(map[uuid.UUID]JobSettings)}
 
 	for _, fileInfo := range files {
 		if fileInfo.IsDir() {
@@ -81,7 +80,7 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 /**
 returns a setting for the given ID, or nil if it is not found
 */
-func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *cmnmodels.JobSettings {
+func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *JobSettings {
 	result, gotIt := mgr.knownSettings[forId]
 	if gotIt {
 		return &result
@@ -93,8 +92,8 @@ func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *cmnmodels.JobS
 /**
 returns a list of all the known settings
 */
-func (mgr *TranscodeSettingsManager) ListSettings() *[]cmnmodels.JobSettings {
-	out := make([]cmnmodels.JobSettings, len(mgr.knownSettings))
+func (mgr *TranscodeSettingsManager) ListSettings() *[]JobSettings {
+	out := make([]JobSettings, len(mgr.knownSettings))
 	i := 0
 	for _, s := range mgr.knownSettings {
 		out[i] = s
@@ -103,8 +102,8 @@ func (mgr *TranscodeSettingsManager) ListSettings() *[]cmnmodels.JobSettings {
 	return &out
 }
 
-func (mgr *TranscodeSettingsManager) ListSummary() *[]cmnmodels.JobSettingsSummary {
-	out := make([]cmnmodels.JobSettingsSummary, len(mgr.knownSettings))
+func (mgr *TranscodeSettingsManager) ListSummary() *[]JobSettingsSummary {
+	out := make([]JobSettingsSummary, len(mgr.knownSettings))
 	i := 0
 	for _, s := range mgr.knownSettings {
 		out[i] = s.Summarise()

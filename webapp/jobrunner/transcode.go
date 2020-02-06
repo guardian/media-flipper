@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"path"
 )
 
-func CreateTranscodeJob(jobDesc models.JobStepTranscode, k8client *kubernetes.Clientset) error {
+func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.Clientset) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform thumbnail with no media file")
 		return errors.New("Can't perform thumbnail with no media file")

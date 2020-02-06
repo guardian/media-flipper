@@ -60,8 +60,8 @@ func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail,
 		TimeTakenValue:         safeFloat(mapData["timeTaken"], 0),
 		MediaFile:              safeGetString(mapData["mediaFile"]),
 		KubernetesTemplateFile: mapData["templateFile"].(string),
-		StartTime:              timeFromOptionalString(mapData["startTime"]),
-		EndTime:                timeFromOptionalString(mapData["endTime"]),
+		StartTime:              TimeFromOptionalString(mapData["startTime"]),
+		EndTime:                TimeFromOptionalString(mapData["endTime"]),
 	}
 	return &rtn, nil
 }

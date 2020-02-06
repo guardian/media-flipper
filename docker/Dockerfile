@@ -3,10 +3,11 @@ FROM alpine:latest
 COPY setup_ffmpeg.sh /tmp
 RUN /bin/sh /tmp/setup_ffmpeg.sh
 
-COPY webapp /opt/mediaflipper/webapp
 COPY wrapper /opt/mediaflipper/wrapper
-ADD config.tar /opt/mediaflipper
+COPY reaper /opt/mediaflipper/reaper
+COPY webapp /opt/mediaflipper/webapp
 ADD static.tar /opt/mediaflipper
+ADD config.tar /opt/mediaflipper
 
 WORKDIR /opt/mediaflipper
 EXPOSE 9000

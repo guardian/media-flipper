@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/common/models"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -100,7 +99,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 			steps[idx] = newStep
 			break
 		case "transcode":
-			var s *models.JobSettings
+			var s *JobSettings
 			spew.Dump(stepTemplate)
 			if stepTemplate.TranscodeSettingsId != "" {
 				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)

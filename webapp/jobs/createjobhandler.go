@@ -3,8 +3,8 @@ package jobs
 import (
 	"encoding/json"
 	"github.com/go-redis/redis/v7"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -14,7 +14,7 @@ import (
 type CreateJobHandler struct {
 	RedisClient *redis.Client
 	K8Client    *kubernetes.Clientset
-	TemplateMgr *models.JobTemplateManager
+	TemplateMgr *models2.JobTemplateManager
 }
 
 func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

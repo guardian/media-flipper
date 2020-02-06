@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"io"
 	"log"
 	"net/http"
