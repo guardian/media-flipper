@@ -7,8 +7,8 @@ spec:
     spec:
       containers:
         - name: analyser
-          image: guardianmultimedia/mediaflipper:DEV
-          imagePullPolicy: Always
+          image: guardianmultimedia/mediaflipper:22
+          #imagePullPolicy: Always
           env:  #the environment section is over-written when the template is used
             - name: WRAPPER_MODE
               value: analyse
