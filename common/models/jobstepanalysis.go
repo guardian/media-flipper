@@ -6,17 +6,17 @@ import (
 )
 
 type JobStepAnalysis struct {
-	JobStepType            string         `json:"stepType",struct:"stepType"`
-	JobStepId              uuid.UUID      `json:"id",struct:"id"`
-	JobContainerId         uuid.UUID      `json:"jobContainerId",struct:"jobContainerId"`
-	ContainerData          *JobRunnerDesc `json:"containerData",struct:"containerData"`
-	StatusValue            JobStatus      `json:"jobStepStatus",struct:"jobStepStatus"`
-	ResultId               uuid.UUID      `json:"analysisResult",struct:"analysisResult"`
-	LastError              string         `json:"errorMessage",struct:"errorMessage"`
-	MediaFile              string         `json:"mediaFile",struct:"mediaFile"`
-	KubernetesTemplateFile string         `json:"templateFile",struct:"templateFile"`
-	StartTime              *time.Time     `json:"startTime",struct:"startTime"`
-	EndTime                *time.Time     `json:"endTime",struct:"startTime"`
+	JobStepType            string         `json:"stepType" mapstructure:"stepType"`
+	JobStepId              uuid.UUID      `json:"id" mapstructure:"id"`
+	JobContainerId         uuid.UUID      `json:"jobContainerId" mapstructure:"jobContainerId"`
+	ContainerData          *JobRunnerDesc `json:"containerData" mapstructure:"containerData"`
+	StatusValue            JobStatus      `json:"jobStepStatus" mapstructure:"jobStepStatus"`
+	ResultId               uuid.UUID      `json:"analysisResult" mapstructure:"analysisResult"`
+	LastError              string         `json:"errorMessage" mapstructure:"errorMessage"`
+	MediaFile              string         `json:"mediaFile" mapstructure:"mediaFile"`
+	KubernetesTemplateFile string         `json:"templateFile" mapstructure:"templateFile"`
+	StartTime              *time.Time     `json:"startTime" mapstructure:"startTime"`
+	EndTime                *time.Time     `json:"endTime" mapstructure:"startTime"`
 }
 
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {
