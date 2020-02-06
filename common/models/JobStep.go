@@ -16,13 +16,3 @@ type JobStep interface {
 	RunnerDesc() *JobRunnerDesc
 	WithNewMediaFile(newMediaFile string) JobStep
 }
-
-func MapFromJobstep(from JobStep) map[string]interface{} {
-	return map[string]interface{}{
-		"stepId":       from.StepId(),
-		"jobContainer": from.ContainerId(),
-		"status":       from.Status(),
-		"timeTaken":    from.TimeTaken(),
-		"error":        from.ErrorMessage(),
-	}
-}

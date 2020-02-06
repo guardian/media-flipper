@@ -125,7 +125,7 @@ func TestGetMultiplierFrom(t *testing.T) {
 		t.Errorf("Got %d for Gb multiplier, expected 1073741824", gmul)
 	}
 	tmul := getMultiplierFrom("Tb")
-	if tmul != 1.099511628e12 {
+	if tmul != 1099511627776 {
 		t.Errorf("Got %d for Tb multiplier, expected 1.099511628e12", tmul)
 	}
 	nomul := getMultiplierFrom("bytes")
