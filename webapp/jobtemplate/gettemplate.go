@@ -1,8 +1,8 @@
 package jobtemplate
 
 import (
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	"github.com/guardian/mediaflipper/common/models"
 	"net/http"
 )
 
