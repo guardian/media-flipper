@@ -3,8 +3,8 @@ package files
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"io"
 	"log"
 	"net/http"
@@ -40,7 +40,7 @@ func (h StreamFile) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err := models.FileEntryForId(fileId, h.redisClient)
+	entry, err := models2.FileEntryForId(fileId, h.redisClient)
 	if err != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",

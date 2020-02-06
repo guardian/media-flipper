@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"log"
 	"time"
 )
@@ -22,11 +22,11 @@ func keyForJobId(id uuid.UUID) string {
 	return fmt.Sprintf("mediaflipper:jobrequest:%s", id.String())
 }
 
-func getNextRequestQueueEntry(client *redis.Client) (*models.JobContainer, error) {
+func getNextRequestQueueEntry(client *redis.Client) (*models2.JobContainer, error) {
 	return getNextJobRunnerRequest(client, REQUEST_QUEUE)
 }
 
-func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models.JobContainer, error) {
+func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models2.JobContainer, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 
 	result := client.LPop(jobKey)
@@ -44,7 +44,7 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models
 		log.Print("DEBUG: no items in queue right now")
 		return nil, nil
 	}
-	var rq models.JobContainer
+	var rq models2.JobContainer
 	log.Printf("DEBUG: Got %s for %s", content, jobKey)
 
 	marshalErr := json.Unmarshal([]byte(content), &rq)
@@ -56,7 +56,7 @@ func getNextJobRunnerRequest(client *redis.Client, queueName QueueName) (*models
 	return &rq, nil
 }
 
-func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
+func pushToRequestQueue(client *redis.Client, item *models2.JobContainer) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
@@ -66,7 +66,7 @@ func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 	return pushToQueue(client, encodedContent, REQUEST_QUEUE)
 }
 
-func pushToRunningQueue(client *redis.Client, item *models.JobStep) error {
+func pushToRunningQueue(client *redis.Client, item *models2.JobStep) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
@@ -109,7 +109,7 @@ func getQueueLength(client *redis.Client, queueName QueueName) (int64, error) {
 	return count, err
 }
 
-func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
+func getJobFromMap(fromMap map[string]interface{}) (models2.JobStep, error) {
 	jobType, isStr := fromMap["stepType"].(string)
 	if !isStr {
 		log.Printf("Could not determine job type, stepType parameter missing or wrong format")
@@ -117,19 +117,19 @@ func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
 	}
 	switch jobType {
 	case "analysis":
-		aJobPtr, anErr := models.JobStepAnalysisFromMap(fromMap)
+		aJobPtr, anErr := models2.JobStepAnalysisFromMap(fromMap)
 		if anErr == nil {
 			log.Printf("Got JobStepAnalysis")
 			return aJobPtr, nil
 		}
 	case "thumbnail":
-		tJobPtr, tErr := models.JobStepThumbnailFromMap(fromMap)
+		tJobPtr, tErr := models2.JobStepThumbnailFromMap(fromMap)
 		if tErr == nil && tJobPtr.JobStepType == "thumbnail" {
 			log.Printf("Got JobStepThumbnail")
 			return tJobPtr, nil
 		}
 	case "transcode":
-		tJobPtr, tErr := models.JobStepTranscodeFromMap(fromMap)
+		tJobPtr, tErr := models2.JobStepTranscodeFromMap(fromMap)
 		if tErr == nil && tJobPtr.JobStepType == "transcode" {
 			log.Printf("Got JobStepTranscode")
 			return tJobPtr, nil
@@ -138,13 +138,13 @@ func getJobFromMap(fromMap map[string]interface{}) (models.JobStep, error) {
 	return nil, errors.New(fmt.Sprintf("Could not decode to any known job type, got %s", fromMap["stepType"]))
 }
 
-func copyRunningQueueContent(client *redis.Client) (*[]models.JobStep, error) {
+func copyRunningQueueContent(client *redis.Client) (*[]models2.JobStep, error) {
 	result, getErr := copyQueueContent(client, RUNNING_QUEUE)
 	if getErr != nil {
 		return nil, getErr
 	}
 
-	rtn := make([]models.JobStep, len(*result))
+	rtn := make([]models2.JobStep, len(*result))
 	for i, resultString := range *result {
 		var rq map[string]interface{}
 		log.Printf("content before unmarshal: %s", resultString)
@@ -185,7 +185,7 @@ func copyQueueContent(client *redis.Client, queueName QueueName) (*[]string, err
 /**
 remove the given item from the given queue.
 */
-func removeFromQueue(client *redis.Client, queueName QueueName, entry *models.JobStep) error {
+func removeFromQueue(client *redis.Client, queueName QueueName, entry *models2.JobStep) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 	content, _ := json.Marshal(entry)
 	//log.Printf("Removing item %s from queue %s", string(content), jobKey)

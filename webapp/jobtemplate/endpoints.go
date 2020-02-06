@@ -1,7 +1,7 @@
 package jobtemplate
 
 import (
-	"github.com/guardian/mediaflipper/webapp/models"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 )
 
@@ -9,7 +9,7 @@ type TemplateEndpoints struct {
 	listHandler ListTemplateHandler
 }
 
-func NewTemplateEndpoints(jobTemplateMgr *models.JobTemplateManager) TemplateEndpoints {
+func NewTemplateEndpoints(jobTemplateMgr *models2.JobTemplateManager) TemplateEndpoints {
 	return TemplateEndpoints{
 		listHandler: ListTemplateHandler{templateMgr: jobTemplateMgr},
 	}

@@ -49,7 +49,7 @@ func safeGetUUID(from interface{}) uuid.UUID {
 	return parsed
 }
 
-func timeFromOptionalString(maybeStringPtr interface{}) *time.Time {
+func TimeFromOptionalString(maybeStringPtr interface{}) *time.Time {
 	if maybeStringPtr == nil {
 		return nil
 	}

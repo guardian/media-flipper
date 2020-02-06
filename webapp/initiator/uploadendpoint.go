@@ -3,9 +3,9 @@ package initiator
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
-	"github.com/guardian/mediaflipper/webapp/models"
 	"io"
 	"io/ioutil"
 	"log"
@@ -45,7 +45,7 @@ func (h UploadEndpointHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	jobRecord, jobErr := models.JobContainerForId(jobId, h.redisClient)
+	jobRecord, jobErr := models2.JobContainerForId(jobId, h.redisClient)
 	if jobErr != nil {
 		log.Printf("Could not retrieve job record for %s: %s", jobId, jobErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Could not retrieve record"}, w, 500)

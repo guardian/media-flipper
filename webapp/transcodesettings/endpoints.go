@@ -1,7 +1,7 @@
 package transcodesettings
 
 import (
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/models"
 	"net/http"
 )
 

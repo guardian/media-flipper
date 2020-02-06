@@ -1,0 +1,39 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: mediaflipper-reaper
+spec:
+  suspend: true
+  schedule: "05 */2 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mediaflipper-reaper
+              securityContext:
+                allowPrivilegeEscalation: false
+              image: guardianmultimedia/mediaflipper:22
+              #imagePullPolicy: Always
+              command: ["/opt/mediaflipper/reaper"]
+              args:
+                - "-dryrun=false"
+                - "-maxage=48"
+              resources:
+                requests:
+                  cpu: 0.1
+                  memory: 0.5Gi
+              volumeMounts:
+                - mountPath: /opt/mediaflipper/config
+                  name: webapp-config
+                - mountPath: /opt/mediaflipper/settings
+                  name: webapp-settings
+          volumes:
+            - name: webapp-config
+              configMap:
+                name: mediaflipper-webapp-config
+            - name: webapp-settings
+              configMap:
+                name: mediaflipper-webapp-settings
+          restartPolicy: OnFailure

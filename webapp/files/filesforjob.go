@@ -3,8 +3,8 @@ package files
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 	"net/url"
 )
@@ -37,7 +37,7 @@ func (h ListByJob) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := models.FilesForJobContainer(jobId, h.redisClient)
+	results, err := models2.FilesForJobContainer(jobId, h.redisClient)
 	if err != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",

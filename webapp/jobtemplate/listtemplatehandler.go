@@ -1,13 +1,13 @@
 package jobtemplate
 
 import (
-	"github.com/guardian/mediaflipper/webapp/helpers"
-	"github.com/guardian/mediaflipper/webapp/models"
+	"github.com/guardian/mediaflipper/common/helpers"
+	models2 "github.com/guardian/mediaflipper/common/models"
 	"net/http"
 )
 
 type ListTemplateHandler struct {
-	templateMgr *models.JobTemplateManager
+	templateMgr *models2.JobTemplateManager
 }
 
 func (h ListTemplateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
