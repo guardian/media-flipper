@@ -14,7 +14,7 @@ spec:
             - name: mediaflipper-reaper
               securityContext:
                 allowPrivilegeEscalation: false
-              image: guardianmultimedia/mediaflipper:22
+              image: guardianmultimedia/mediaflipper:30
               #imagePullPolicy: Always
               command: ["/opt/mediaflipper/reaper"]
               args:
