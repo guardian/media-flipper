@@ -8,16 +8,19 @@ import (
 	"github.com/google/uuid"
 	"log"
 	"regexp"
+	"strings"
 	"time"
 )
 
 type BulkList interface {
-	GetAllRecords(redisClient redis.Cmdable) (*[]BulkItem, error)
-	GetAllRecordsAsync(redisClient redis.Cmdable) (chan *BulkItem, chan error)
+	GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error)
+	GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByName(name string, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByNameAsync(name string, redisClient redis.Cmdable) (chan BulkItem, chan error)
+	CountForState(state BulkItemState) (int64, error)
+	CountForAllStates() (map[BulkItemState]int64, error)
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
 	AddRecord(record *BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record *BulkItem, redisClient redis.Cmdable) error
@@ -38,15 +41,43 @@ type BulkListImpl struct {
 	CreationTime time.Time
 }
 
-func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) (*[]BulkItem, error) {
-	return nil, errors.New("not implemented")
+func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
+	itemsChan, errorChan := list.GetAllRecordsAsync(redisClient)
+
+	return asyncReceiver(itemsChan, errorChan)
 }
 
-func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan *BulkItem, chan error) {
-	outputChan := make(chan *BulkItem, 10) //set up a buffered channel
+func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
+	var pageSize int64 = 100
+
+	outputChan := make(chan BulkItem, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
-	errorChan <- errors.New("not implemented")
+	go func() {
+		count, countErr := redisClient.ZCard(dbKey).Result()
+		if countErr != nil {
+			log.Printf("ERROR: Could not receive item count for batch %s: %s", list.BulkListId, countErr)
+			errorChan <- countErr
+			return
+		}
+		var i int64
+		for i = 0; i < count; i += pageSize {
+			idList, idListErr := redisClient.ZRange(dbKey, i, i+pageSize).Result()
+			if idListErr != nil {
+				errorChan <- idListErr
+				return
+			}
+
+			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
+			if fetchErr != nil {
+				errorChan <- fetchErr
+				return
+			}
+		}
+
+		outputChan <- nil //signify that we are done reading
+	}()
 	return outputChan, errorChan
 }
 
@@ -97,7 +128,7 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 	results, contentErr := pipe.Exec()
 	defer pipe.Close()
 	if contentErr != nil {
-		log.Printf("Could not retrieve data for %s", contentErr)
+		log.Printf("Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
 		return contentErr
 	}
 
@@ -176,14 +207,21 @@ func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient 
 	errorChan := make(chan error)
 
 	go func() {
-		xtractor := regexp.MustCompile("(?P<sourcepath>.*)|(?P<itemId>[\\w\\d\\-]+)")
+		xtractor := regexp.MustCompile("(?P<sourcepath>.*)\\|(?P<itemId>[\\w\\d\\-]+)")
+
+		var queryString string
+		if strings.HasSuffix(namePart, "*") {
+			queryString = namePart
+		} else {
+			queryString = namePart + "|*"
+		}
 
 		var cursor uint64 = 0
 		for {
 			var keys []string
 			var scanErr error
 
-			keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, namePart, pageSize).Result()
+			keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, queryString, pageSize).Result()
 
 			if scanErr != nil {
 				errorChan <- scanErr
@@ -192,17 +230,17 @@ func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient 
 
 			idList := make([]string, len(keys))
 			for i, key := range keys {
-				xtracted := xtractor.FindStringSubmatch(key)
+				xtracted := xtractor.FindAllStringSubmatch(key, -1)
 				if xtracted == nil {
 					log.Printf("WARNING: Invalid data in filepath index: %s", key)
 				} else {
 					//we are only interested in validating that the data parses as a uuid, as we'd only have to convert it straight
 					//back again afterwards
-					_, uuidErr := uuid.Parse(xtracted[1])
+					_, uuidErr := uuid.Parse(xtracted[0][2])
 					if uuidErr != nil {
 						log.Printf("WARNING: could not parse uuid: %s", uuidErr)
 					} else {
-						idList[i] = xtracted[1]
+						idList[i] = xtracted[0][2]
 					}
 				}
 			}
@@ -242,4 +280,12 @@ remove the given record from the bulk list, datastore and indices
 */
 func (list *BulkListImpl) RemoveRecord(record *BulkItem, redisClient redis.Cmdable) error {
 	return errors.New("not implemented")
+}
+
+func (list *BulkListImpl) CountForState(state BulkItemState) (int64, error) {
+	return -1, errors.New("not implemented")
+}
+
+func (list *BulkListImpl) CountForAllStates() (map[BulkItemState]int64, error) {
+	return nil, errors.New("not implemented")
 }
