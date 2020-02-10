@@ -24,6 +24,7 @@ type BulkList interface {
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
 	AddRecord(record BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
+	GetId() uuid.UUID
 }
 
 /*
@@ -41,6 +42,9 @@ type BulkListImpl struct {
 	CreationTime time.Time
 }
 
+func (list *BulkListImpl) GetId() uuid.UUID {
+	return list.BulkListId
+}
 func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
 	itemsChan, errorChan := list.GetAllRecordsAsync(redisClient)
 
@@ -274,6 +278,12 @@ func addToFilePathIndex(record BulkItem, baseKey string, redisClient redis.Cmdab
 	redisClient.SAdd(dbKey, dbVal)
 }
 
+func removeFromFilePathIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + ":filepathindex"
+	dbVal := fmt.Sprintf("%s|%s", record.GetSourcePath(), record.GetId().String())
+	redisClient.SRem(dbKey, dbVal)
+}
+
 func addToStateIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
 	dbKey := baseKey + fmt.Sprintf(":state:%d", record.GetState())
 	redisClient.ZAdd(dbKey, &redis.Z{
@@ -282,12 +292,22 @@ func addToStateIndex(record BulkItem, baseKey string, redisClient redis.Cmdable)
 	})
 }
 
+func removeFromStateIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + fmt.Sprintf(":state:%d", record.GetState())
+	redisClient.ZRem(dbKey, record.GetId().String())
+}
+
 func addToGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
 	dbKey := baseKey + ":index"
 	redisClient.ZAdd(dbKey, &redis.Z{
 		float64(record.GetPriority()),
 		record.GetId().String(),
 	})
+}
+
+func removeFromGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + ":index"
+	redisClient.ZRem(dbKey, record.GetId().String())
 }
 
 /**
@@ -318,7 +338,26 @@ func (list *BulkListImpl) AddRecord(record BulkItem, redisClient redis.Cmdable) 
 remove the given record from the bulk list, datastore and indices
 */
 func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdable) error {
-	return errors.New("not implemented")
+	if record.GetBulkId() != list.BulkListId {
+		return errors.New(fmt.Sprintf("the record %s is not associated with bulk list %s. Association is %s.", record.GetId(), list.BulkListId, record.GetBulkId()))
+	}
+
+	pipe := redisClient.Pipeline()
+	defer pipe.Close()
+
+	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
+	removeFromFilePathIndex(record, baseKey, pipe)
+	removeFromStateIndex(record, baseKey, pipe)
+	removeFromGlobalIndex(record, baseKey, pipe)
+	pipe.Del(fmt.Sprintf("mediaflipper:bulkitem:%s", record.GetId()))
+
+	_, execErr := pipe.Exec()
+	if execErr != nil {
+		log.Printf("Could not execute pipelined removal: %s", execErr)
+		return execErr
+	} else {
+		return nil
+	}
 }
 
 func (list *BulkListImpl) CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error) {

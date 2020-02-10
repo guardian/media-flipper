@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"strings"
 	"testing"
 	"time"
 )
@@ -386,4 +387,73 @@ func TestBulkListImpl_AddRecord(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestBulkListImpl_RemoveRecord(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	testList := PrepareTestData(testClient)
+	targetRecord := BulkItemImpl{
+		uuid.MustParse("599B1967-8E69-4A7B-B0E3-710053EFF5C4"),
+		testList.GetId(),
+		"path/to/file3",
+		3,
+		ITEM_STATE_ACTIVE,
+	}
+	remErr := testList.RemoveRecord(&targetRecord, testClient)
+	if remErr != nil {
+		t.Error("RemoveRecord failed unexpectedly: ", err)
+	} else {
+		//check item id
+		if s.Exists(fmt.Sprintf("mediaflipper:bulkitem:%s", targetRecord.Id.String())) {
+			t.Errorf("Expected item %s to be deleted", targetRecord.Id.String())
+		}
+		//check filename index
+		ixFileKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", testList.GetId().String())
+		keys, _, scanErr := testClient.SScan(ixFileKey, 0, "path/to/file3", 10).Result()
+		if scanErr != nil {
+			t.Errorf("could not scan filepath index: %s", scanErr)
+		} else {
+			if len(keys) != 0 {
+				t.Errorf("test item was not removed, got %s for index results", strings.Join(keys, ","))
+			}
+		}
+		//check state index
+		ixStateKey := fmt.Sprintf("mediaflipper:bulklist:%s:state:%d", testList.GetId().String(), targetRecord.State)
+		ixKeys, ixScanErr := testClient.ZRange(ixStateKey, 0, 100).Result()
+		if ixScanErr != nil {
+			t.Errorf("could not scan state index: %s", scanErr)
+		} else {
+			if len(ixKeys) != 1 {
+				t.Errorf("got unexpected index scan results, %d items (was expecting 1)", len(ixKeys))
+			}
+			if ixKeys[0] == targetRecord.Id.String() {
+				t.Error("got supposedly deleted record id returned from state index")
+			}
+		}
+		//check global index
+		ixGlbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", testList.GetId().String())
+		glbKeys, glbScanErr := testClient.ZRange(ixGlbKey, 0, 100).Result()
+		if glbScanErr != nil {
+			t.Errorf("could not scan global sort index: %s", glbScanErr)
+		} else {
+			if len(glbKeys) != 3 {
+				t.Errorf("got unexpected global index key count, expected 3 got %d", len(glbKeys))
+			}
+			for _, k := range glbKeys {
+				if k == targetRecord.Id.String() {
+					t.Errorf("global index still contained deleted record with id %s", targetRecord.Id)
+				}
+			}
+		}
+	}
+
 }

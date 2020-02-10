@@ -33,6 +33,7 @@ type BulkItem interface {
 	GetId() uuid.UUID
 	GetSourcePath() string
 	GetPriority() int32
+	GetBulkId() uuid.UUID
 }
 
 type BulkItemImpl struct {
@@ -53,6 +54,10 @@ func (i *BulkItemImpl) GetSourcePath() string {
 
 func (i *BulkItemImpl) GetPriority() int32 {
 	return i.Priority
+}
+
+func (i *BulkItemImpl) GetBulkId() uuid.UUID {
+	return i.BulkListId
 }
 
 func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
