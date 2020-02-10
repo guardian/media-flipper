@@ -25,6 +25,8 @@ type BulkList interface {
 	AddRecord(record BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
 	GetId() uuid.UUID
+	GetCreationTime() time.Time
+	Store(redisClient redis.Cmdable) error
 }
 
 /*
@@ -45,6 +47,11 @@ type BulkListImpl struct {
 func (list *BulkListImpl) GetId() uuid.UUID {
 	return list.BulkListId
 }
+
+func (list *BulkListImpl) GetCreationTime() time.Time {
+	return list.CreationTime
+}
+
 func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
 	itemsChan, errorChan := list.GetAllRecordsAsync(redisClient)
 
@@ -386,4 +393,38 @@ func (list *BulkListImpl) CountForAllStates(redisClient redis.Cmdable) (map[Bulk
 		rtn[state] = realResult.Val()
 	}
 	return rtn, nil
+}
+
+func (list *BulkListImpl) Store(redisClient redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
+
+	content, marshalErr := json.Marshal(list)
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	_, putErr := redisClient.Set(dbKey, string(content), -1).Result()
+	if putErr != nil {
+		return putErr
+	}
+	return nil
+}
+
+/**
+load up the given bulk list
+*/
+func BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s", bulkId)
+
+	content, getErr := client.Get(dbKey).Result()
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	var rtn BulkListImpl
+	unMarshalErr := json.Unmarshal([]byte(content), &rtn)
+	if unMarshalErr != nil {
+		return nil, unMarshalErr
+	}
+	return &rtn, nil
 }

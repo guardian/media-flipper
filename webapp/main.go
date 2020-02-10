@@ -6,6 +6,7 @@ import (
 	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/analysis"
+	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"github.com/guardian/mediaflipper/webapp/files"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
@@ -31,6 +32,7 @@ type MyHttpApp struct {
 	files       files.FilesEndpoints
 	tsettings   transcodesettings.TranscodeSettingsEndpoints
 	transcode   transcode2.TranscodeEndpoints
+	bulk        bulkprocessor.BulkEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -121,6 +123,7 @@ func main() {
 	app.files = files.NewFilesEndpoints(redisClient)
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
+	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -134,6 +137,7 @@ func main() {
 	app.files.WireUp("/api/file")
 	app.tsettings.WireUp("/api/transcodesettings")
 	app.transcode.WireUp("/api/transcode")
+	app.bulk.WireUp("/api/bulk")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)

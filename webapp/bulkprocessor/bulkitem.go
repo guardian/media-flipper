@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"log"
 )
 
 type BulkItemState int
@@ -60,6 +62,11 @@ func (i *BulkItemImpl) GetBulkId() uuid.UUID {
 	return i.BulkListId
 }
 
+/**
+create a new BulkItem instance for the given filepath.
+if the `priorityOverride` parameter is greater than 0, it is used to set the priority; otherwise
+a default value is obtained by convertring the first 4 bytes of the filepath into an int32
+*/
 func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 	var prio int32
 	if priorityOverride > 0 {
@@ -84,8 +91,11 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 			char2 = filepath[1]
 		}
 		barray := []byte{filepath[0], char2, char3, char4}
-		temp, _ := binary.ReadVarint(bytes.NewBuffer(barray))
-		prio = int32(temp)
+		err := binary.Read(bytes.NewReader(barray), binary.BigEndian, &prio)
+		if err != nil {
+			log.Printf("ERROR: Could not determine priority for '%s': %s", spew.Sdump(barray), err)
+			prio = 999
+		}
 	}
 	return &BulkItemImpl{
 		Id:         uuid.New(),
