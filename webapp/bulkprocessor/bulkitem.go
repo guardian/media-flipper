@@ -18,10 +18,21 @@ const (
 	ITEM_STATE_FAILED
 )
 
+var ItemStates = []BulkItemState{
+	ITEM_STATE_PENDING,
+	ITEM_STATE_ACTIVE,
+	ITEM_STATE_COMPLETED,
+	ITEM_STATE_FAILED,
+}
+
 type BulkItem interface {
 	Store(client redis.Cmdable) error
 	SetState(newState BulkItemState)
 	GetState() BulkItemState
+	UpdateBulkItemId(newId uuid.UUID)
+	GetId() uuid.UUID
+	GetSourcePath() string
+	GetPriority() int32
 }
 
 type BulkItemImpl struct {
@@ -30,6 +41,18 @@ type BulkItemImpl struct {
 	SourcePath string        `json:"sourcePath"`
 	Priority   int32         `json:"priority"`
 	State      BulkItemState `json:"state"`
+}
+
+func (i *BulkItemImpl) GetId() uuid.UUID {
+	return i.Id
+}
+
+func (i *BulkItemImpl) GetSourcePath() string {
+	return i.SourcePath
+}
+
+func (i *BulkItemImpl) GetPriority() int32 {
+	return i.Priority
 }
 
 func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
@@ -68,17 +91,15 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 
 /**
 stores the given record in the datastore.
+does NOT perform indexing and should threfore be considered internal; use the methods in BulkList to store and retrive BulkItems.
 takes a redis.Cmdable, which could be a pointer to a redis client or a redis Pipeliner
 */
 func (i *BulkItemImpl) Store(client redis.Cmdable) error {
-	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s", i.BulkListId.String())
+	dbKey := fmt.Sprintf("mediaflipper:bulkitem:%s", i.Id.String())
 
 	content, _ := json.Marshal(i)
 
-	_, err := client.ZAdd(dbKey, &redis.Z{
-		Score:  float64(i.Priority),
-		Member: string(content),
-	}).Result()
+	_, err := client.Set(dbKey, string(content), -1).Result()
 	return err
 }
 
@@ -88,4 +109,8 @@ func (i *BulkItemImpl) SetState(newState BulkItemState) {
 
 func (i *BulkItemImpl) GetState() BulkItemState {
 	return i.State
+}
+
+func (i *BulkItemImpl) UpdateBulkItemId(newId uuid.UUID) {
+	i.BulkListId = newId
 }

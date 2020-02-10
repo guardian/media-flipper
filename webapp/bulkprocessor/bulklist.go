@@ -19,11 +19,11 @@ type BulkList interface {
 	FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByName(name string, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByNameAsync(name string, redisClient redis.Cmdable) (chan BulkItem, chan error)
-	CountForState(state BulkItemState) (int64, error)
-	CountForAllStates() (map[BulkItemState]int64, error)
+	CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error)
+	CountForAllStates(redisClient redis.Cmdable) (map[BulkItemState]int64, error)
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
-	AddRecord(record *BulkItem, redisClient redis.Cmdable) error
-	RemoveRecord(record *BulkItem, redisClient redis.Cmdable) error
+	AddRecord(record BulkItem, redisClient redis.Cmdable) error
+	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
 }
 
 /*
@@ -268,24 +268,83 @@ func (list *BulkListImpl) UpdateState(bulkItemId uuid.UUID, newState BulkItemSta
 	return nil, errors.New("not implemented")
 }
 
+func addToFilePathIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + ":filepathindex"
+	dbVal := fmt.Sprintf("%s|%s", record.GetSourcePath(), record.GetId().String())
+	redisClient.SAdd(dbKey, dbVal)
+}
+
+func addToStateIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + fmt.Sprintf(":state:%d", record.GetState())
+	redisClient.ZAdd(dbKey, &redis.Z{
+		float64(record.GetPriority()),
+		record.GetId().String(),
+	})
+}
+
+func addToGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+	dbKey := baseKey + ":index"
+	redisClient.ZAdd(dbKey, &redis.Z{
+		float64(record.GetPriority()),
+		record.GetId().String(),
+	})
+}
+
 /**
 add the given record to the bulk list. the record is modified to give the id if this list and both saved and indexed
 */
-func (list *BulkListImpl) AddRecord(record *BulkItem, redisClient redis.Cmdable) error {
-	return errors.New("not implemented")
+func (list *BulkListImpl) AddRecord(record BulkItem, redisClient redis.Cmdable) error {
+	record.UpdateBulkItemId(list.BulkListId)
+	pipe := redisClient.Pipeline()
+	defer pipe.Close()
+
+	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
+	addToFilePathIndex(record, baseKey, pipe)
+	addToStateIndex(record, baseKey, pipe)
+	addToGlobalIndex(record, baseKey, pipe)
+
+	record.Store(pipe) //no point looking for error here as it is only executed at the next step
+
+	_, execErr := pipe.Exec()
+	if execErr != nil {
+		log.Printf("Could not complete add record: %s", execErr)
+		return execErr
+	} else {
+		return nil
+	}
 }
 
 /**
 remove the given record from the bulk list, datastore and indices
 */
-func (list *BulkListImpl) RemoveRecord(record *BulkItem, redisClient redis.Cmdable) error {
+func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdable) error {
 	return errors.New("not implemented")
 }
 
-func (list *BulkListImpl) CountForState(state BulkItemState) (int64, error) {
-	return -1, errors.New("not implemented")
+func (list *BulkListImpl) CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:state:%d", list.BulkListId, state)
+	return redisClient.ZCard(dbKey).Result()
 }
 
-func (list *BulkListImpl) CountForAllStates() (map[BulkItemState]int64, error) {
-	return nil, errors.New("not implemented")
+func (list *BulkListImpl) CountForAllStates(redisClient redis.Cmdable) (map[BulkItemState]int64, error) {
+	rtn := make(map[BulkItemState]int64, len(ItemStates))
+	pipe := redisClient.Pipeline()
+	defer pipe.Close()
+	for _, s := range ItemStates {
+		dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:state:%d", list.BulkListId, s)
+		pipe.ZCard(dbKey)
+	}
+
+	results, execErr := pipe.Exec()
+	if execErr != nil {
+		log.Printf("ERROR: Could not exec redis query: %s", execErr)
+		return nil, execErr
+	}
+
+	for i, result := range results {
+		realResult := result.(*redis.IntCmd)
+		state := BulkItemState(i)
+		rtn[state] = realResult.Val()
+	}
+	return rtn, nil
 }

@@ -236,3 +236,154 @@ func TestBulkListImpl_GetAllRecords(t *testing.T) {
 		}
 	}
 }
+
+func TestBulkListImpl_CountForAllStates(t *testing.T) {
+	/* prepopulate data */
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	testList := PrepareTestData(testClient)
+
+	countStates, countErr := testList.CountForAllStates(testClient)
+	if countErr != nil {
+		t.Error("CountForAllStates failed: ", countErr)
+	} else {
+		if countStates[ITEM_STATE_PENDING] != 1 {
+			t.Errorf("Wrong value for pending, got %d", countStates[ITEM_STATE_PENDING])
+		}
+		if countStates[ITEM_STATE_FAILED] != 0 {
+			t.Errorf("Wrong value for pending, got %d", countStates[ITEM_STATE_FAILED])
+		}
+		if countStates[ITEM_STATE_COMPLETED] != 1 {
+			t.Errorf("Wrong value for pending, got %d", countStates[ITEM_STATE_COMPLETED])
+		}
+		if countStates[ITEM_STATE_ACTIVE] != 2 {
+			t.Errorf("Wrong value for pending, got %d", countStates[ITEM_STATE_ACTIVE])
+		}
+	}
+}
+
+func TestBulkListImpl_CountForState(t *testing.T) {
+	/* prepopulate data */
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	testList := PrepareTestData(testClient)
+
+	count, countErr := testList.CountForState(ITEM_STATE_ACTIVE, testClient)
+	if countErr != nil {
+		t.Error("CountForState failed: ", countErr)
+	} else {
+		if count != 2 {
+			t.Errorf("Got wrong value for active state, expected 2 got %d", count)
+		}
+	}
+}
+
+func TestBulkListImpl_AddRecord(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	bulkListId := uuid.MustParse("AD74495F-F9F1-47F5-B723-1D18AB38764D")
+	testList := BulkListImpl{
+		BulkListId:   bulkListId,
+		CreationTime: time.Now(),
+	}
+
+	itemId := uuid.MustParse("648CC055-7F80-49D0-A174-496938857393")
+	testRec := BulkItemImpl{
+		Id:         itemId,
+		BulkListId: bulkListId,
+		SourcePath: "path/so/some/file",
+		Priority:   0,
+		State:      ITEM_STATE_PENDING,
+	}
+	addErr := testList.AddRecord(&testRec, testClient)
+
+	if addErr != nil {
+		t.Error("AddRecord unexpectedly failed: ", addErr)
+	} else {
+		//check filepath index
+		fpiKey := "mediaflipper:bulklist:ad74495f-f9f1-47f5-b723-1d18ab38764d:filepathindex"
+		fpiResult, fpiErr := testClient.SMembers(fpiKey).Result()
+		if fpiErr != nil {
+			t.Error("Could not retrieve expected filepath index key: ", fpiErr)
+		} else {
+			if len(fpiResult) != 1 {
+				t.Errorf("Got wrong result count for filepath index, expected 1 got %d", len(fpiResult))
+			} else {
+				if fpiResult[0] != "path/so/some/file|648cc055-7f80-49d0-a174-496938857393" {
+					t.Errorf("Got wrong data for filepath index: %s", fpiResult[0])
+				}
+			}
+		}
+
+		//check state index
+		siKey := fmt.Sprintf("mediaflipper:bulklist:ad74495f-f9f1-47f5-b723-1d18ab38764d:state:%d", ITEM_STATE_PENDING)
+		siResult, siErr := s.ZMembers(siKey)
+		if siErr != nil {
+			t.Error("Could not retrieve expected state index key: ", siErr)
+		} else {
+			if len(siResult) != 1 {
+				t.Errorf("Got wrong result count for state index, expected 1 got %d", len(siResult))
+			} else {
+				if siResult[0] != "648cc055-7f80-49d0-a174-496938857393" {
+					t.Errorf("Got wrong data for state index, expected 648cc055-7f80-49d0-a174-496938857393 got %s", siResult[0])
+				}
+			}
+		}
+
+		//check global index
+		giKey := "mediaflipper:bulklist:ad74495f-f9f1-47f5-b723-1d18ab38764d:index"
+		giResult, giErr := s.ZMembers(giKey)
+		if giErr != nil {
+			t.Error("Could not retrieve expected global index key: ", giErr)
+		} else {
+			if len(giResult) != 1 {
+				t.Errorf("Got wrong result count for global index, expected 1 got %d", len(giResult))
+			} else {
+				if giResult[0] != "648cc055-7f80-49d0-a174-496938857393" {
+					t.Errorf("Got wrong data for state index, expected 648cc055-7f80-49d0-a174-496938857393 got %s", giResult[0])
+				}
+			}
+		}
+
+		//check item storage
+		itemKey := "mediaflipper:bulkitem:648cc055-7f80-49d0-a174-496938857393"
+		itemResult, itemErr := s.Get(itemKey)
+		if itemErr != nil {
+			t.Error("Could not retrieve expected item data: ", itemErr)
+		} else {
+			var retrievedContent BulkItemImpl
+			marshalErr := json.Unmarshal([]byte(itemResult), &retrievedContent)
+			if marshalErr != nil {
+				t.Error("Could not read content from datastore: ", marshalErr)
+			} else {
+				if retrievedContent != testRec {
+					t.Error("Retrieved data record did not match test record")
+				}
+			}
+		}
+	}
+}
