@@ -1,11 +1,13 @@
 package bulkprocessor
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -30,6 +32,15 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go asyncInputProcessor(&newBulk, completedChan, rawLinesChan, rawLinesErrChan, h.redisClient)
 
 	processingErrored := <-completedChan
+	storeErr := newBulk.Store(h.redisClient)
+	if storeErr != nil {
+		log.Print("Could not write bulk data: ", storeErr)
+		if processingErrored == nil {
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not write new batch"}, w, 500)
+			return
+		}
+	}
+
 	if processingErrored != nil {
 		log.Printf("could not process incoming data: %s", processingErrored)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
@@ -53,16 +64,20 @@ func asyncInputProcessor(bulkList BulkList, completedChan chan error, rawLinesCh
 			completedChan <- readErr
 			return
 		case linePtr := <-rawLinesChan:
+			log.Printf("Got %s", spew.Sdump(linePtr))
 			if linePtr == nil {
 				completedChan <- nil
 				return
 			} else {
-				newItem := NewBulkItem(*linePtr, -1)
-				addErr := bulkList.AddRecord(newItem, redisClient)
-				if addErr != nil {
-					log.Printf("Could not add new item to bulk: %s", addErr)
-					completedChan <- addErr
-					return
+				trimmedFilename := strings.TrimSpace(*linePtr)
+				if len(trimmedFilename) > 1 && !strings.HasPrefix(trimmedFilename, "#") {
+					newItem := NewBulkItem(*linePtr, -1)
+					addErr := bulkList.AddRecord(newItem, redisClient)
+					if addErr != nil {
+						log.Printf("Could not add new item to bulk: %s", addErr)
+						completedChan <- addErr
+						return
+					}
 				}
 			}
 		}

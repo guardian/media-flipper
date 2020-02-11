@@ -1,0 +1,24 @@
+div.grid-form {
+    display: grid;
+    grid-template-rows: auto;
+    grid-template-columns: [icon-margin] 5px [label-zone] 20% [control-zone] 48% [end];
+}
+
+div.narrow {
+    max-width: 300px;
+}
+
+.grid-form-icon {
+    grid-column-start: icon-margin;
+    grid-column-end: label-zone;
+}
+
+.grid-form-label {
+    grid-column-start: label-zone;
+    grid-column-end: control-zone;
+}
+
+.grid-form-control {
+    grid-column-start: control-zone;
+    grid-column-end: end;
+}

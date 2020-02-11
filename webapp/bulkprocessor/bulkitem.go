@@ -106,7 +106,13 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 		} else {
 			char2 = filepath[1]
 		}
-		barray := []byte{filepath[0], char2, char3, char4}
+		var char1 byte
+		if len(filepath) < 1 {
+			char1 = 0
+		} else {
+			char1 = filepath[0]
+		}
+		barray := []byte{char1, char2, char3, char4}
 		err := binary.Read(bytes.NewReader(barray), binary.BigEndian, &prio)
 		if err != nil {
 			log.Printf("ERROR: Could not determine priority for '%s': %s", spew.Sdump(barray), err)

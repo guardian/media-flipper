@@ -1,0 +1,54 @@
+/*div.batch-processing-grid {*/
+/*    display: grid;*/
+/*    grid-template-columns: [left-margin] 1em [center] auto [right-margin] 10% [end];*/
+/*    grid-template-rows: [banner-row] 1.5em [top-row] 100px [content-row] auto [bottom];*/
+/*}*/
+
+
+div.batch-processing-controls {
+    grid-column-start: right-margin;
+    grid-column-end: span end;
+    grid-row-start: header-row;
+    grid-row-end: span content-row;
+}
+
+ul.batch-list {
+    list-style: none;
+    grid-column-start: center;
+    grid-column-end: span right-margin;
+}
+
+.banner-header {
+    grid-column-start: left-margin;
+    grid-column-end: span end;
+    grid-row-start: banner-row;
+    grid-row-end: span top-row;
+}
+
+div.batch-entry-container {
+    display: flex;
+    max-width: 600px;
+}
+
+.batch-entry-cell.mini {
+    flex: 1
+}
+
+.batch-entry-cell.baseline {
+    flex: 3
+}
+
+.batch-entry-cell.wide {
+    flex: 6
+}
+
+.status-summary-container {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.status-summary-entry {
+    flex: 1
+}

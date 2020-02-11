@@ -7,6 +7,7 @@ class MenuBanner extends React.Component {
     render() {
         return <ul className="menubanner">
             <li className="menubanner"><Link to="/quicktranscode">Quick Transcode</Link></li>
+            <li className="menubanner"><Link to="/batch">Batch Lists</Link></li>
             <li className="menubanner last"><Link to="/jobs">Jobs</Link></li>
         </ul>
     }
