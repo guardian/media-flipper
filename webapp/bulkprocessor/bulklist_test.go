@@ -138,6 +138,52 @@ func TestBulkListImpl_FilterRecordsByState(t *testing.T) {
 
 }
 
+func TestBulkListImpl_FilterRecordsByNameAndStateAsync(t *testing.T) {
+	/* prepopulate data */
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	testList := PrepareTestData(testClient)
+
+	outputChan, errChan := testList.FilterRecordsByNameAndStateAsync("path/to/file2", ITEM_STATE_ACTIVE, testClient)
+	var recordList []BulkItem
+	var receivedErr error
+	func() {
+		for {
+			select {
+			case record := <-outputChan:
+				if record == nil {
+					return
+				}
+				recordList = append(recordList, record)
+			case err := <-errChan:
+				receivedErr = err
+				return
+			}
+		}
+	}()
+
+	if receivedErr != nil {
+		t.Error("FilterRecordsByNameAndStateAsync failed: ", receivedErr)
+		t.FailNow()
+	}
+	if len(recordList) != 1 {
+		t.Errorf("Got incorrect number of records from FilterRecordsByNameAndStateAsync: expected 1 got %d", len(recordList))
+	} else {
+		spew.Dump(recordList[0])
+		if recordList[0].GetId() != uuid.MustParse("AFDB2DD8-6B5F-4DEB-88A7-CBC2CD545DA6") {
+			t.Errorf("Got incorrect record returned by FilterRecordsByNameAndStateAsync. Expected Id AFDB2DD8-6B5F-4DEB-88A7-CBC2CD545DA6, got %s", recordList[0].GetId())
+		}
+	}
+}
+
 func TestBulkListImpl_FilterRecordsByName(t *testing.T) {
 	/* prepopulate data */
 	s, err := miniredis.Run()

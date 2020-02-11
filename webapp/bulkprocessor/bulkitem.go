@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
+	"strings"
 )
 
 type BulkItemState int
@@ -25,6 +26,21 @@ var ItemStates = []BulkItemState{
 	ITEM_STATE_ACTIVE,
 	ITEM_STATE_COMPLETED,
 	ITEM_STATE_FAILED,
+}
+
+func ItemStateFromString(incoming string) BulkItemState {
+	switch strings.ToLower(incoming) {
+	case "pending":
+		return ITEM_STATE_PENDING
+	case "active":
+		return ITEM_STATE_ACTIVE
+	case "completed":
+		return ITEM_STATE_COMPLETED
+	case "failed":
+		return ITEM_STATE_FAILED
+	default:
+		return ITEM_STATE_PENDING
+	}
 }
 
 type BulkItem interface {

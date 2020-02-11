@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/deckarep/golang-set"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"log"
@@ -19,6 +21,7 @@ type BulkList interface {
 	FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByName(name string, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByNameAsync(name string, redisClient redis.Cmdable) (chan BulkItem, chan error)
+	FilterRecordsByNameAndStateAsync(name string, state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error)
 	CountForAllStates(redisClient redis.Cmdable) (map[BulkItemState]int64, error)
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
@@ -50,56 +53,6 @@ func (list *BulkListImpl) GetId() uuid.UUID {
 
 func (list *BulkListImpl) GetCreationTime() time.Time {
 	return list.CreationTime
-}
-
-func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
-	itemsChan, errorChan := list.GetAllRecordsAsync(redisClient)
-
-	return asyncReceiver(itemsChan, errorChan)
-}
-
-func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
-	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
-	var pageSize int64 = 100
-
-	outputChan := make(chan BulkItem, 10) //set up a buffered channel
-	errorChan := make(chan error)
-
-	go func() {
-		count, countErr := redisClient.ZCard(dbKey).Result()
-		if countErr != nil {
-			log.Printf("ERROR: Could not receive item count for batch %s: %s", list.BulkListId, countErr)
-			errorChan <- countErr
-			return
-		}
-		var i int64
-		for i = 0; i < count; i += pageSize {
-			idList, idListErr := redisClient.ZRange(dbKey, i, i+pageSize).Result()
-			if idListErr != nil {
-				errorChan <- idListErr
-				return
-			}
-
-			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
-			if fetchErr != nil {
-				errorChan <- fetchErr
-				return
-			}
-		}
-
-		outputChan <- nil //signify that we are done reading
-	}()
-	return outputChan, errorChan
-}
-
-/**
-synchronous version of FilterRecordsByStateAsync that sets up a return loop for the async function and marshals the
-stream into an array of record pointers
-*/
-func (list *BulkListImpl) FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error) {
-	itemsChan, errorChan := list.FilterRecordsByStateAsync(state, redisClient)
-
-	return asyncReceiver(itemsChan, errorChan)
 }
 
 /**
@@ -158,14 +111,102 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 	return nil
 }
 
+func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
+	itemsChan, errorChan := list.GetAllRecordsAsync(redisClient)
+
+	return asyncReceiver(itemsChan, errorChan)
+}
+
+func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
+	var pageSize int64 = 100
+
+	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	errorChan := make(chan error)
+
+	go func() {
+		count, countErr := redisClient.ZCard(dbKey).Result()
+		if countErr != nil {
+			log.Printf("ERROR: Could not receive item count for batch %s: %s", list.BulkListId, countErr)
+			errorChan <- countErr
+			return
+		}
+		var i int64
+		for i = 0; i < count; i += pageSize {
+			idList, idListErr := redisClient.ZRange(dbKey, i, i+pageSize).Result()
+			if idListErr != nil {
+				errorChan <- idListErr
+				return
+			}
+
+			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
+			if fetchErr != nil {
+				errorChan <- fetchErr
+				return
+			}
+		}
+
+		outputChan <- nil //signify that we are done reading
+	}()
+	return outputChan, errorChan
+}
+
+/**
+synchronous version of FilterRecordsByStateAsync that sets up a return loop for the async function and marshals the
+stream into an array of record pointers
+*/
+func (list *BulkListImpl) FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error) {
+	itemsChan, errorChan := list.FilterRecordsByStateAsync(state, redisClient)
+
+	return asyncReceiver(itemsChan, errorChan)
+}
+
 /**
 asynchronously reads the records in the given state and returns them via a channel
 */
 func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	errorChan := make(chan error)
+
+	idListChan, idListErrChan := list.filterIdsByState(state, redisClient)
+
+	go func() {
+		var idList []string
+		terminate := false
+		for {
+			select {
+			case recordId := <-idListChan:
+				log.Printf("received %s", spew.Sdump(recordId))
+				if recordId == nil {
+					terminate = true
+					break
+				}
+				idList = append(idList, *recordId)
+			case err := <-idListErrChan:
+				errorChan <- err
+				return
+			}
+			if terminate {
+				break
+			}
+		}
+
+		fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
+		if fetchErr != nil {
+			errorChan <- fetchErr
+			return
+		}
+		outputChan <- nil
+	}()
+
+	return outputChan, errorChan
+}
+
+func (list *BulkListImpl) filterIdsByState(state BulkItemState, redisClient redis.Cmdable) (chan *string, chan error) {
 	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:state:%d", list.BulkListId, state)
 	var pageSize int64 = 100
 
-	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	outputChan := make(chan *string, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
 	go func() {
@@ -185,15 +226,14 @@ func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisCl
 				errorChan <- idListErr
 				return
 			}
-
-			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
-			if fetchErr != nil {
-				errorChan <- fetchErr
-				return
+			for _, id := range idList {
+				newValue := id
+				outputChan <- &newValue
 			}
 		}
 
 		outputChan <- nil //signify that we are done reading
+		log.Printf("DEBUG: done fetching ids by state")
 	}()
 
 	return outputChan, errorChan
@@ -212,14 +252,91 @@ if the operation fails
 */
 func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient redis.Cmdable) (chan BulkItem, chan error) {
 	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
+
+	idChan, idErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
+	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	errorChan := make(chan error)
+
+	go func() {
+		var idList []string
+		retrieveErr := func() error {
+			for {
+				select {
+				case nextId := <-idChan:
+					if nextId == nil {
+						return nil
+					}
+					idList = append(idList, *nextId)
+				case idListErr := <-idErrChan:
+					return idListErr
+				}
+			}
+		}()
+
+		if retrieveErr != nil {
+			errorChan <- retrieveErr
+			return
+		}
+
+		fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
+		if fetchErr != nil {
+			errorChan <- fetchErr
+			return
+		}
+
+		outputChan <- nil //signify that we are done reading
+	}()
+
+	return outputChan, errorChan
+}
+
+/*
+internal method that finds the index entries matching the given querystring
+*/
+func (list *BulkListImpl) filterIdsByName(queryString string, xtractor *regexp.Regexp, cursor uint64, dbKey string, pageSize int64, redisClient redis.Cmdable) ([]string, uint64, error) {
+	for {
+		var keys []string
+		var scanErr error
+
+		keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, queryString, pageSize).Result()
+
+		if scanErr != nil {
+			return nil, 0, scanErr
+		}
+
+		idList := make([]string, len(keys))
+		for i, key := range keys {
+			xtracted := xtractor.FindAllStringSubmatch(key, -1)
+			if xtracted == nil {
+				log.Printf("WARNING: Invalid data in filepath index: %s", key)
+			} else {
+				//we are only interested in validating that the data parses as a uuid, as we'd only have to convert it straight
+				//back again afterwards
+				_, uuidErr := uuid.Parse(xtracted[0][2])
+				if uuidErr != nil {
+					log.Printf("WARNING: could not parse uuid: %s", uuidErr)
+				} else {
+					idList[i] = xtracted[0][2]
+				}
+			}
+		}
+		return idList, cursor, nil
+	}
+}
+
+/**
+internal method to fetch the uuids of items matching the given name prefix
+*/
+func (list *BulkListImpl) fetchIdsMatchingNames(namePart string, dbKey string, redisClient redis.Cmdable) (chan *string, chan error) {
 	var pageSize int64 = 100
 
-	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	outputChan := make(chan *string, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
 	go func() {
 		xtractor := regexp.MustCompile("(?P<sourcepath>.*)\\|(?P<itemId>[\\w\\d\\-]+)")
 
+		var cursor uint64 = 0
 		var queryString string
 		if strings.HasSuffix(namePart, "*") {
 			queryString = namePart
@@ -227,46 +344,84 @@ func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient 
 			queryString = namePart + "|*"
 		}
 
-		var cursor uint64 = 0
 		for {
-			var keys []string
-			var scanErr error
-
-			keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, queryString, pageSize).Result()
-
-			if scanErr != nil {
-				errorChan <- scanErr
+			idList, cursor, err := list.filterIdsByName(queryString, xtractor, cursor, dbKey, pageSize, redisClient)
+			if err != nil {
+				errorChan <- err
 				return
 			}
-
-			idList := make([]string, len(keys))
-			for i, key := range keys {
-				xtracted := xtractor.FindAllStringSubmatch(key, -1)
-				if xtracted == nil {
-					log.Printf("WARNING: Invalid data in filepath index: %s", key)
-				} else {
-					//we are only interested in validating that the data parses as a uuid, as we'd only have to convert it straight
-					//back again afterwards
-					_, uuidErr := uuid.Parse(xtracted[0][2])
-					if uuidErr != nil {
-						log.Printf("WARNING: could not parse uuid: %s", uuidErr)
-					} else {
-						idList[i] = xtracted[0][2]
-					}
-				}
-			}
-
-			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
-			if fetchErr != nil {
-				errorChan <- fetchErr
-				return
+			for _, idString := range idList {
+				newString := idString //it's necessary to copy the value out here.
+				// idString is mutable and changes on each iteration, so taking its address
+				//will point to the mutable data not the actual value that came through
+				outputChan <- &newString
 			}
 			if cursor == 0 {
 				break
 			}
 		}
+		outputChan <- nil
+	}()
+	return outputChan, errorChan
+}
 
-		outputChan <- nil //signify that we are done reading
+func (list *BulkListImpl) FilterRecordsByNameAndStateAsync(namePart string, state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
+	//var pageSize int64 = 100
+
+	outputChan := make(chan BulkItem, 10) //set up a buffered channel
+	errorChan := make(chan error)
+
+	idsMatchingNameChan, nameMatchErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
+	idsMatchingStateChan, stateMatchErrChan := list.filterIdsByState(state, redisClient)
+
+	go func() {
+		nameMatchesSet := mapset.NewThreadUnsafeSet()
+		stateMatchesSet := mapset.NewThreadUnsafeSet()
+		terminate := []bool{false, false}
+		for {
+			select {
+			case idMatchingName := <-idsMatchingNameChan:
+				if idMatchingName == nil {
+					terminate[0] = true
+				} else {
+					nameMatchesSet.Add(*idMatchingName)
+				}
+			case nameMatchErr := <-nameMatchErrChan:
+				errorChan <- nameMatchErr
+				terminate[0] = true
+			case idMatchingState := <-idsMatchingStateChan:
+				if idMatchingState == nil {
+					terminate[1] = true
+				} else {
+					stateMatchesSet.Add(*idMatchingState)
+				}
+			case idMatchErr := <-stateMatchErrChan:
+				errorChan <- idMatchErr
+				terminate[1] = true
+			}
+			if terminate[0] && terminate[1] {
+				break
+			}
+		}
+
+		matches := nameMatchesSet.Intersect(stateMatchesSet)
+
+		idList := make([]string, matches.Cardinality())
+		i := 0
+		for value := range matches.Iter() {
+			if matchingId, isOk := value.(string); isOk {
+				idList[i] = matchingId
+				i += 1
+			}
+		}
+
+		err := list.BatchFetchRecords(idList, &outputChan, redisClient)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		outputChan <- nil
 	}()
 
 	return outputChan, errorChan
@@ -403,7 +558,17 @@ func (list *BulkListImpl) Store(redisClient redis.Cmdable) error {
 		return marshalErr
 	}
 
-	_, putErr := redisClient.Set(dbKey, string(content), -1).Result()
+	pipe := redisClient.Pipeline()
+	defer pipe.Close()
+
+	pipe.Set(dbKey, string(content), -1).Result()
+	pipe.ZAdd("mediaflipper:bulklist:timeindex", &redis.Z{
+		Score:  float64(list.CreationTime.Unix()),
+		Member: list.BulkListId.String(),
+	})
+
+	_, putErr := pipe.Exec()
+
 	if putErr != nil {
 		return putErr
 	}
@@ -427,4 +592,36 @@ func BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error) {
 		return nil, unMarshalErr
 	}
 	return &rtn, nil
+}
+
+func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImpl, error) {
+	idList, listErr := client.ZRange("mediaflipper:bulklist:timeindex", start, stop).Result()
+	if listErr != nil {
+		return nil, listErr
+	}
+
+	pipe := client.Pipeline()
+	defer pipe.Close()
+
+	for _, listId := range idList {
+		dataKey := fmt.Sprintf("mediaflipper:bulkitem:%s", listId)
+		pipe.Get(dataKey)
+	}
+
+	getResults, getErr := pipe.Exec()
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	results := make([]*BulkListImpl, len(getResults))
+	for i, getResult := range getResults {
+		r := getResult.(*redis.StringCmd)
+		content := r.String()
+		marshalErr := json.Unmarshal([]byte(content), &results[i])
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+	}
+
+	return results, nil
 }

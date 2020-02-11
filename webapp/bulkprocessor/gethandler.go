@@ -2,23 +2,12 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
-	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"net/http"
-	"time"
 )
 
 type GetHandler struct {
 	redisClient *redis.Client
-}
-
-type BulkListGetResponse struct {
-	BulkListId     uuid.UUID `json:"bulkListId"`
-	CreationTime   time.Time `json:"creationTime"`
-	PendingCount   int64     `json:"pendingCount"`
-	ActiveCount    int64     `json:"activeCount"`
-	CompletedCount int64     `json:"completedCount"`
-	ErrorCount     int64     `json:"errorCount"`
 }
 
 func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
