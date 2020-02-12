@@ -25,7 +25,7 @@ ul.batch-list {
     grid-row-end: span top-row;
 }
 
-div.batch-entry-container {
+.batch-entry-container {
     display: flex;
     max-width: 600px;
 }
@@ -34,6 +34,11 @@ div.batch-entry-container {
     flex: 1
 }
 
+.batch-entry-cell.icon {
+    flex: 1;
+    align-self: center;
+    max-width: 32px;
+}
 .batch-entry-cell.baseline {
     flex: 3
 }
@@ -51,4 +56,11 @@ div.batch-entry-container {
 
 .status-summary-entry {
     flex: 1
+}
+
+.batch-master-container {
+    display: flex;
+    max-width: 1200px;
+    border-top: 1px solid black;
+    padding-top: 0.4em;
 }

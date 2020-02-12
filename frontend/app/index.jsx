@@ -6,13 +6,13 @@ import RootComponent from "./RootComponent.jsx";
 import css from './approot.css';
 import JobList from "./JobList/JobList.jsx";
 import QuickTranscode from "./QuickTranscode/QuickTranscode.jsx";
-import { faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown, faWrench, faTools, faCheckCircle, faTimesCircle,faPauseCircle, faPlayCircle } from '@fortawesome/free-solid-svg-icons'
+import { faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown, faWrench, faTools, faCheckCircle, faTimesCircle,faPauseCircle, faPlayCircle, faLayerGroup } from '@fortawesome/free-solid-svg-icons'
 import BatchListMain from "./BatchList/BatchListMain.jsx";
 import BatchEdit from "./BatchList/BatchEdit.jsx";
 import BatchNew  from "./BatchList/BatchNew.jsx";
 //import { faPauseCircle } from "@fortawesome/free-regular-svg-icons";
 
-library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown,faWrench, faTools, faCheckCircle, faTimesCircle, faPauseCircle, faPlayCircle);
+library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown,faWrench, faTools, faCheckCircle, faTimesCircle, faPauseCircle, faPlayCircle, faLayerGroup);
 
 class App extends React.Component {
     render() {

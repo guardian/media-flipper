@@ -37,6 +37,8 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rsp := BulkListGetResponse{
 		BulkListId:     listPtr.GetId(),
 		CreationTime:   listPtr.GetCreationTime(),
+		NickName:       listPtr.GetNickName(),
+		TemplateId:     listPtr.GetTemplateId(),
 		PendingCount:   itemStats[ITEM_STATE_PENDING],
 		ActiveCount:    itemStats[ITEM_STATE_ACTIVE],
 		CompletedCount: itemStats[ITEM_STATE_COMPLETED],

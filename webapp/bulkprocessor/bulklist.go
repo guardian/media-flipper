@@ -30,6 +30,11 @@ type BulkList interface {
 	GetId() uuid.UUID
 	GetCreationTime() time.Time
 	Store(redisClient redis.Cmdable) error
+
+	GetNickName() string
+	SetNickName(newName string)
+	GetTemplateId() uuid.UUID
+	SetTemplateId(newId uuid.UUID)
 }
 
 /*
@@ -43,9 +48,10 @@ proposed indexing structure:
 */
 
 type BulkListImpl struct {
-	BulkListId   uuid.UUID
-	CreationTime time.Time
-	NickName     string
+	BulkListId   uuid.UUID `json:"bulkListId"`
+	CreationTime time.Time `json:"creationTime"`
+	NickName     string    `json:"nickName"`
+	TemplateId   uuid.UUID `json:"templateId"`
 }
 
 func (list *BulkListImpl) GetId() uuid.UUID {
@@ -54,6 +60,22 @@ func (list *BulkListImpl) GetId() uuid.UUID {
 
 func (list *BulkListImpl) GetCreationTime() time.Time {
 	return list.CreationTime
+}
+
+func (list *BulkListImpl) GetNickName() string {
+	return list.NickName
+}
+
+func (list *BulkListImpl) SetNickName(newName string) {
+	list.NickName = newName
+}
+
+func (list *BulkListImpl) GetTemplateId() uuid.UUID {
+	return list.TemplateId
+}
+
+func (list *BulkListImpl) SetTemplateId(newId uuid.UUID) {
+	list.TemplateId = newId
 }
 
 /**

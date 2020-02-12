@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import MenuBanner from "../MenuBanner.jsx";
 import css from "./BatchList.css";
 import {Link} from 'react-router-dom';
+import BatchListEntry from "./BatchListEntry.jsx";
 
 class BatchListMain extends React.Component {
     constructor(props) {
@@ -43,12 +44,12 @@ class BatchListMain extends React.Component {
     render() {
         return <div>
             <MenuBanner/>
-            <div  className="batch-processing-grid">
+            <div className="batch-processing-grid">
                 <h1 className="banner-header">Batch Processing</h1>
                 <Link className="clickable button" style={{display: "inline", padding: "0.4em", textDecoration: "none"}} to="/batch/new">New batch...</Link>
                 <ul className="batch-list">
                     {
-                        this.state.batches.map(entry=><li key={entry.id}>{entry.id}</li>)
+                        this.state.batches.map(entry=><BatchListEntry entry={entry}/>)
                     }
                 </ul>
             </div>

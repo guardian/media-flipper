@@ -10,6 +10,7 @@ type BulkEndpoints struct {
 	UploadHandler   BulkListUploader
 	ListHandler     ListHandler
 	ContentsHandler ContentsHandler
+	UpdateHandler   UpdateHandler
 }
 
 func NewBulkEndpoints(redisClient *redis.Client) BulkEndpoints {
@@ -18,6 +19,7 @@ func NewBulkEndpoints(redisClient *redis.Client) BulkEndpoints {
 		UploadHandler:   BulkListUploader{redisClient: redisClient},
 		ListHandler:     ListHandler{redisClient: redisClient},
 		ContentsHandler: ContentsHandler{redisClient: redisClient},
+		UpdateHandler:   UpdateHandler{redisClient: redisClient},
 	}
 }
 
@@ -26,4 +28,5 @@ func (e BulkEndpoints) WireUp(baseUrl string) {
 	http.Handle(baseUrl+"/upload", e.UploadHandler)
 	http.Handle(baseUrl+"/list", e.ListHandler)
 	http.Handle(baseUrl+"/content", e.ContentsHandler)
+	http.Handle(baseUrl+"/update", e.UpdateHandler)
 }

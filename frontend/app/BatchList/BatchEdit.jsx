@@ -6,6 +6,7 @@ import BatchEntry from "./BatchEntry.jsx";
 import css from "../gridform.css";
 import moment from 'moment';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import BatchStatusSummary from "./BatchStatusSummary.jsx";
 
 class BatchEdit extends React.Component {
     constructor(props){
@@ -17,6 +18,7 @@ class BatchEdit extends React.Component {
             batchId: "",
             batchCreated: "",
             batchNickname: "",
+            templateId: "",
             pendingCount: 0,
             activeCount: 0,
             completedCount: 0,
@@ -32,6 +34,36 @@ class BatchEdit extends React.Component {
         return new Promise((resolve, reject)=>this.setState(newState, ()=>resolve()))
     }
 
+    async storeUpdatedInfo() {
+        await this.setStatePromise({loading: true});
+        const request = JSON.stringify({"nickName": this.state.batchNickname, "templateId": this.state.templateId});
+        const response = await fetch("/api/bulk/update?forId=" + this.state.batchId, {
+            body: request,
+            method: "POST",
+            headers: {"Content-Type": "application/json" },
+        });
+
+        if(response.status===200) {
+            await response.body.cancel(); //don't actually care about the content
+            console.log("update saved");
+            return this.setStatePromise({loading: false, lastError: null});
+        } else {
+            const responseText = response.text();
+            try {
+                const content = JSON.parse(responseText);
+                return this.setStatePromise({loading: false, lastError: content.detail});
+            } catch(e) {
+                return this.setStatePromise({loading: false, lastError: responseText});
+            }
+        }
+    }
+
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        if(this.state.batchNickname!==prevState.batchNickname || this.state.template!==prevState.template) {
+            this.storeUpdatedInfo();
+        }
+    }
+
     async loadExistingData(batchId) {
         await this.setStatePromise({loading: true});
         const response = await fetch("/api/bulk/get?forId=" + batchId);
@@ -41,6 +73,8 @@ class BatchEdit extends React.Component {
                 loading: false,
                 lastError: null,
                 batchId: content.bulkListId,
+                batchNickname: content.nickName,
+                templateId: content.template,
                 batchCreated: content.creationTime,
                 pendingCount: content.pendingCount,
                 activeCount: content.activeCount,
@@ -108,12 +142,7 @@ class BatchEdit extends React.Component {
                 <label className="grid-form-label" htmlFor="created">Created at</label>
                 <span id="created" className="grid-form-control">{moment(this.state.batchCreated).format("ddd, MMM Do YYYY, h:mm:ss a")}</span>
                 <label className="grid-form-label" htmlFor="status">Status</label>
-                <ul className="status-summary-container grid-form-control">
-                    <li className="status-summary-entry"><FontAwesomeIcon icon="pause-circle" className="inline-icon" style={{color: "darkblue"}}/>{this.state.pendingCount} items pending</li>
-                    <li className="status-summary-entry"><FontAwesomeIcon icon="play-circle" className="inline-icon" style={{color: "darkgreen"}}/>{this.state.activeCount} items active</li>
-                    <li className="status-summary-entry"><FontAwesomeIcon icon="check-circle" className="inline-icon" style={{color: "darkgreen"}}/>{this.state.completedCount} items completed</li>
-                    <li className="status-summary-entry"><FontAwesomeIcon icon="times-circle" className="inline-icon" style={{color: "darkred"}}/>{this.state.errorCount} items failed</li>
-                </ul>
+                <BatchStatusSummary batchStatus={this.state} className="grid-form-control"/>
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
                 <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>
             </div>

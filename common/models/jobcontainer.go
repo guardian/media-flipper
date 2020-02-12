@@ -35,15 +35,16 @@ const (
 
 //containers are initiated from JobTemplateManager, so there is no New function
 type JobContainer struct {
-	Id                uuid.UUID  `json:"id"`
-	Steps             []JobStep  `json:"steps"`
-	CompletedSteps    int        `json:"completed_steps"`
-	Status            JobStatus  `json:"status"`
-	JobTemplateId     uuid.UUID  `json:"templateId"`
-	ErrorMessage      string     `json:"error_message"`
-	IncomingMediaFile string     `json:"incoming_media_file"`
-	StartTime         *time.Time `json:"start_time"`
-	EndTime           *time.Time `json:"end_time"`
+	Id                 uuid.UUID  `json:"id"`
+	Steps              []JobStep  `json:"steps"`
+	CompletedSteps     int        `json:"completed_steps"`
+	Status             JobStatus  `json:"status"`
+	JobTemplateId      uuid.UUID  `json:"templateId"`
+	ErrorMessage       string     `json:"error_message"`
+	IncomingMediaFile  string     `json:"incoming_media_file"`
+	StartTime          *time.Time `json:"start_time"`
+	EndTime            *time.Time `json:"end_time"`
+	AssociatedBulkItem *uuid.UUID `json:"associated_bulk_item"`
 }
 
 func (c JobContainer) Store(redisClient *redis.Client) error {
