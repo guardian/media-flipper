@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v7"
-	models2 "github.com/guardian/mediaflipper/common/models"
-	_ "github.com/jinzhu/copier"
+	"github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"reflect"
@@ -17,14 +16,14 @@ type JobRunner struct {
 	k8client        *kubernetes.Clientset
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
-	templateMgr     *models2.JobTemplateManager
+	templateMgr     *models.JobTemplateManager
 	maxJobs         int32
 }
 
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models2.JobTemplateManager, channelBuffer int, maxJobs int32) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, channelBuffer int, maxJobs int32, runProcessor bool) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
@@ -36,14 +35,16 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 		templateMgr:     templateManager,
 		maxJobs:         maxJobs,
 	}
-	go runner.requestProcessor()
+	if runProcessor {
+		go runner.requestProcessor()
+	}
 	return runner
 }
 
 /**
 add the provided JobEntry to the queue for processing
 */
-func (j *JobRunner) AddJob(container *models2.JobContainer) error {
+func (j *JobRunner) AddJob(container *models.JobContainer) error {
 	result := pushToRequestQueue(j.redisClient, container)
 	log.Printf("Enqueued job for processing: %s", container.Id)
 	return result
@@ -67,14 +68,20 @@ func (j *JobRunner) requestProcessor() {
 /**
 trigger the action for a given item and put it onto the running queue if successful
 */
-func (j *JobRunner) actionRequest(container *models2.JobContainer) error {
+func (j *JobRunner) actionRequest(container *models.JobContainer) error {
 	initialStep := container.InitialStep()
-	//log.Printf("actionRequest: initialStep is %s", spew.Sdump(initialStep))
-	return j.actionStep(initialStep)
+	if initialStep == nil {
+		log.Printf("WARNING: Job %s from template %s had no steps!", container.Id.String(), container.JobTemplateId.String())
+		return errors.New("job had no steps!")
+	} else {
+		return j.actionStep(initialStep)
+	}
 }
 
-func (j *JobRunner) actionStep(step models2.JobStep) error {
-	analysisJob, isAnalysis := step.(*models2.JobStepAnalysis)
+func (j *JobRunner) actionStep(step models.JobStep) error {
+	analysisJob, isAnalysis := step.(*models.JobStepAnalysis)
+	var newQueueEntry *models.JobQueueEntry
+
 	if isAnalysis {
 		err := CreateAnalysisJob(*analysisJob, j.k8client)
 		if err != nil {
@@ -82,15 +89,14 @@ func (j *JobRunner) actionStep(step models2.JobStep) error {
 			return err
 		}
 		log.Printf("External job created for %s with type analysis", analysisJob.JobStepId)
-		pushErr := pushToRunningQueue(j.redisClient, &step)
-		if pushErr != nil {
-			log.Print("Could not save job to queue: ", pushErr)
-			return err
+		newQueueEntry = &models.JobQueueEntry{
+			JobId:  step.ContainerId(),
+			StepId: step.StepId(),
+			Status: models.JOB_PENDING,
 		}
-		return nil
 	}
 
-	thumbJob, isThumb := step.(*models2.JobStepThumbnail)
+	thumbJob, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
 		err := CreateThumbnailJob(*thumbJob, j.k8client)
 		if err != nil {
@@ -98,15 +104,14 @@ func (j *JobRunner) actionStep(step models2.JobStep) error {
 			return err
 		}
 		log.Printf("External job created for %s with type thumbnail", thumbJob.JobStepId)
-		pushErr := pushToRunningQueue(j.redisClient, &step)
-		if pushErr != nil {
-			log.Print("Could not save job to queue: ", pushErr)
-			return err
+		newQueueEntry = &models.JobQueueEntry{
+			JobId:  step.ContainerId(),
+			StepId: step.StepId(),
+			Status: models.JOB_PENDING,
 		}
-		return nil
 	}
 
-	tcJob, isTc := step.(*models2.JobStepTranscode)
+	tcJob, isTc := step.(*models.JobStepTranscode)
 	if isTc {
 		err := CreateTranscodeJob(*tcJob, j.k8client)
 		if err != nil {
@@ -114,15 +119,23 @@ func (j *JobRunner) actionStep(step models2.JobStep) error {
 			return err
 		}
 		log.Printf("External job created for %s with type transcode", tcJob.JobStepId)
-		pushErr := pushToRunningQueue(j.redisClient, &step)
-		if pushErr != nil {
-			log.Print("Could not save job to queue: ", pushErr)
-			return err
+		newQueueEntry = &models.JobQueueEntry{
+			JobId:  step.ContainerId(),
+			StepId: step.StepId(),
+			Status: models.JOB_PENDING,
 		}
-		return nil
 	}
 
-	return errors.New(fmt.Sprintf("Did not recognise step type %s", reflect.TypeOf(step)))
+	if newQueueEntry != nil {
+		pushErr := models.AddToQueue(j.redisClient, models.RUNNING_QUEUE, *newQueueEntry)
+		if pushErr != nil {
+			log.Printf("ERROR: Could not add to running queue: %s", pushErr)
+			return pushErr
+		}
+		return nil
+	} else {
+		return errors.New(fmt.Sprintf("Did not recognise step type %s", reflect.TypeOf(step)))
+	}
 }
 
 func (j *JobRunner) clearCompletedTick() {
@@ -132,7 +145,7 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
-	set, checkErr := CheckQueueLock(j.redisClient, RUNNING_QUEUE)
+	set, checkErr := models.CheckQueueLock(j.redisClient, models.RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
 		return
@@ -143,51 +156,49 @@ func (j *JobRunner) clearCompletedTick() {
 		return
 	}
 
-	SetQueueLock(j.redisClient, RUNNING_QUEUE)
+	models.SetQueueLock(j.redisClient, models.RUNNING_QUEUE)
 
-	queueSnapshot, snapErr := copyRunningQueueContent(j.redisClient)
+	queueSnapshot, snapErr := models.SnapshotQueue(j.redisClient, models.RUNNING_QUEUE)
 	if snapErr != nil {
 		log.Printf("ERROR: Could not clear completed jobs, queue snapshot gave an error")
 		return
 	}
 
-	defer ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
+	defer models.ReleaseQueueLock(j.redisClient, models.RUNNING_QUEUE) //ensure that the lock is always release!
 
-	for _, jobStep := range *queueSnapshot {
-		jobId := jobStep.StepId()
-
-		runners, runErr := FindRunnerFor(jobId, jobClient)
+	for _, queueEntry := range queueSnapshot {
+		runners, runErr := FindRunnerFor(queueEntry.StepId, jobClient)
 		if runErr != nil {
-			log.Print("Could not get runner for ", jobId, ": ", runErr)
+			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
 			continue //proceed to next one, don't abort
 		}
 
 		if len(*runners) > 1 {
-			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), jobId, (*runners)[0].JobUID)
+			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
 		}
 		if len(*runners) == 0 {
-			log.Print("Could not get runner for ", jobId, ": ", runErr)
+			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
 			continue //proceed to next one, don't abort
 		}
 		runner := (*runners)[0]
 		switch runner.Status {
-		case models2.CONTAINER_COMPLETED:
+		case models.CONTAINER_COMPLETED:
 			/*
 				remove the given step from the RUNNING_QUEUE and set its status to complete. Action the next step if there is one
 				or if not complete the job and save.
 			*/
-			removeErr := removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
 
 			if removeErr != nil {
 				log.Printf("Could not remove jobstep from running queue: %s", removeErr)
 			}
 
-			container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
 			if getErr != nil {
-				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+				log.Printf("Could not get job master data for %s: %s", queueEntry.JobId, getErr)
 				continue //pick it up on the next iteration
 			}
-			log.Printf("External job step %s completed", jobStep.StepId())
+			log.Printf("External job step %s completed", queueEntry.StepId)
 			nextStep := container.CompleteStepAndMoveOn() //this updates the internal state of `container`
 
 			storErr := container.Store(j.redisClient)
@@ -202,7 +213,7 @@ func (j *JobRunner) clearCompletedTick() {
 				runErr := j.actionStep(nextStep)
 				if runErr != nil {
 					log.Print("Could not action next step: ", runErr)
-					container.Status = models2.JOB_FAILED
+					container.Status = models.JOB_FAILED
 					container.ErrorMessage = runErr.Error()
 					t := time.Now()
 					container.EndTime = &t
@@ -212,17 +223,17 @@ func (j *JobRunner) clearCompletedTick() {
 					}
 				}
 			}
-		case models2.CONTAINER_FAILED:
+		case models.CONTAINER_FAILED:
 			/*
 				remove the given step from the RUNNING_QUEUE, set the job and step status to FAILED and save
 			*/
-			removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
+			models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
 
-			log.Printf("External job step %s failed", jobStep.StepId())
+			log.Printf("External job step %s failed", queueEntry.StepId)
 
-			container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
 			if getErr != nil {
-				log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+				log.Printf("Could not get job master data for %s: %s", queueEntry.JobId, getErr)
 				continue //pick it up on the next iteration
 			}
 			container.FailCurrentStep("Kubernetes container failed")
@@ -233,26 +244,36 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("Job failed and saved")
 			}
 
-		case models2.CONTAINER_ACTIVE:
+		case models.CONTAINER_ACTIVE:
 			/*
 				check the state of the current job step. If it's not STARTED, then update it and the container statuses
 				and save
 			*/
-			if jobStep.Status() != models2.JOB_STARTED {
-				container, getErr := models2.JobContainerForId(jobStep.ContainerId(), j.redisClient)
+
+			if queueEntry.Status != models.JOB_STARTED {
+				container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
 				if getErr != nil {
-					log.Printf("Could not get job master data for %s: %s", jobStep.ContainerId(), getErr)
+					log.Printf("Could not get job master data for %s: %s", queueEntry.JobId, getErr)
 					continue //pick it up on the next iteration
 				}
-				updatedJobStep := jobStep.WithNewStatus(models2.JOB_STARTED, nil)
-				//it's necessary to remove and re-add, beccause list removal in redis is by-value. if the value changes=> we lose it and go out-of-sync with the main model.
-				removeFromQueue(j.redisClient, RUNNING_QUEUE, &jobStep)
-				pushToRunningQueue(j.redisClient, &updatedJobStep)
+				jobStep := container.FindStepById(queueEntry.StepId)
+
+				updatedJobStep := (*jobStep).WithNewStatus(models.JOB_STARTED, nil)
+				//it's necessary to remove and re-add, because list removal in redis is by-value. if the value changes=> we lose it and go out-of-sync with the main model.
+				pipe := j.redisClient.Pipeline()
+				models.RemoveFromQueue(pipe, models.RUNNING_QUEUE, queueEntry) //error handling is done in pipe.Exec()
+				queueEntry.Status = models.JOB_STARTED
+				models.AddToQueue(pipe, models.RUNNING_QUEUE, queueEntry)
+				_, execErr := pipe.Exec()
+				if execErr != nil {
+					log.Printf("ERROR: could not update running queues: %s", execErr)
+					return
+				}
 
 				container.Steps[container.CompletedSteps] = updatedJobStep
 
-				if container.Status != models2.JOB_STARTED {
-					container.Status = models2.JOB_STARTED
+				if container.Status != models.JOB_STARTED {
+					container.Status = models.JOB_STARTED
 					t := time.Now()
 					container.StartTime = &t
 				}
@@ -273,7 +294,7 @@ internal function to process items on the waiting queue, up until we either run 
 max running jobs
 */
 func (j *JobRunner) waitingQueueTick() {
-	set, checkErr := CheckQueueLock(j.redisClient, RUNNING_QUEUE)
+	set, checkErr := models.CheckQueueLock(j.redisClient, models.RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
 		return
@@ -284,10 +305,12 @@ func (j *JobRunner) waitingQueueTick() {
 		return
 	}
 
-	SetQueueLock(j.redisClient, RUNNING_QUEUE)
+	models.SetQueueLock(j.redisClient, models.RUNNING_QUEUE)
+	defer models.ReleaseQueueLock(j.redisClient, models.RUNNING_QUEUE) //ensure that the lock is always released!
 
 	for {
-		queuelen, getErr := getRunningQueueLength(j.redisClient)
+		//need to update and check this every iteration as we are putting stuff onto the queue
+		queuelen, getErr := models.GetQueueLength(j.redisClient, models.RUNNING_QUEUE)
 		if getErr != nil {
 			log.Printf("ERROR: Could not get queue length: %s", getErr)
 			continue
@@ -305,7 +328,7 @@ func (j *JobRunner) waitingQueueTick() {
 				actioningErr := j.actionRequest(newJob)
 				if actioningErr != nil {
 					log.Printf("Could not action job: %s", actioningErr)
-					newJob.Status = models2.JOB_FAILED
+					newJob.Status = models.JOB_FAILED
 					newJob.ErrorMessage = actioningErr.Error()
 					storeErr := newJob.Store(j.redisClient)
 					if storeErr != nil {
@@ -324,5 +347,4 @@ func (j *JobRunner) waitingQueueTick() {
 		}
 	}
 
-	ReleaseQueueLock(j.redisClient, RUNNING_QUEUE)
 }

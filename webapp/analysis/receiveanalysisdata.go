@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"log"
 	"net/http"
 	"reflect"
@@ -128,7 +127,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		completionChan <- newRecord
 	}
 
-	jobrunner.WhenQueueAvailable(h.redisClient, jobrunner.RUNNING_QUEUE, whenQueueReady, true)
+	models2.WhenQueueAvailable(h.redisClient, models2.RUNNING_QUEUE, whenQueueReady, true)
 	//we need to wait for completion or error, otherwise something below us writes out an empty response before the async function can
 	select {
 	case <-completionChan:

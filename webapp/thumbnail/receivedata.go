@@ -6,7 +6,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -137,6 +136,6 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		completionChan <- true
 	}
 
-	jobrunner.WhenQueueAvailable(h.redisClient, jobrunner.RUNNING_QUEUE, whenQueueReady, true)
+	models2.WhenQueueAvailable(h.redisClient, models2.RUNNING_QUEUE, whenQueueReady, true)
 	<-completionChan
 }
