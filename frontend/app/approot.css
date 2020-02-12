@@ -40,3 +40,7 @@ h6 { font-size: 1.0em; }
     overflow: hidden;
     margin-bottom: 0.4em
 }
+
+.emphasis {
+    font-weight: bold;
+}

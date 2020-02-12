@@ -115,7 +115,7 @@ class BatchEdit extends React.Component {
                     <li className="status-summary-entry"><FontAwesomeIcon icon="times-circle" className="inline-icon" style={{color: "darkred"}}/>{this.state.errorCount} items failed</li>
                 </ul>
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
-                <span id="progress" className="grid-form-control"></span>
+                <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>
             </div>
             <ul className="batch-list">
                 {

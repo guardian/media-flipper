@@ -45,6 +45,7 @@ proposed indexing structure:
 type BulkListImpl struct {
 	BulkListId   uuid.UUID
 	CreationTime time.Time
+	NickName     string
 }
 
 func (list *BulkListImpl) GetId() uuid.UUID {
@@ -597,6 +598,7 @@ func BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error) {
 func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImpl, error) {
 	idList, listErr := client.ZRange("mediaflipper:bulklist:timeindex", start, stop).Result()
 	if listErr != nil {
+		log.Print("could not list out timeindex: ", listErr)
 		return nil, listErr
 	}
 
@@ -604,21 +606,23 @@ func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImp
 	defer pipe.Close()
 
 	for _, listId := range idList {
-		dataKey := fmt.Sprintf("mediaflipper:bulkitem:%s", listId)
+		dataKey := fmt.Sprintf("mediaflipper:bulklist:%s", listId)
 		pipe.Get(dataKey)
 	}
 
 	getResults, getErr := pipe.Exec()
 	if getErr != nil {
+		log.Printf("could not retrieve items from datastore: %s. Item list was: %s", getErr, spew.Sdump(idList))
 		return nil, getErr
 	}
 
 	results := make([]*BulkListImpl, len(getResults))
 	for i, getResult := range getResults {
 		r := getResult.(*redis.StringCmd)
-		content := r.String()
+		content, _ := r.Result()
 		marshalErr := json.Unmarshal([]byte(content), &results[i])
 		if marshalErr != nil {
+			log.Printf("could not unmarshal data from store: %s. Offending data was %s", marshalErr, content)
 			return nil, marshalErr
 		}
 	}
