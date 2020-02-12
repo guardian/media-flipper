@@ -73,6 +73,7 @@ func main() {
 	var app MyHttpApp
 
 	kubeConfigPath := flag.String("kubeconfig", "", ".kubeconfig file for running out of cluster. If not specified then in-cluster initialisation will be tried")
+	noProcessor := flag.Bool("noprocessor", false, "set this option to disable background processing of jobs.")
 	flag.Parse()
 
 	/*
@@ -105,7 +106,7 @@ func main() {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
 	}
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 2)
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 10, !(*noProcessor))
 
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"

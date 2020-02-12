@@ -24,7 +24,7 @@ type JobRunner struct {
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models2.JobTemplateManager, channelBuffer int, maxJobs int32) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models2.JobTemplateManager, channelBuffer int, maxJobs int32, runProcessor bool) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
@@ -36,7 +36,9 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 		templateMgr:     templateManager,
 		maxJobs:         maxJobs,
 	}
-	go runner.requestProcessor()
+	if runProcessor {
+		go runner.requestProcessor()
+	}
 	return runner
 }
 

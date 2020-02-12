@@ -110,7 +110,11 @@ func (c *JobContainer) FailCurrentStep(msg string) {
 	nowTime := time.Now()
 	c.EndTime = &nowTime
 	c.ErrorMessage = msg
-	c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_FAILED, &msg)
+	if c.CompletedSteps >= len(c.Steps) {
+		log.Printf("ERROR: Trying to fail current step when all steps have already been processed? Offending data was %s", spew.Sdump(c))
+	} else {
+		c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_FAILED, &msg)
+	}
 }
 
 /**
