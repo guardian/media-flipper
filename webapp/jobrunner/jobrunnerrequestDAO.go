@@ -49,36 +49,12 @@ func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 		return marshalErr
 	}
 
-	return pushToQueue(client, encodedContent, models.REQUEST_QUEUE)
-}
-
-func pushToQueue(client *redis.Client, encodedContent []byte, queueName models.QueueName) error {
-	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
-
-	//log.Printf("DEBUG: Pushed %s to %s", string(encodedContent), jobKey)
+	jobKey := fmt.Sprintf("mediaflipper:%s", models.REQUEST_QUEUE)
 
 	result := client.RPush(jobKey, string(encodedContent))
 	if result.Err() != nil {
 		log.Printf("Could not push to list %s: %s", jobKey, result.Err())
 		return result.Err()
 	}
-	//log.Printf("DEBUG: pushed %s to %s", item.RequestId, queueName)
 	return nil
-}
-
-/**
-download a snapshot of the current queue. it's a good idea to assert the queue lock before taking the snapshot
-and release it when the processing is done, so that the queue content remains valid.
-*/
-func copyQueueContent(client redis.Cmdable, queueName models.QueueName) ([]string, error) {
-	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
-
-	cmd := client.LRange(jobKey, 0, -1)
-	result, err := cmd.Result()
-
-	if err != nil {
-		log.Printf("Could not range %s: %s", jobKey, err)
-		return nil, err
-	}
-	return result, nil
 }

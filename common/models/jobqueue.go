@@ -161,7 +161,9 @@ func ReleaseQueueLock(client *redis.Client, queueName QueueName) {
 
 /*
 block until the given queue lock is available or the timeout occurs
+commented out as nothing is using it at the moment
 */
+/*
 func WaitForQueueLock(client *redis.Client, queueName QueueName, timeout time.Duration) error {
 	timeoutTimer := time.NewTicker(timeout)
 	clearedChannel := make(chan error)
@@ -188,6 +190,7 @@ func WaitForQueueLock(client *redis.Client, queueName QueueName, timeout time.Du
 		return checkErr
 	}
 }
+*/
 
 type QueueLockCallback func(error)
 
