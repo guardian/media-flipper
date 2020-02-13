@@ -56,7 +56,8 @@ ul.batch-list {
 }
 
 .status-summary-entry {
-    flex: 1
+    flex: 1;
+    align-items: center;
 }
 
 .batch-master-container {

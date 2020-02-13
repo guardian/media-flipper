@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+type BulkListAction string
+
+const (
+	REMOVE_SYSTEM_FILES BulkListAction = "remove-system-files"
+	JOBS_QUEUEING       BulkListAction = "jobs-queueing"
+)
+
 type BulkList interface {
 	GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error)
 	GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error)
@@ -31,6 +38,10 @@ type BulkList interface {
 	GetCreationTime() time.Time
 	Store(redisClient redis.Cmdable) error
 	Delete(redisClient redis.Cmdable) error
+
+	SetActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error
+	ClearActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error
+	GetActionsRunning(redisClient redis.Cmdable) ([]BulkListAction, error)
 
 	GetNickName() string
 	SetNickName(newName string)
@@ -77,6 +88,40 @@ func (list *BulkListImpl) GetTemplateId() uuid.UUID {
 
 func (list *BulkListImpl) SetTemplateId(newId uuid.UUID) {
 	list.TemplateId = newId
+}
+
+/**
+set a flag to show that the given action is running
+*/
+func (list *BulkListImpl) SetActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:actions", list.BulkListId)
+	_, err := redisClient.SAdd(dbKey, string(actionName)).Result()
+	return err
+}
+
+/**
+clear the given action running flag
+*/
+func (list *BulkListImpl) ClearActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:actions", list.BulkListId)
+	_, err := redisClient.SRem(dbKey, string(actionName)).Result()
+	return err
+}
+
+/**
+return a list of all running actions
+*/
+func (list *BulkListImpl) GetActionsRunning(redisClient redis.Cmdable) ([]BulkListAction, error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:actions", list.BulkListId)
+	results, _, err := redisClient.SScan(dbKey, 0, "", 999).Result()
+	if err != nil {
+		return nil, err
+	}
+	rtn := make([]BulkListAction, len(results))
+	for i, f := range results {
+		rtn[i] = BulkListAction(f)
+	}
+	return rtn, nil
 }
 
 /**

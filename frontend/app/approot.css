@@ -32,13 +32,22 @@ h6 { font-size: 1.0em; }
     text-align: center;
     background-color: lightgray;
     display: inherit;
-    width: 40%;
+    /*width: 40%;*/
     padding-left: 0.2em;
     padding-right: 0.2em;
     margin-right: auto;
     margin-left: auto;
     overflow: hidden;
     margin-bottom: 0.4em
+}
+
+.button:hover {
+    background-color: darkgray;
+}
+
+.button.disabled {
+    color: gray;
+    background-color: #DDD;
 }
 
 .emphasis {

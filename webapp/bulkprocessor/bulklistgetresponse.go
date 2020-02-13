@@ -14,4 +14,5 @@ type BulkListGetResponse struct {
 	ActiveCount    int64     `json:"activeCount"`
 	CompletedCount int64     `json:"completedCount"`
 	ErrorCount     int64     `json:"errorCount"`
+	RunningActions []string  `json:"runningActions"`
 }

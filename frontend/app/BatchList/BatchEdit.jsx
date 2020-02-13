@@ -4,6 +4,8 @@ import ndjsonStream from "can-ndjson-stream";
 import MenuBanner from "../MenuBanner.jsx";
 import BatchEntry from "./BatchEntry.jsx";
 import css from "../gridform.css";
+import appcss from "../approot.css";
+
 import moment from 'moment';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import BatchStatusSummary from "./BatchStatusSummary.jsx";
@@ -30,10 +32,23 @@ class BatchEdit extends React.Component {
             itemsInPage: 0,
         };
 
+        this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
     }
 
     setStatePromise(newState) {
         return new Promise((resolve, reject)=>this.setState(newState, ()=>resolve()))
+    }
+
+    async triggerRemoveDotFiles() {
+        await this.setStatePromise({loading: true});
+        const response = await fetch("/api/bulk/action/removeDotFiles?forId=" + this.state.batchId, {method: "POST"});
+        if(response.status===200) {
+            await response.body.cancel();
+            await this.loadExistingData(this.state.batchId);
+        } else {
+            const bodyContent = await response.text();
+            await this.setStatePromise({loading: false, lastError: bodyContent});
+        }
     }
 
     async storeUpdatedInfo() {
@@ -81,7 +96,8 @@ class BatchEdit extends React.Component {
                 pendingCount: content.pendingCount,
                 activeCount: content.activeCount,
                 completedCount: content.completedCount,
-                errorCount: content.errorCount
+                errorCount: content.errorCount,
+                removeFilesRunning: content.runningActions.includes("remove-system-files")
             })
         } else {
             try {
@@ -149,6 +165,16 @@ class BatchEdit extends React.Component {
                 <BatchStatusSummary batchStatus={this.state} className="grid-form-control"/>
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
                 <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>
+                <label className="grid-form-label" htmlFor="actions">Actions</label>
+                <span id="actions" className="grid-form-control">
+                    <ul className="status-summary-container">
+                        <li className={this.state.removeFilesRunning ? "status-summary-entry button disabled"  : "status-summary-entry button clickable"}
+                            onClick={this.triggerRemoveDotFiles} style={{marginRight:"2em"}}>
+                            <FontAwesomeIcon icon="minus-circle" style={{padding: "0.4em"}}/>Remove system files
+                        </li>
+                        <li className="status-summary-entry button clickable" onClick={this.triggerEnqueueItems} style={{marginRight:"2em"}}><FontAwesomeIcon icon="play-circle"  style={{padding: "0.4em"}}/>&nbsp;Start jobs running</li>
+                    </ul>
+                </span>
             </div>
             <ul className="batch-list">
                 {

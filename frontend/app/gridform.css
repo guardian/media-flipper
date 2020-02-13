@@ -16,6 +16,7 @@ div.narrow {
 .grid-form-label {
     grid-column-start: label-zone;
     grid-column-end: control-zone;
+    align-self: center;
 }
 
 .grid-form-control {

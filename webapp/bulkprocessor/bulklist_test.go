@@ -503,3 +503,61 @@ func TestBulkListImpl_RemoveRecord(t *testing.T) {
 	}
 
 }
+
+func TestBulkList_RunningActions(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	list := &BulkListImpl{
+		BulkListId:   uuid.MustParse("E813D5AE-360E-439F-A2DE-55556319AADA"),
+		CreationTime: time.Now(),
+		NickName:     "",
+		TemplateId:   uuid.UUID{},
+	}
+
+	preList, preErr := list.GetActionsRunning(testClient)
+	if preErr != nil {
+		t.Error("GetActionsRunning failed unexpectedly: ", preErr)
+		t.FailNow()
+	}
+	if len(preList) != 0 {
+		t.Error("did not get zero-length list for actions running before adding any")
+	}
+
+	addErr := list.SetActionRunning(REMOVE_SYSTEM_FILES, testClient)
+	if addErr != nil {
+		t.Error("SetActionRunning failed unexpectedly: ", addErr)
+	}
+
+	addedList, postErr := list.GetActionsRunning(testClient)
+	if postErr != nil {
+		t.Error("GetActionsRunning failed with something in the list: ", postErr)
+	}
+	if len(addedList) != 1 {
+		t.Error("Got wrong list length, expected 1 got ", len(addedList))
+	} else {
+		if addedList[0] != REMOVE_SYSTEM_FILES {
+			t.Errorf("wrong value in list, expected %s got %s", REMOVE_SYSTEM_FILES, addedList[0])
+		}
+	}
+
+	remErr := list.ClearActionRunning(REMOVE_SYSTEM_FILES, testClient)
+	if remErr != nil {
+		t.Error("ClearActionRunning failed unexpectedly: ", remErr)
+	}
+	lastList, lastErr := list.GetActionsRunning(testClient)
+	if lastErr != nil {
+		t.Error("GetActionsRunning failed after removal: ", lastErr)
+	} else {
+		if len(lastList) != 0 {
+			t.Errorf("Got wrong length of final list. Expected 0, got %d", len(lastList))
+		}
+	}
+}

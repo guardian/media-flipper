@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/helpers"
+	"log"
 	"net/http"
 )
 
@@ -34,6 +35,18 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	runningActions, runningActionsErr := listPtr.GetActionsRunning(h.redisClient)
+	if runningActionsErr != nil {
+		log.Printf("ERROR: could not list running actions: %s", runningActionsErr)
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not retvieve running actions"}, w, 500)
+		return
+	}
+
+	runningActionsStrings := make([]string, len(runningActions))
+	for i, a := range runningActions {
+		runningActionsStrings[i] = string(a)
+	}
+
 	rsp := BulkListGetResponse{
 		BulkListId:     listPtr.GetId(),
 		CreationTime:   listPtr.GetCreationTime(),
@@ -43,6 +56,7 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ActiveCount:    itemStats[ITEM_STATE_ACTIVE],
 		CompletedCount: itemStats[ITEM_STATE_COMPLETED],
 		ErrorCount:     itemStats[ITEM_STATE_FAILED],
+		RunningActions: runningActionsStrings,
 	}
 	helpers.WriteJsonContent(&rsp, w, 200)
 }
