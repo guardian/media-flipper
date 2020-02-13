@@ -30,6 +30,7 @@ type BulkList interface {
 	GetId() uuid.UUID
 	GetCreationTime() time.Time
 	Store(redisClient redis.Cmdable) error
+	Delete(redisClient redis.Cmdable) error
 
 	GetNickName() string
 	SetNickName(newName string)
@@ -114,7 +115,7 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 
 	results, contentErr := pipe.Exec()
 	defer pipe.Close()
-	if contentErr != nil {
+	if contentErr != nil && !strings.Contains(contentErr.Error(), "redis: nil") {
 		log.Printf("Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
 		return contentErr
 	}
@@ -596,6 +597,26 @@ func (list *BulkListImpl) Store(redisClient redis.Cmdable) error {
 		return putErr
 	}
 	return nil
+}
+
+/**
+delete the given list and all its associated indices
+*/
+func (list *BulkListImpl) Delete(redisClient redis.Cmdable) error {
+	pipe := redisClient.Pipeline()
+	defer pipe.Close()
+	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
+	//delete list-specific indices
+	for _, s := range ItemStates {
+		dbKey := fmt.Sprintf("%s:state:%d", baseKey, s)
+		pipe.Del(dbKey)
+	}
+	pipe.Del(baseKey + ":filepathindex")
+	pipe.Del(baseKey + ":index")
+	pipe.Del(baseKey)
+	pipe.ZRem("mediaflipper:bulklist:timeindex", list.BulkListId.String())
+	_, err := pipe.Exec()
+	return err
 }
 
 /**

@@ -21,8 +21,9 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uid, _ := uuid.NewRandom()
 	newBulk := BulkListImpl{
-		BulkListId:   uuid.New(),
+		BulkListId:   uid,
 		CreationTime: time.Now(),
 	}
 	rawLinesChan, rawLinesErrChan := AsyncNewlineReader(r.Body, 10)

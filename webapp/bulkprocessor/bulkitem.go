@@ -45,6 +45,7 @@ func ItemStateFromString(incoming string) BulkItemState {
 
 type BulkItem interface {
 	Store(client redis.Cmdable) error
+	Delete(client redis.Cmdable) error
 	SetState(newState BulkItemState)
 	GetState() BulkItemState
 	UpdateBulkItemId(newId uuid.UUID)
@@ -119,8 +120,10 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 			prio = 999
 		}
 	}
+
+	uid, _ := uuid.NewRandom()
 	return &BulkItemImpl{
-		Id:         uuid.New(),
+		Id:         uid,
 		SourcePath: filepath,
 		Priority:   prio,
 	}
@@ -137,6 +140,12 @@ func (i *BulkItemImpl) Store(client redis.Cmdable) error {
 	content, _ := json.Marshal(i)
 
 	_, err := client.Set(dbKey, string(content), -1).Result()
+	return err
+}
+
+func (i *BulkItemImpl) Delete(client redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:bulkitem:%s", i.Id.String())
+	_, err := client.Del(dbKey).Result()
 	return err
 }
 

@@ -28,6 +28,7 @@ ul.batch-list {
 .batch-entry-container {
     display: flex;
     max-width: 600px;
+    margin-bottom: 0.8em;
 }
 
 .batch-entry-cell.mini {
@@ -63,4 +64,24 @@ ul.batch-list {
     max-width: 1200px;
     border-top: 1px solid black;
     padding-top: 0.4em;
+}
+
+.item-display-grid {
+    display: grid;
+    grid-template-columns: [icon] 24px [content] auto [end];
+    grid-template-rows:  auto;
+}
+
+.item-display-element.icon {
+    grid-column-start: icon;
+    grid-column-end: content;
+}
+
+.item-display-element.content {
+    grid-column-start: content;
+    grid-column-end: end;
+}
+
+.dot-file {
+    color: slategray;
 }

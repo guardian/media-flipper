@@ -44,3 +44,14 @@ h6 { font-size: 1.0em; }
 .emphasis {
     font-weight: bold;
 }
+
+p.small {
+    font-weight: lighter;
+    font-size: 0.8em;
+}
+.no-spacing {
+    margin-top: 0;
+    margin-bottom:0;
+    padding-top:0;
+    padding-bottom: 0;
+}

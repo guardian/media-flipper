@@ -25,7 +25,9 @@ class BatchEdit extends React.Component {
             errorCount: 0,
             entries: [],
             currentReader: null,
-            currentAbort: null
+            currentAbort: null,
+            pageItemsLimit: 100,
+            itemsInPage: 0,
         };
 
     }
@@ -104,25 +106,27 @@ class BatchEdit extends React.Component {
 
         await this.setStatePromise({currentReader: reader, currentAbort: abortController});
 
-        function readNextChunk(reader) {
+        function readNextChunk(reader, currentCount) {
             reader.read().then(({done, value}) =>{
+                console.log(currentCount);
                 if(value) {
-                    console.log("Got ", value);
+                    //console.log("Got ", value);
                     this.setState(oldState=>{
-                        return {entries: oldState.entries.concat([value])}
+                        return {entries: oldState.entries.concat([value]), itemsInPage: oldState.items +1}
+                    }, ()=>{
+                        if(done || currentCount>=this.state.pageItemsLimit-1) {
+                            this.setState({loading: false, lastError: null});
+                        } else {
+                            readNextChunk(reader, currentCount+1);
+                        }
                     })
                 } else {
                     console.warn("Got no data");
                 }
-                if(done) {
-                    this.setState({loading: false, lastError: null});
-                } else {
-                    readNextChunk(reader);
-                }
             })
         }
         readNextChunk = readNextChunk.bind(this);
-        readNextChunk(reader);
+        readNextChunk(reader,0);
     }
 
     componentDidMount() {
