@@ -34,6 +34,7 @@ type BulkList interface {
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
 	AddRecord(record BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
+	ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error)
 	GetId() uuid.UUID
 	GetCreationTime() time.Time
 	Store(redisClient redis.Cmdable) error
@@ -589,6 +590,19 @@ func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdabl
 	} else {
 		return nil
 	}
+}
+
+func (list *BulkListImpl) ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index")
+	rank, err := redisClient.ZRank(dbKey, id.String()).Result()
+	if err != nil {
+		if strings.Contains(err.Error(), "redis: nil") {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	return rank > 0, nil
 }
 
 func (list *BulkListImpl) CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error) {

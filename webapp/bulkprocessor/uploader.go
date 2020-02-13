@@ -1,7 +1,6 @@
 package bulkprocessor
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
@@ -9,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	//"golang.org/x/text/encoding/charmap"
 )
 
 type BulkListUploader struct {
@@ -26,7 +26,9 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		BulkListId:   uid,
 		CreationTime: time.Now(),
 	}
-	rawLinesChan, rawLinesErrChan := AsyncNewlineReader(r.Body, 10)
+
+	//_ := charmap.ISO8859_1.NewDecoder()
+	rawLinesChan, rawLinesErrChan := AsyncNewlineReader(r.Body, nil, 10)
 
 	completedChan := make(chan error)
 
@@ -54,6 +56,23 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
+testing, frontend has been reporting duped uuids; is this in the retrieval or setting? this will tell us.
+*/
+func guaranteedGoodItem(linePtr *string, bulkList BulkList, redisClient redis.Cmdable) (BulkItem, error) {
+	newItem := NewBulkItem(*linePtr, -1)
+	alreadyExists, existErr := bulkList.ExistsInIndex(newItem.GetId(), redisClient)
+	if existErr != nil {
+		log.Printf("ERROR: unable to check index!")
+		return nil, existErr
+	}
+	if alreadyExists {
+		return guaranteedGoodItem(linePtr, bulkList, redisClient)
+	} else {
+		return newItem, nil
+	}
+}
+
+/**
 async goroutine that receives data from either a stream of file-lines or its corresponding error channel and adds content
 to the given BulkList
 */
@@ -65,14 +84,18 @@ func asyncInputProcessor(bulkList BulkList, completedChan chan error, rawLinesCh
 			completedChan <- readErr
 			return
 		case linePtr := <-rawLinesChan:
-			log.Printf("Got %s", spew.Sdump(linePtr))
+			//log.Printf("Got %s", spew.Sdump(linePtr))
 			if linePtr == nil {
 				completedChan <- nil
 				return
 			} else {
 				trimmedFilename := strings.TrimSpace(*linePtr)
 				if len(trimmedFilename) > 1 && !strings.HasPrefix(trimmedFilename, "#") {
-					newItem := NewBulkItem(*linePtr, -1)
+					newItem, checkErr := guaranteedGoodItem(linePtr, bulkList, redisClient)
+					if checkErr != nil {
+						completedChan <- checkErr
+						return
+					}
 					addErr := bulkList.AddRecord(newItem, redisClient)
 					if addErr != nil {
 						log.Printf("Could not add new item to bulk: %s", addErr)

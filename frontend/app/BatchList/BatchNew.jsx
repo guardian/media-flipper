@@ -25,7 +25,7 @@ class BatchNew extends React.Component {
 
     async fileReadCompleted(data) {
         console.log("file ready to upload: ", data);
-        const response = await fetch("/api/bulk/upload", {method:"POST", body: data, headers:{"Content-Type":"application/text"}});
+        const response = await fetch("/api/bulk/upload", {method:"POST", body: data, headers:{"Content-Type":"application/text; charset=ISO-8859-1"}});
 
 
         if(response.status<200 || response.status>299){
@@ -57,7 +57,6 @@ class BatchNew extends React.Component {
                                           loadStart={(file)=>this.setState({uploading: true})}
                                           loadCompleted={this.fileReadCompleted}/>
                     <label htmlFor="upload-box"><FontAwesomeIcon icon="upload" style={{marginRight: "4px"}}/>Upload a list of filenames</label>
-
                         <span className="error-text" style={{display: this.state.lastError ? "block" : "none"}}>{this.state.lastError}</span>
                     </div>
             </div>
