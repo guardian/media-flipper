@@ -9,6 +9,7 @@ import appcss from "../approot.css";
 import moment from 'moment';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import BatchStatusSummary from "./BatchStatusSummary.jsx";
+import JobTemplateSelector from "../QuickTranscode/JobTemplateSelector.jsx";
 
 class BatchEdit extends React.Component {
     constructor(props){
@@ -20,7 +21,9 @@ class BatchEdit extends React.Component {
             batchId: "",
             batchCreated: "",
             batchNickname: "",
-            templateId: "",
+            videoTemplateId: "00000000-0000-0000-0000-000000000000",
+            audioTemplateId: "00000000-0000-0000-0000-000000000000",
+            imageTemplateId: "00000000-0000-0000-0000-000000000000",
             pendingCount: 0,
             activeCount: 0,
             completedCount: 0,
@@ -30,6 +33,7 @@ class BatchEdit extends React.Component {
             currentAbort: null,
             pageItemsLimit: 100,
             itemsInPage: 0,
+            templateEntries: [],
         };
 
         this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
@@ -53,7 +57,11 @@ class BatchEdit extends React.Component {
 
     async storeUpdatedInfo() {
         await this.setStatePromise({loading: true});
-        const request = JSON.stringify({"nickName": this.state.batchNickname, "templateId": this.state.templateId});
+        const request = JSON.stringify({"nickName": this.state.batchNickname,
+            "videoTemplateId": this.state.videoTemplateId,
+            audioTemplateId: this.state.audioTemplateId,
+            imageTemplateId: this.state.imageTemplateId
+        });
         const response = await fetch("/api/bulk/update?forId=" + this.state.batchId, {
             body: request,
             method: "POST",
@@ -76,8 +84,25 @@ class BatchEdit extends React.Component {
     }
 
     componentDidUpdate(prevProps, prevState, snapshot) {
-        if(this.state.batchNickname!==prevState.batchNickname || this.state.template!==prevState.template) {
+        if(this.state.batchNickname!==prevState.batchNickname || this.state.videoTemplateId!==prevState.videoTemplateId || this.state.audioTemplateId !== prevState.audioTemplateId || this.state.imageTemplateId !== prevState.imageTemplateId) {
             this.storeUpdatedInfo();
+        }
+    }
+
+    async loadTemplatesList() {
+        await this.setStatePromise({loading: true, lastError: null});
+
+        const response = await fetch("/api/jobtemplate");
+        if(response.status===200){
+            const serverData = await response.json();
+            const templateEntries = serverData.entries;
+            const templateIdUpdate = templateEntries.length>0 ? {templateId: templateEntries[0].Id} : {};
+
+            await this.setStatePromise(Object.assign({loading: false, lastError: null, templateEntries: templateEntries}, templateIdUpdate));
+        } else {
+            const bodyText = await response.text();
+
+            return this.setStatePromise({loading: false, lastError: bodyText})
         }
     }
 
@@ -91,7 +116,9 @@ class BatchEdit extends React.Component {
                 lastError: null,
                 batchId: content.bulkListId,
                 batchNickname: content.nickName,
-                templateId: content.template,
+                videoTemplateId: content.videoTemplateId,
+                audioTemplateId: content.audioTemplateId,
+                imageTemplateId: content.imageTemplateId,
                 batchCreated: content.creationTime,
                 pendingCount: content.pendingCount,
                 activeCount: content.activeCount,
@@ -145,8 +172,10 @@ class BatchEdit extends React.Component {
         readNextChunk(reader,0);
     }
 
-    componentDidMount() {
+    async componentDidMount() {
         const batchId = this.props.match.params.batchId;
+        await this.loadTemplatesList();
+
         if(batchId!=="new" && batchId!=="") {
             this.loadExistingData(batchId).then(()=>this.loadBatchContent(batchId))
         }
@@ -158,11 +187,32 @@ class BatchEdit extends React.Component {
             <h2>Edit Batch</h2>
             <div className="grid-form">
                 <label className="grid-form-label" htmlFor="nickname">Friendly name</label>
-                <input className="grid-form-control" id="nickname" value={this.state.batchNickname} onChange={evt=>this.setState({batchNickname: evt.target.value})}/>
+                <input className="grid-form-control-stretch" id="nickname" value={this.state.batchNickname} onChange={evt=>this.setState({batchNickname: evt.target.value})}/>
                 <label className="grid-form-label" htmlFor="created">Created at</label>
                 <span id="created" className="grid-form-control">{moment(this.state.batchCreated).format("ddd, MMM Do YYYY, h:mm:ss a")}</span>
+
+                <label className="grid-form-label" htmlFor="video-preset-id">Video transcoding preset</label>
+                <div className="grid-form-control">
+                    <JobTemplateSelector jobTemplateList={this.state.templateEntries} onChange={evt=>this.setState({videoTemplateId: evt.target.value})} value={this.state.videoTemplateId}/>
+                </div>
+                <div style={{display: this.state.videoTemplateId==="00000000-0000-0000-0000-000000000000" ? "initial" : "none", fontWeight: "bold", fontSize: "0.9em"}} className="grid-form-indicator"><FontAwesomeIcon icon="exclamation" style={{color: "orange"}}/>&nbsp;You should select a template</div>
+
+                <label className="grid-form-label" htmlFor="video-preset-id">Audio transcoding preset</label>
+                <div className="grid-form-control">
+                    <JobTemplateSelector jobTemplateList={this.state.templateEntries} onChange={evt=>this.setState({audioTemplateId: evt.target.value})} value={this.state.audioTemplateId}/>
+                </div>
+                <div style={{display: this.state.audioTemplateId==="00000000-0000-0000-0000-000000000000" ? "initial" : "none", fontWeight: "bold", fontSize: "0.9em"}} className="grid-form-indicator"><FontAwesomeIcon icon="exclamation" style={{color: "orange"}}/>&nbsp;You should select a template</div>
+
+                <label className="grid-form-label" htmlFor="video-preset-id">Image transcoding preset</label>
+                <div className="grid-form-control">
+                    <JobTemplateSelector jobTemplateList={this.state.templateEntries} onChange={evt=>this.setState({imageTemplateId: evt.target.value})} value={this.state.imageTemplateId}/>
+                </div>
+                <div style={{display: this.state.imageTemplateId==="00000000-0000-0000-0000-000000000000" ? "initial" : "none", fontWeight: "bold", fontSize: "0.9em"}} className="grid-form-indicator"><FontAwesomeIcon icon="exclamation" style={{color: "orange"}}/>&nbsp;You should select a template</div>
+
+
                 <label className="grid-form-label" htmlFor="status">Status</label>
-                <BatchStatusSummary batchStatus={this.state} className="grid-form-control"/>
+                <BatchStatusSummary batchStatus={this.state} className="grid-form-control-stretch"/>
+
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
                 <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>
                 <label className="grid-form-label" htmlFor="actions">Actions</label>

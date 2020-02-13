@@ -6,13 +6,15 @@ import (
 )
 
 type BulkListGetResponse struct {
-	BulkListId     uuid.UUID `json:"bulkListId"`
-	NickName       string    `json:"nickName"`
-	TemplateId     uuid.UUID `json:"templateId"`
-	CreationTime   time.Time `json:"creationTime"`
-	PendingCount   int64     `json:"pendingCount"`
-	ActiveCount    int64     `json:"activeCount"`
-	CompletedCount int64     `json:"completedCount"`
-	ErrorCount     int64     `json:"errorCount"`
-	RunningActions []string  `json:"runningActions"`
+	BulkListId      uuid.UUID `json:"bulkListId"`
+	NickName        string    `json:"nickName"`
+	VideoTemplateId uuid.UUID `json:"videoTemplateId"`
+	AudioTemplateId uuid.UUID `json:"audioTemplateId"`
+	ImageTemplateId uuid.UUID `json:"imageTemplateId"`
+	CreationTime    time.Time `json:"creationTime"`
+	PendingCount    int64     `json:"pendingCount"`
+	ActiveCount     int64     `json:"activeCount"`
+	CompletedCount  int64     `json:"completedCount"`
+	ErrorCount      int64     `json:"errorCount"`
+	RunningActions  []string  `json:"runningActions"`
 }

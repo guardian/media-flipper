@@ -3,6 +3,8 @@ package bulkprocessor
 import "github.com/google/uuid"
 
 type BulkListUpdate struct {
-	TemplateId uuid.UUID `json:"templateId"`
-	NickName   string    `json:"nickName"`
+	VideoTemplateId uuid.UUID `json:"videoTemplateId"`
+	AudioTemplateId uuid.UUID `json:"audioTemplateId"`
+	ImageTemplateId uuid.UUID `json:"imageTemplateId"`
+	NickName        string    `json:"nickName"`
 }

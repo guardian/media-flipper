@@ -53,7 +53,10 @@ func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bulkList.SetNickName(rq.NickName)
-	bulkList.SetTemplateId(rq.TemplateId)
+	bulkList.SetVideoTemplateId(rq.VideoTemplateId)
+	bulkList.SetAudioTemplateId(rq.AudioTemplateId)
+	bulkList.SetImageTemplateId(rq.ImageTemplateId)
+
 	storErr := bulkList.Store(h.redisClient)
 	if storErr != nil {
 		log.Printf("could not store updated batch list %s: %s", bulkListId, storErr)

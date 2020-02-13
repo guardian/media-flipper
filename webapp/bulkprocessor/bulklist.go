@@ -46,8 +46,12 @@ type BulkList interface {
 
 	GetNickName() string
 	SetNickName(newName string)
-	GetTemplateId() uuid.UUID
-	SetTemplateId(newId uuid.UUID)
+	GetVideoTemplateId() uuid.UUID
+	SetVideoTemplateId(newId uuid.UUID)
+	GetAudioTemplateId() uuid.UUID
+	SetAudioTemplateId(newId uuid.UUID)
+	GetImageTemplateId() uuid.UUID
+	SetImageTemplateId(newId uuid.UUID)
 }
 
 /*
@@ -61,10 +65,12 @@ proposed indexing structure:
 */
 
 type BulkListImpl struct {
-	BulkListId   uuid.UUID `json:"bulkListId"`
-	CreationTime time.Time `json:"creationTime"`
-	NickName     string    `json:"nickName"`
-	TemplateId   uuid.UUID `json:"templateId"`
+	BulkListId      uuid.UUID `json:"bulkListId"`
+	CreationTime    time.Time `json:"creationTime"`
+	NickName        string    `json:"nickName"`
+	VideoTemplateId uuid.UUID `json:"videoTemplateId"`
+	AudioTemplateId uuid.UUID `json:"audioTemplateId"`
+	ImageTemplateId uuid.UUID `json:"imageTemplateId"`
 }
 
 func (list *BulkListImpl) GetId() uuid.UUID {
@@ -83,12 +89,23 @@ func (list *BulkListImpl) SetNickName(newName string) {
 	list.NickName = newName
 }
 
-func (list *BulkListImpl) GetTemplateId() uuid.UUID {
-	return list.TemplateId
+func (list *BulkListImpl) GetVideoTemplateId() uuid.UUID {
+	return list.VideoTemplateId
 }
-
-func (list *BulkListImpl) SetTemplateId(newId uuid.UUID) {
-	list.TemplateId = newId
+func (list *BulkListImpl) SetVideoTemplateId(newId uuid.UUID) {
+	list.VideoTemplateId = newId
+}
+func (list *BulkListImpl) GetAudioTemplateId() uuid.UUID {
+	return list.AudioTemplateId
+}
+func (list *BulkListImpl) SetAudioTemplateId(newId uuid.UUID) {
+	list.AudioTemplateId = newId
+}
+func (list *BulkListImpl) GetImageTemplateId() uuid.UUID {
+	return list.ImageTemplateId
+}
+func (list *BulkListImpl) SetImageTemplateId(newId uuid.UUID) {
+	list.ImageTemplateId = newId
 }
 
 /**
