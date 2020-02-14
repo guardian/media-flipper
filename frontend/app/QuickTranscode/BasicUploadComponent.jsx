@@ -9,7 +9,8 @@ class BasicUploadComponent extends React.Component {
     static propTypes = {
         id: PropTypes.string,
         loadCompleted: PropTypes.func.isRequired,
-        loadStart: PropTypes.func
+        loadStart: PropTypes.func,
+        loadProgress: PropTypes.func
     };
 
     constructor(props) {
@@ -18,6 +19,16 @@ class BasicUploadComponent extends React.Component {
         this.fileReader = new FileReader();
         this.fileInputChanged = this.fileInputChanged.bind(this);
         this.fileLoadCompleted = this.fileLoadCompleted.bind(this);
+        this.fileLoadProgress = this.fileLoadProgress.bind(this);
+    }
+
+    fileLoadProgress(evt) {
+        if(!this.props.loadProgress) {
+            return;
+        }
+        if(evt.lengthComputable) {
+            this.props.loadProgress((evt.loaded / evt.total));
+        }
     }
 
     fileLoadCompleted(evt) {
@@ -37,6 +48,7 @@ class BasicUploadComponent extends React.Component {
             return;
         }
         this.fileReader.onloadend = this.fileLoadCompleted;
+        this.fileReader.onprogress = this.fileLoadProgress;
 
         if(this.props.loadStart) this.props.loadStart(file);
         console.log("started reading");

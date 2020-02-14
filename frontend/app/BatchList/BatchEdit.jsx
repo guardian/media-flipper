@@ -31,9 +31,11 @@ class BatchEdit extends React.Component {
             entries: [],
             currentReader: null,
             currentAbort: null,
-            pageItemsLimit: 100,
+            pageLoadLimit: 10,
+            pageItemsLimit: 1000,
             itemsInPage: 0,
             templateEntries: [],
+            scrollPosition: 0
         };
 
         this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
@@ -157,7 +159,7 @@ class BatchEdit extends React.Component {
                     this.setState(oldState=>{
                         return {entries: oldState.entries.concat([value]), itemsInPage: oldState.items +1}
                     }, ()=>{
-                        if(done || currentCount>=this.state.pageItemsLimit-1) {
+                        if(done || currentCount>=this.state.pageLoadLimit-1) {
                             this.setState({loading: false, lastError: null});
                         } else {
                             window.setTimeout(()=> {
@@ -174,7 +176,15 @@ class BatchEdit extends React.Component {
         readNextChunk(reader,0);
     }
 
+    // shouldComponentUpdate(nextProps, nextState, nextContext) {
+    //     if(nextState.entriesBackingStore!==this.state.entriesBackingStore){
+    //         return nextState.entries.length-nextState.;
+    //     }
+    //     return true;
+    // }
+
     async componentDidMount() {
+        window.addEventListener('scroll', this.listenToScroll);
         const batchId = this.props.match.params.batchId;
         await this.loadTemplatesList();
 
@@ -182,6 +192,25 @@ class BatchEdit extends React.Component {
             this.loadExistingData(batchId).then(()=>this.loadBatchContent(batchId))
         }
     }
+
+    componentWillUnmount() {
+        window.removeEventListener('scroll', this.listenToScroll)
+    }
+
+    listenToScroll = () => {
+        const winScroll =
+            document.body.scrollTop || document.documentElement.scrollTop;
+
+        const height =
+            document.documentElement.scrollHeight -
+            document.documentElement.clientHeight;
+
+        const scrolled = winScroll / height;
+
+        this.setState({
+            scrollPosition: scrolled,
+        })
+    };
 
     render() {
         return <div>

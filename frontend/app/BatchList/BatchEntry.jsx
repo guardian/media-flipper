@@ -57,7 +57,7 @@ class BatchEntry extends React.Component {
 
     render() {
         const baseClasses = ["batch-entry-cell", "baseline", "item-display-grid"];
-        const finalClasses = this.state.isDotFile ? baseClasses.concat(["dot-file"]) : baseClasses;
+        const finalClasses = this.state.isDotFile || (this.props.entry && this.props.entry.type==="other") ? baseClasses.concat(["dot-file"]) : baseClasses;
 
         return <div className="batch-entry-container">
             <div className={finalClasses.join(" ")}>
@@ -72,6 +72,14 @@ class BatchEntry extends React.Component {
 
                 <div className="item-display-element icon" style={{display: this.state.isDotFile ? "inherit": "none"}}><FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/></div>
                 <div className="item-display-element content" style={{display: this.state.isDotFile ? "inherit": "none"}}><p className="no-spacing small">This is probably a system metadata file and won't transcode</p></div>
+
+                <div className="item-display-element icon" style={{display: !this.state.isDotFile && this.props.entry && this.props.entry.type==="other" ? "inherit": "none"}}>
+                    <FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/>
+                </div>
+                <div className="item-display-element content" style={{display: !this.state.isDotFile && this.props.entry && this.props.entry.type==="other"  ? "inherit": "none"}}>
+                    <p className="no-spacing small">File extension is unrecognised so we don't know which transcode settings to apply</p>
+                </div>
+
             </div>
             <div className="batch-entry-cell mini"><JobStatusComponent status={this.props.entry.state}/></div>
         </div>
