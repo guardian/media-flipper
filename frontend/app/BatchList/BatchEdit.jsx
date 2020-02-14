@@ -5,11 +5,13 @@ import MenuBanner from "../MenuBanner.jsx";
 import BatchEntry from "./BatchEntry.jsx";
 import css from "../gridform.css";
 import appcss from "../approot.css";
-
+import Modal from 'react-modal';
 import moment from 'moment';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import BatchStatusSummary from "./BatchStatusSummary.jsx";
 import JobTemplateSelector from "../QuickTranscode/JobTemplateSelector.jsx";
+
+Modal.setAppElement("#app");
 
 class BatchEdit extends React.Component {
     constructor(props){
@@ -35,10 +37,13 @@ class BatchEdit extends React.Component {
             pageItemsLimit: 1000,
             itemsInPage: 0,
             templateEntries: [],
-            scrollPosition: 0
+            scrollPosition: 0,
+            showingModalWarning: false,
         };
 
         this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
+        this.triggerRemoveNonTranscodable = this.triggerRemoveNonTranscodable.bind(this);
+        this.maybeTriggerNonTranscodable = this.maybeTriggerNonTranscodable.bind(this);
     }
 
     setStatePromise(newState) {
@@ -48,6 +53,29 @@ class BatchEdit extends React.Component {
     async triggerRemoveDotFiles() {
         await this.setStatePromise({loading: true});
         const response = await fetch("/api/bulk/action/removeDotFiles?forId=" + this.state.batchId, {method: "POST"});
+        if(response.status===200) {
+            await response.body.cancel();
+            await this.loadExistingData(this.state.batchId);
+        } else {
+            const bodyContent = await response.text();
+            await this.setStatePromise({loading: false, lastError: bodyContent});
+        }
+    }
+
+    maybeTriggerNonTranscodable() {
+        if(this.state.videoTemplateId==="00000000-0000-0000-0000-000000000000" ||
+            this.state.audioTemplateId==="00000000-0000-0000-0000-000000000000" ||
+            this.state.imageTemplateId==="00000000-0000-0000-0000-000000000000"
+        ){  //show a warning if any settings are unset
+            this.setState({showingModalWarning: true});
+        } else {
+            this.triggerRemoveNonTranscodable();
+        }
+    }
+
+    async triggerRemoveNonTranscodable() {
+        await this.setStatePromise({loading: true, showingModalWarning: false});
+        const response = await fetch("/api/bulk/action/removeNonTranscodable?forId=" + this.state.batchId, {method: "POST"});
         if(response.status===200) {
             await response.body.cancel();
             await this.loadExistingData(this.state.batchId);
@@ -246,22 +274,46 @@ class BatchEdit extends React.Component {
 
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
                 <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>
+
                 <label className="grid-form-label" htmlFor="actions">Actions</label>
-                <span id="actions" className="grid-form-control">
+                <span id="actions" className="grid-form-control-stretch">
                     <ul className="status-summary-container">
                         <li className={this.state.removeFilesRunning ? "status-summary-entry button disabled"  : "status-summary-entry button clickable"}
                             onClick={this.triggerRemoveDotFiles} style={{marginRight:"2em"}}>
                             <FontAwesomeIcon icon="minus-circle" style={{padding: "0.4em"}}/>Remove system files
                         </li>
-                        <li className="status-summary-entry button clickable" onClick={this.triggerEnqueueItems} style={{marginRight:"2em"}}><FontAwesomeIcon icon="play-circle"  style={{padding: "0.4em"}}/>&nbsp;Start jobs running</li>
+                        <li className="status-summary-entry button clickable" onClick={this.maybeTriggerNonTranscodable} style={{marginRight:"2em"}}>
+                            <FontAwesomeIcon icon="minus-circle"  style={{padding: "0.4em"}}/>Remove non-transcodable files
+                        </li>
+                        <li className="status-summary-entry button clickable" onClick={this.triggerEnqueueItems} style={{marginRight:"2em"}}>
+                            <FontAwesomeIcon icon="play-circle"  style={{padding: "0.4em"}}/>Start jobs running
+                        </li>
                     </ul>
                 </span>
             </div>
             <ul className="batch-list">
                 {
-                    this.state.entries.map(ent=><li key={ent.id}><BatchEntry entry={ent}/></li>)
+                    this.state.entries.map(ent=><li key={ent.id}>
+                        <BatchEntry entry={ent}
+                                    validAudioSettings={this.state.audioTemplateId!=="00000000-0000-0000-0000-000000000000"}
+                                    validVideoSettings={this.state.videoTemplateId!=="00000000-0000-0000-0000-000000000000"}
+                                    validImageSettings={this.state.imageTemplateId!=="00000000-0000-0000-0000-000000000000"}
+                        /></li>)
                 }
             </ul>
+
+            <Modal isOpen={this.state.showingModalWarning}
+                   onRequestClose={()=>this.setState({showingModalWarning: false})}
+                   style={{content: {maxHeight: "300px", maxWidth:"600px", marginLeft:"auto",marginRight:"auto"}}}
+            >
+                <h2>Are you sure?</h2>
+                <p className="warning">You have not selected templates for all of the media types. If you continue, then any items
+                    of types that don't have a template will be removed. Are you sure you want to continue?</p>
+                <div style={{maxWidth: "400px", marginRight: "auto", marginLeft: "auto"}}>
+                <label className="button clickable" onClick={this.triggerRemoveNonTranscodable}>Continue</label>
+                <label className="button clickable" onClick={()=>this.setState({showingModalWarning: false})}>Cancel</label>
+                </div>
+            </Modal>
         </div>;
     }
 }

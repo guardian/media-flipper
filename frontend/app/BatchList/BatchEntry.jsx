@@ -5,7 +5,10 @@ import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
 
 class BatchEntry extends React.Component {
     static propTypes = {
-        entry: PropTypes.object.isRequired
+        entry: PropTypes.object.isRequired,
+        validVideoSettings: PropTypes.bool,
+        validAudioSettings: PropTypes.bool,
+        validImageSettings: PropTypes.bool
     };
 
     constructor(props) {
@@ -15,7 +18,8 @@ class BatchEntry extends React.Component {
             isDotFile: false,
             volumeName: "",
             pathParts: [],
-            fileName: ""
+            fileName: "",
+
         }
     }
 
@@ -55,23 +59,45 @@ class BatchEntry extends React.Component {
         this.extractState();
     }
 
+    transcodeSettingInvalid() {
+        return (this.props.entry.type==="video" && !this.props.validVideoSettings) ||
+            (this.props.entry.type==="audio" && !this.props.validAudioSettings) ||
+            (this.props.entry.type==="image" && !this.props.validImageSettings)
+    }
+
     render() {
         const baseClasses = ["batch-entry-cell", "baseline", "item-display-grid"];
-        const finalClasses = this.state.isDotFile || (this.props.entry && this.props.entry.type==="other") ? baseClasses.concat(["dot-file"]) : baseClasses;
+        const finalClasses = this.state.isDotFile || (this.props.entry && this.props.entry.type==="other") ||  this.transcodeSettingInvalid() ? baseClasses.concat(["dot-file"]) : baseClasses;
 
         return <div className="batch-entry-container">
             <div className={finalClasses.join(" ")}>
                 <div className="item-display-element icon"><FontAwesomeIcon icon="file-export"/></div>
                 <div className="item-display-element content"><p className="no-spacing emphasis">{this.state.fileName}</p></div>
 
+                <div className="item-display-element icon"><FontAwesomeIcon icon="photo-video"/></div>
+                <div className="item-display-element content"><p className="no-spacing small">{this.props.entry ? this.props.entry.type : ""}</p></div>
+
                 <div className="item-display-element icon"><FontAwesomeIcon icon="hdd"/></div>
                 <div className="item-display-element content"><p className="no-spacing">{this.state.volumeName}</p></div>
 
                 <div className="item-display-element icon"><FontAwesomeIcon icon="folder"/></div>
-                <div className="item-display-element content"><p className="no-spacing small">{ this.state.pathParts.length>0 ? this.state.pathParts.join("/") : ""}</p></div>
+                <div className="item-display-element content">
+                    <p className="no-spacing small">{ this.state.pathParts.length>0 ? this.state.pathParts.join("/") : ""}</p>
+                </div>
 
-                <div className="item-display-element icon" style={{display: this.state.isDotFile ? "inherit": "none"}}><FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/></div>
-                <div className="item-display-element content" style={{display: this.state.isDotFile ? "inherit": "none"}}><p className="no-spacing small">This is probably a system metadata file and won't transcode</p></div>
+                <div className="item-display-element icon" style={{display: this.state.isDotFile ? "inherit": "none"}}>
+                    <FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/>
+                </div>
+                <div className="item-display-element content" style={{display: this.state.isDotFile ? "inherit": "none"}}>
+                    <p className="no-spacing small">This is probably a system metadata file and won't transcode</p>
+                </div>
+
+                <div className="item-display-element icon" style={{display: this.transcodeSettingInvalid() ? "inherit": "none"}}>
+                    <FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/>
+                </div>
+                <div className="item-display-element content" style={{display: this.transcodeSettingInvalid() ? "inherit": "none"}}>
+                    <p className="no-spacing small">No relevant transcode setting has been applied!</p>
+                </div>
 
                 <div className="item-display-element icon" style={{display: !this.state.isDotFile && this.props.entry && this.props.entry.type==="other" ? "inherit": "none"}}>
                     <FontAwesomeIcon icon="exclamation" style={{color: "darkorange"}}/>

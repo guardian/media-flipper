@@ -8,7 +8,7 @@ import JobList from "./JobList/JobList.jsx";
 import QuickTranscode from "./QuickTranscode/QuickTranscode.jsx";
 import { faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown, faWrench, faTools,
     faCheckCircle, faTimesCircle,faPauseCircle, faPlayCircle, faLayerGroup, faTrash, faFileExport, faHdd, faFolder,
-    faExclamation, faMinusCircle } from '@fortawesome/free-solid-svg-icons'
+    faExclamation, faMinusCircle, faPhotoVideo } from '@fortawesome/free-solid-svg-icons'
 import BatchListMain from "./BatchList/BatchListMain.jsx";
 import BatchEdit from "./BatchList/BatchEdit.jsx";
 import BatchNew  from "./BatchList/BatchNew.jsx";
@@ -16,7 +16,7 @@ import BatchNew  from "./BatchList/BatchNew.jsx";
 
 library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown,faWrench, faTools,
     faCheckCircle, faTimesCircle, faPauseCircle, faPlayCircle, faLayerGroup, faTrash, faFileExport, faHdd, faFolder,
-    faExclamation, faMinusCircle);
+    faExclamation, faMinusCircle, faPhotoVideo);
 
 class App extends React.Component {
     render() {
