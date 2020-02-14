@@ -46,7 +46,7 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	indexErr := newBulk.RebuildSortedIndex(h.redisClient)
 	if indexErr != nil {
-		log.Print("could not rebuild the sorted index: %s", indexErr)
+		log.Print("could not rebuild the sorted index: ", indexErr)
 		//don't fail the operation though as it is still operable
 	}
 

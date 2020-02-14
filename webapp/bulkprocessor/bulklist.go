@@ -434,12 +434,11 @@ the first channel with yield a null when the operation is completed, or the seco
 if the operation fails
 */
 func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient redis.Cmdable) (chan BulkItem, chan error) {
-	//dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
-
 	outputChan := make(chan BulkItem, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
 	go func() {
+		indexMode := INDEX_MODE_SORTED
 		dbKey, sortListErrChan := list.getSortedIndexAsync(redisClient)
 
 		log.Print("waiting for index sort...")
@@ -447,11 +446,11 @@ func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient 
 		log.Print("done!")
 		if sortErr != nil {
 			log.Printf("ERROR: could not perform index sort: %s", sortErr)
-			errorChan <- sortErr
-			return
+			indexMode = INDEX_MODE_UNSORTED
+			dbKey = fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
 		}
 
-		idChan, idErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
+		idChan, idErrChan := list.fetchIdsMatchingNames(namePart, dbKey, indexMode, redisClient)
 
 		var idList []string
 		retrieveErr := func() error {
@@ -488,15 +487,21 @@ func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient 
 /*
 internal method that finds the index entries matching the given querystring
 */
-func (list *BulkListImpl) filterIdsByName(queryString string, xtractor *regexp.Regexp, cursor uint64, dbKey string, pageSize int64, redisClient redis.Cmdable) ([]string, uint64, error) {
+func (list *BulkListImpl) filterIdsByName(queryString string, mode indexMode, xtractor *regexp.Regexp, cursor uint64, dbKey string, pageSize int64, redisClient redis.Cmdable) ([]string, uint64, error) {
 	for {
 		var keys []string
 		var scanErr error
 
-		keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, queryString, pageSize).Result()
+		switch mode {
+		case INDEX_MODE_UNSORTED:
+			keys, cursor, scanErr = redisClient.SScan(dbKey, cursor, queryString, pageSize).Result()
 
-		if scanErr != nil {
-			return nil, 0, scanErr
+			if scanErr != nil {
+				return nil, 0, scanErr
+			}
+		case INDEX_MODE_SORTED:
+			keys, scanErr = redisClient.LRange(dbKey, int64(cursor), int64(cursor)+pageSize).Result()
+			cursor += uint64(len(keys))
 		}
 
 		idList := make([]string, len(keys))
@@ -522,7 +527,7 @@ func (list *BulkListImpl) filterIdsByName(queryString string, xtractor *regexp.R
 /**
 internal method to fetch the uuids of items matching the given name prefix
 */
-func (list *BulkListImpl) fetchIdsMatchingNames(namePart string, dbKey string, redisClient redis.Cmdable) (chan *string, chan error) {
+func (list *BulkListImpl) fetchIdsMatchingNames(namePart string, dbKey string, mode indexMode, redisClient redis.Cmdable) (chan *string, chan error) {
 	var pageSize int64 = 100
 
 	outputChan := make(chan *string, 10) //set up a buffered channel
@@ -540,7 +545,7 @@ func (list *BulkListImpl) fetchIdsMatchingNames(namePart string, dbKey string, r
 		}
 
 		for {
-			idList, cursor, err := list.filterIdsByName(queryString, xtractor, cursor, dbKey, pageSize, redisClient)
+			idList, cursor, err := list.filterIdsByName(queryString, mode, xtractor, cursor, dbKey, pageSize, redisClient)
 			if err != nil {
 				errorChan <- err
 				return
@@ -567,7 +572,7 @@ func (list *BulkListImpl) FilterRecordsByNameAndStateAsync(namePart string, stat
 	outputChan := make(chan BulkItem, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
-	idsMatchingNameChan, nameMatchErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
+	idsMatchingNameChan, nameMatchErrChan := list.fetchIdsMatchingNames(namePart, dbKey, INDEX_MODE_UNSORTED, redisClient)
 	idsMatchingStateChan, stateMatchErrChan := list.filterIdsByState(state, redisClient)
 
 	go func() {
@@ -653,19 +658,6 @@ func removeFromStateIndex(record BulkItem, baseKey string, redisClient redis.Cmd
 	dbKey := baseKey + fmt.Sprintf(":state:%d", record.GetState())
 	redisClient.ZRem(dbKey, record.GetId().String())
 }
-
-//func addToGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
-//	dbKey := baseKey + ":index"
-//	redisClient.ZAdd(dbKey, &redis.Z{
-//		float64(record.GetPriority()),
-//		record.GetId().String(),
-//	})
-//}
-//
-//func removeFromGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
-//	dbKey := baseKey + ":index"
-//	redisClient.ZRem(dbKey, record.GetId().String())
-//}
 
 /**
 add the given record to the bulk list. the record is modified to give the id if this list and both saved and indexed
