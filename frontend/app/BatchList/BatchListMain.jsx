@@ -17,6 +17,7 @@ class BatchListMain extends React.Component {
             onPage: 0
         };
 
+        this.entryWasDeleted = this.entryWasDeleted.bind(this);
     }
 
     setStatePromise(newState) {
@@ -41,6 +42,13 @@ class BatchListMain extends React.Component {
         this.loadBatches();
     }
 
+    entryWasDeleted(entryId) {
+        const updatedBatches = this.state.batches.filter(entry=>entry.bulkListId!==entryId);
+        this.setState({
+            batches: updatedBatches
+        })
+    }
+
     render() {
         return <div>
             <MenuBanner/>
@@ -49,7 +57,7 @@ class BatchListMain extends React.Component {
                 <Link className="clickable button" style={{display: "inline", padding: "0.4em", textDecoration: "none"}} to="/batch/new">New batch...</Link>
                 <ul className="batch-list">
                     {
-                        this.state.batches.map(entry=><BatchListEntry entry={entry}/>)
+                        this.state.batches.map(entry=><BatchListEntry entry={entry} entryWasDeleted={this.entryWasDeleted}/>)
                     }
                 </ul>
             </div>

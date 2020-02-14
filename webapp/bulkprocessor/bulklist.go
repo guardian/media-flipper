@@ -35,6 +35,7 @@ type BulkList interface {
 	AddRecord(record BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
 	ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error)
+	RebuildSortedIndex(redisClient redis.Cmdable) error
 	GetId() uuid.UUID
 	GetCreationTime() time.Time
 	Store(redisClient redis.Cmdable) error
@@ -57,8 +58,8 @@ type BulkList interface {
 /*
 proposed indexing structure:
 	- mediaflipper:bulklist:%s<bulkid>:filepathindex; SET of string of form %s<filepath>:%s<idstring>
+	- mediaflipper:bulklist:%s<bulkid>:filepathindexsorted; sorted version of the above
     - mediaflipper:bulklist:%s<bulkid>:state:%s<statevalue>; ORDERED SET of bulk item UUIDs sorted by BulkItem %d<priority>
-    - mediaflipper:bulklist:%s<bulkid>:index; ORDERED SET string of bulk item UUIDs sorted by BulkItem %d<priority>
 	- mediaflipper:bulkitem:%s<id> ; STRING of json blob of each item
     - mediaflipper:bulklist:timeindex; ORDERED SET of all list items b
     - mediaflipper:bulklist:%s ; STRING of json blob of list metadata
@@ -92,18 +93,23 @@ func (list *BulkListImpl) SetNickName(newName string) {
 func (list *BulkListImpl) GetVideoTemplateId() uuid.UUID {
 	return list.VideoTemplateId
 }
+
 func (list *BulkListImpl) SetVideoTemplateId(newId uuid.UUID) {
 	list.VideoTemplateId = newId
 }
+
 func (list *BulkListImpl) GetAudioTemplateId() uuid.UUID {
 	return list.AudioTemplateId
 }
+
 func (list *BulkListImpl) SetAudioTemplateId(newId uuid.UUID) {
 	list.AudioTemplateId = newId
 }
+
 func (list *BulkListImpl) GetImageTemplateId() uuid.UUID {
 	return list.ImageTemplateId
 }
+
 func (list *BulkListImpl) SetImageTemplateId(newId uuid.UUID) {
 	list.ImageTemplateId = newId
 }
@@ -204,32 +210,83 @@ func (list *BulkListImpl) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, 
 	return asyncReceiver(itemsChan, errorChan)
 }
 
+type indexMode int
+
+const (
+	INDEX_MODE_UNSORTED indexMode = iota
+	INDEX_MODE_SORTED
+)
+
 func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
-	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
+	//dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
 	var pageSize int64 = 100
 
 	outputChan := make(chan BulkItem, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
 	go func() {
-		count, countErr := redisClient.ZCard(dbKey).Result()
-		if countErr != nil {
-			log.Printf("ERROR: Could not receive item count for batch %s: %s", list.BulkListId, countErr)
-			errorChan <- countErr
-			return
+		//count, countErr := redisClient.ZCard(dbKey).Result()
+		//if countErr != nil {
+		//	log.Printf("ERROR: Could not receive item count for batch %s: %s", list.BulkListId, countErr)
+		//	errorChan <- countErr
+		//	return
+		//}
+		dbKey, sortErrChan := list.getSortedIndexAsync(redisClient)
+
+		log.Printf("waiting for index sort...")
+		sortErr := <-sortErrChan
+		log.Printf("wait done!")
+		indexMode := INDEX_MODE_SORTED
+		if sortErr != nil {
+			log.Printf("could not re-sort index: %s", sortErr)
+			dbKey = fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId.String())
+			log.Printf("dbKey is now %s", dbKey)
+			indexMode = INDEX_MODE_UNSORTED
 		}
-		var i int64
-		for i = 0; i < count; i += pageSize {
-			idList, idListErr := redisClient.ZRange(dbKey, i, i+pageSize).Result()
-			if idListErr != nil {
-				errorChan <- idListErr
+
+		var cursor uint64 = 0
+		for {
+			var newCursor uint64
+			var keys []string
+			var scanErr error
+
+			switch indexMode {
+			case INDEX_MODE_UNSORTED:
+				keys, newCursor, scanErr = redisClient.SScan(dbKey, cursor, "", pageSize).Result()
+				cursor = newCursor
+			case INDEX_MODE_SORTED:
+				keys, scanErr = redisClient.LRange(dbKey, int64(cursor), int64(cursor)+pageSize).Result()
+				if len(keys) < int(pageSize) {
+					newCursor = 0
+				} else {
+					newCursor = 1
+				}
+				cursor += uint64(pageSize)
+			}
+
+			if scanErr != nil {
+				log.Printf("could not scan index: %s", scanErr)
+				errorChan <- scanErr
 				return
+			}
+
+			idList := make([]string, len(keys))
+			for i, k := range keys {
+				parts := strings.Split(k, "|")
+				if len(parts) != 2 {
+					log.Printf("ERROR: invalid key in filepath index: %s", k)
+				} else {
+					idList[i] = parts[1]
+				}
 			}
 
 			fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
 			if fetchErr != nil {
 				errorChan <- fetchErr
 				return
+			}
+			if newCursor == 0 {
+				break
 			}
 		}
 
@@ -332,19 +389,70 @@ func (list *BulkListImpl) FilterRecordsByName(name string, redisClient redis.Cmd
 	return asyncReceiver(itemsChan, errorChan)
 }
 
+func (list *BulkListImpl) RebuildSortedIndex(redisClient redis.Cmdable) error {
+	sourceKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
+	destKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindexsorted", list.BulkListId)
+	log.Printf("Rebuilding sorted filepath index for %s...", list.BulkListId)
+	_, err := redisClient.SortStore(sourceKey, destKey, &redis.Sort{
+		Alpha: true,
+	}).Result()
+	return err
+}
+
+/**
+verifies that the sorted filepath index exists, and builds it if not.
+returns a string of the redis key to use, and a channel. once the channel sends a value it is clear to proceed;
+nil => build succeeded, error => build failed
+*/
+func (list *BulkListImpl) getSortedIndexAsync(redisClient redis.Cmdable) (string, chan error) {
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindexsorted", list.BulkListId)
+	errChan := make(chan error, 1) //if we don't buffer this channel we can't send a value before returning
+
+	i, checkErr := redisClient.Exists(dbKey).Result()
+	if checkErr != nil {
+		log.Printf("could not check for existence of key: %s", checkErr)
+		errChan <- checkErr
+		return "", errChan
+	}
+
+	if i > 0 {
+		//the index already exists
+		errChan <- nil
+		return dbKey, errChan
+	} else {
+		go func() {
+			buildErr := list.RebuildSortedIndex(redisClient)
+			errChan <- buildErr
+		}()
+		return dbKey, errChan
+	}
+}
+
 /**
 interrogate the indices for a name that starts with the given string, retrieve the full item data and asynchronously return it via a channel.
 the first channel with yield a null when the operation is completed, or the second channel will yield a single error then terminate
 if the operation fails
 */
 func (list *BulkListImpl) FilterRecordsByNameAsync(namePart string, redisClient redis.Cmdable) (chan BulkItem, chan error) {
-	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
+	//dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:filepathindex", list.BulkListId)
 
-	idChan, idErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
 	outputChan := make(chan BulkItem, 10) //set up a buffered channel
 	errorChan := make(chan error)
 
 	go func() {
+		dbKey, sortListErrChan := list.getSortedIndexAsync(redisClient)
+
+		log.Print("waiting for index sort...")
+		sortErr := <-sortListErrChan
+		log.Print("done!")
+		if sortErr != nil {
+			log.Printf("ERROR: could not perform index sort: %s", sortErr)
+			errorChan <- sortErr
+			return
+		}
+
+		idChan, idErrChan := list.fetchIdsMatchingNames(namePart, dbKey, redisClient)
+
 		var idList []string
 		retrieveErr := func() error {
 			for {
@@ -546,18 +654,18 @@ func removeFromStateIndex(record BulkItem, baseKey string, redisClient redis.Cmd
 	redisClient.ZRem(dbKey, record.GetId().String())
 }
 
-func addToGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
-	dbKey := baseKey + ":index"
-	redisClient.ZAdd(dbKey, &redis.Z{
-		float64(record.GetPriority()),
-		record.GetId().String(),
-	})
-}
-
-func removeFromGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
-	dbKey := baseKey + ":index"
-	redisClient.ZRem(dbKey, record.GetId().String())
-}
+//func addToGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+//	dbKey := baseKey + ":index"
+//	redisClient.ZAdd(dbKey, &redis.Z{
+//		float64(record.GetPriority()),
+//		record.GetId().String(),
+//	})
+//}
+//
+//func removeFromGlobalIndex(record BulkItem, baseKey string, redisClient redis.Cmdable) {
+//	dbKey := baseKey + ":index"
+//	redisClient.ZRem(dbKey, record.GetId().String())
+//}
 
 /**
 add the given record to the bulk list. the record is modified to give the id if this list and both saved and indexed
@@ -570,7 +678,7 @@ func (list *BulkListImpl) AddRecord(record BulkItem, redisClient redis.Cmdable) 
 	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
 	addToFilePathIndex(record, baseKey, pipe)
 	addToStateIndex(record, baseKey, pipe)
-	addToGlobalIndex(record, baseKey, pipe)
+	//addToGlobalIndex(record, baseKey, pipe)
 
 	record.Store(pipe) //no point looking for error here as it is only executed at the next step
 
@@ -597,7 +705,6 @@ func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdabl
 	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
 	removeFromFilePathIndex(record, baseKey, pipe)
 	removeFromStateIndex(record, baseKey, pipe)
-	removeFromGlobalIndex(record, baseKey, pipe)
 	pipe.Del(fmt.Sprintf("mediaflipper:bulkitem:%s", record.GetId()))
 
 	_, execErr := pipe.Exec()
@@ -610,7 +717,7 @@ func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdabl
 }
 
 func (list *BulkListImpl) ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error) {
-	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index")
+	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId)
 	rank, err := redisClient.ZRank(dbKey, id.String()).Result()
 	if err != nil {
 		if strings.Contains(err.Error(), "redis: nil") {
@@ -688,7 +795,6 @@ func (list *BulkListImpl) Delete(redisClient redis.Cmdable) error {
 		pipe.Del(dbKey)
 	}
 	pipe.Del(baseKey + ":filepathindex")
-	pipe.Del(baseKey + ":index")
 	pipe.Del(baseKey)
 	pipe.ZRem("mediaflipper:bulklist:timeindex", list.BulkListId.String())
 	_, err := pipe.Exec()

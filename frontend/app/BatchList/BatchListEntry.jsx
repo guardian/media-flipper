@@ -73,7 +73,7 @@ class BatchListEntry extends React.Component {
         if(response.status===200){
             await response.body.cancel();
             await this.setStatePromise({loading:false});
-            if(this.props.entryWasDeleted) this.props.entryWasDeleted();
+            if(this.props.entryWasDeleted) this.props.entryWasDeleted(this.props.entry.bulkListId);
         } else {
             const content = await response.text();
             console.error("Could not delete list entry: ", content);

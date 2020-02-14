@@ -71,11 +71,11 @@ func PrepareTestData(client redis.Cmdable) BulkList {
 		client.SAdd(dbKey, dataKey)
 	}
 
-	//write sort index
-	for _, rec := range testRecords {
-		dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", bulkListId.String())
-		client.ZAdd(dbKey, &redis.Z{float64(rec.Priority), rec.Id.String()})
-	}
+	////write sort index
+	//for _, rec := range testRecords {
+	//	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", bulkListId.String())
+	//	client.ZAdd(dbKey, &redis.Z{float64(rec.Priority), rec.Id.String()})
+	//}
 
 	return &BulkListImpl{
 		BulkListId:   bulkListId,
@@ -269,17 +269,17 @@ func TestBulkListImpl_GetAllRecords(t *testing.T) {
 		for i, rec := range allRecordsList {
 			realData[i] = rec.(*BulkItemImpl)
 		}
-		if realData[0].SourcePath != "path/to/file1" {
-			t.Errorf("Got unexpected source path for item 0, expected path/to/file1 got %s", realData[0].SourcePath)
+		if realData[0].SourcePath != "anotherpath/to/file4" {
+			t.Errorf("Got unexpected source path for item 0, expected path/to/file4 got %s", realData[0].SourcePath)
 		}
-		if realData[1].SourcePath != "path/to/file2" {
-			t.Errorf("Got unexpected source path for item 1, expected path/to/file2 got %s", realData[1].SourcePath)
+		if realData[1].SourcePath != "path/to/file1" {
+			t.Errorf("Got unexpected source path for item 1, expected path/to/file1 got %s", realData[1].SourcePath)
 		}
-		if realData[2].SourcePath != "path/to/file3" {
-			t.Errorf("Got unexpected source path for item 2, expected path/to/file3 got %s", realData[2].SourcePath)
+		if realData[2].SourcePath != "path/to/file2" {
+			t.Errorf("Got unexpected source path for item 2, expected path/to/file2 got %s", realData[2].SourcePath)
 		}
-		if realData[3].SourcePath != "anotherpath/to/file4" {
-			t.Errorf("Got unexpected source path for item 3, expected anotherpath/to/file4 got %s", realData[3].SourcePath)
+		if realData[3].SourcePath != "path/to/file3" {
+			t.Errorf("Got unexpected source path for item 3, expected anotherpath/to/file3 got %s", realData[3].SourcePath)
 		}
 	}
 }
@@ -402,19 +402,19 @@ func TestBulkListImpl_AddRecord(t *testing.T) {
 		}
 
 		//check global index
-		giKey := "mediaflipper:bulklist:ad74495f-f9f1-47f5-b723-1d18ab38764d:index"
-		giResult, giErr := s.ZMembers(giKey)
-		if giErr != nil {
-			t.Error("Could not retrieve expected global index key: ", giErr)
-		} else {
-			if len(giResult) != 1 {
-				t.Errorf("Got wrong result count for global index, expected 1 got %d", len(giResult))
-			} else {
-				if giResult[0] != "648cc055-7f80-49d0-a174-496938857393" {
-					t.Errorf("Got wrong data for state index, expected 648cc055-7f80-49d0-a174-496938857393 got %s", giResult[0])
-				}
-			}
-		}
+		//giKey := "mediaflipper:bulklist:ad74495f-f9f1-47f5-b723-1d18ab38764d:index"
+		//giResult, giErr := s.ZMembers(giKey)
+		//if giErr != nil {
+		//	t.Error("Could not retrieve expected global index key: ", giErr)
+		//} else {
+		//	if len(giResult) != 1 {
+		//		t.Errorf("Got wrong result count for global index, expected 1 got %d", len(giResult))
+		//	} else {
+		//		if giResult[0] != "648cc055-7f80-49d0-a174-496938857393" {
+		//			t.Errorf("Got wrong data for state index, expected 648cc055-7f80-49d0-a174-496938857393 got %s", giResult[0])
+		//		}
+		//	}
+		//}
 
 		//check item storage
 		itemKey := "mediaflipper:bulkitem:648cc055-7f80-49d0-a174-496938857393"
@@ -485,21 +485,21 @@ func TestBulkListImpl_RemoveRecord(t *testing.T) {
 				t.Error("got supposedly deleted record id returned from state index")
 			}
 		}
-		//check global index
-		ixGlbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", testList.GetId().String())
-		glbKeys, glbScanErr := testClient.ZRange(ixGlbKey, 0, 100).Result()
-		if glbScanErr != nil {
-			t.Errorf("could not scan global sort index: %s", glbScanErr)
-		} else {
-			if len(glbKeys) != 3 {
-				t.Errorf("got unexpected global index key count, expected 3 got %d", len(glbKeys))
-			}
-			for _, k := range glbKeys {
-				if k == targetRecord.Id.String() {
-					t.Errorf("global index still contained deleted record with id %s", targetRecord.Id)
-				}
-			}
-		}
+		////check global index
+		//ixGlbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", testList.GetId().String())
+		//glbKeys, glbScanErr := testClient.ZRange(ixGlbKey, 0, 100).Result()
+		//if glbScanErr != nil {
+		//	t.Errorf("could not scan global sort index: %s", glbScanErr)
+		//} else {
+		//	if len(glbKeys) != 3 {
+		//		t.Errorf("got unexpected global index key count, expected 3 got %d", len(glbKeys))
+		//	}
+		//	for _, k := range glbKeys {
+		//		if k == targetRecord.Id.String() {
+		//			t.Errorf("global index still contained deleted record with id %s", targetRecord.Id)
+		//		}
+		//	}
+		//}
 	}
 
 }
@@ -519,7 +519,6 @@ func TestBulkList_RunningActions(t *testing.T) {
 		BulkListId:   uuid.MustParse("E813D5AE-360E-439F-A2DE-55556319AADA"),
 		CreationTime: time.Now(),
 		NickName:     "",
-		TemplateId:   uuid.UUID{},
 	}
 
 	preList, preErr := list.GetActionsRunning(testClient)

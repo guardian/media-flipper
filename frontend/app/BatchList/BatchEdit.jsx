@@ -160,7 +160,9 @@ class BatchEdit extends React.Component {
                         if(done || currentCount>=this.state.pageItemsLimit-1) {
                             this.setState({loading: false, lastError: null});
                         } else {
-                            readNextChunk(reader, currentCount+1);
+                            window.setTimeout(()=> {
+                                readNextChunk(reader, currentCount + 1);
+                            },25); //delay each one by 1/40 second to let renderer catch up
                         }
                     })
                 } else {

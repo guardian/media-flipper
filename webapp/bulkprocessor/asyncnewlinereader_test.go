@@ -14,7 +14,7 @@ this is nothing`
 
 	reader := strings.NewReader(testContent)
 
-	contentChan, errChan := AsyncNewlineReader(reader, 2)
+	contentChan, errChan := AsyncNewlineReader(reader, nil, 2)
 
 	receivedLines := make([]string, 0)
 
