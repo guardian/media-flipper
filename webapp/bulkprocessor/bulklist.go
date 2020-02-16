@@ -17,8 +17,9 @@ import (
 type BulkListAction string
 
 const (
-	REMOVE_SYSTEM_FILES BulkListAction = "remove-system-files"
-	JOBS_QUEUEING       BulkListAction = "jobs-queueing"
+	REMOVE_SYSTEM_FILES          BulkListAction = "remove-system-files"
+	REMOVE_NONTRANSCODABLE_FILES BulkListAction = "remove-nontranscodable"
+	JOBS_QUEUEING                BulkListAction = "jobs-queueing"
 )
 
 type BulkList interface {
@@ -791,6 +792,24 @@ func (list *BulkListImpl) Delete(redisClient redis.Cmdable) error {
 	pipe.ZRem("mediaflipper:bulklist:timeindex", list.BulkListId.String())
 	_, err := pipe.Exec()
 	return err
+}
+
+//create an interface to hold the "global" functions so we can easily stub them in testing
+type BulkListDAO interface {
+	BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error)
+	ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImpl, error)
+}
+
+//temporarily the DAO functions pass through to static. To improve testing, we are switching oer to using the ones
+//in the object
+type BulkListDAOImpl struct{}
+
+func (dao BulkListDAOImpl) BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error) {
+	return BulkListForId(bulkId, client)
+}
+
+func (dao BulkListDAOImpl) ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImpl, error) {
+	return ScanBulkList(start, stop, client)
 }
 
 /**

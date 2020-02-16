@@ -10,17 +10,18 @@ import (
 	"strings"
 )
 
-type RemoveDotFiles struct {
+type RemoteNonTranscodableHandler struct {
 	redisClient *redis.Client
+	dao         BulkListDAO
 }
 
-func itemProcessor(itemsChan chan BulkItem, errChan chan error, outputChan chan error, batch BulkList, redisClient redis.Cmdable) {
+func removeNTProcessor(itemsChan chan BulkItem, errChan chan error, outputChan chan error, batch BulkList, redisClient redis.Cmdable) {
 	for {
 		select {
 		case item := <-itemsChan:
 			if item == nil {
-				log.Printf("Remove dotfiles run completed")
-				batch.ClearActionRunning(REMOVE_SYSTEM_FILES, redisClient)
+				log.Printf("Remove non-transcodable run completed")
+				batch.ClearActionRunning(REMOVE_NONTRANSCODABLE_FILES, redisClient)
 				outputChan <- nil
 				return
 			}
@@ -34,13 +35,13 @@ func itemProcessor(itemsChan chan BulkItem, errChan chan error, outputChan chan 
 			}
 		case err := <-errChan:
 			log.Printf("ERROR: Could not iterate all items: %s", err)
-			batch.ClearActionRunning(REMOVE_SYSTEM_FILES, redisClient)
+			batch.ClearActionRunning(REMOVE_NONTRANSCODABLE_FILES, redisClient)
 			outputChan <- err
 		}
 	}
 }
 
-func (h RemoveDotFiles) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h RemoteNonTranscodableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !helpers.AssertHttpMethod(r, w, "POST") {
 		return
 	}
@@ -58,29 +59,19 @@ func (h RemoveDotFiles) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		syncMode = true
 	}
 
-	batch, getErr := BulkListForId(*batchId, h.redisClient)
-	if getErr != nil {
-		log.Printf("could not get batch list for %s: %s", *batchId, getErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not get batch list"}, w, 500)
-		return
-	}
-
-	setErr := batch.SetActionRunning(REMOVE_SYSTEM_FILES, h.redisClient)
-	if setErr != nil {
-		log.Printf("Could not set action running flag: %s", setErr)
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not set action-running flag"}, w, 500)
-		return
-	}
-
-	completionChan := make(chan error)
-
-	itemsChan, errChan := batch.GetAllRecordsAsync(h.redisClient)
-
-	go itemProcessor(itemsChan, errChan, completionChan, batch, h.redisClient)
+	completionChan := RunAsyncActionForBatch(h.dao, *batchId, REMOVE_NONTRANSCODABLE_FILES, h.redisClient, removeNTProcessor)
 
 	if syncMode {
-		<-completionChan
-		helpers.WriteJsonContent(helpers.GenericErrorResponse{"ok", "action completed"}, w, 200)
+		err := <-completionChan
+		if err != nil {
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{
+				Status: "error",
+				Detail: "could not complete run, see server logs for details",
+			}, w, 500)
+			return
+		} else {
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"ok", "action completed"}, w, 200)
+		}
 	} else {
 		go func() {
 			<-completionChan //ensure that the goroutine can terminate easily
