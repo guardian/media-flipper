@@ -6,24 +6,28 @@ import (
 )
 
 type BulkEndpoints struct {
-	GetHandler      GetHandler
-	UploadHandler   BulkListUploader
-	ListHandler     ListHandler
-	ContentsHandler ContentsHandler
-	UpdateHandler   UpdateHandler
-	DeleteHandler   DeleteHandler
-	RemoveDotFiles  RemoveDotFiles
+	GetHandler            GetHandler
+	UploadHandler         BulkListUploader
+	ListHandler           ListHandler
+	ContentsHandler       ContentsHandler
+	UpdateHandler         UpdateHandler
+	DeleteHandler         DeleteHandler
+	RemoveDotFiles        RemoveDotFiles
+	RemoveNonTranscodable RemoveNonTranscodableHandler
 }
 
 func NewBulkEndpoints(redisClient *redis.Client) BulkEndpoints {
+	dao := BulkListDAOImpl{}
+
 	return BulkEndpoints{
-		GetHandler:      GetHandler{redisClient: redisClient},
-		UploadHandler:   BulkListUploader{redisClient: redisClient},
-		ListHandler:     ListHandler{redisClient: redisClient},
-		ContentsHandler: ContentsHandler{redisClient: redisClient},
-		UpdateHandler:   UpdateHandler{redisClient: redisClient},
-		DeleteHandler:   DeleteHandler{redisClient: redisClient},
-		RemoveDotFiles:  RemoveDotFiles{redisClient: redisClient},
+		GetHandler:            GetHandler{redisClient: redisClient},
+		UploadHandler:         BulkListUploader{redisClient: redisClient},
+		ListHandler:           ListHandler{redisClient: redisClient},
+		ContentsHandler:       ContentsHandler{redisClient: redisClient},
+		UpdateHandler:         UpdateHandler{redisClient: redisClient},
+		DeleteHandler:         DeleteHandler{redisClient: redisClient},
+		RemoveDotFiles:        RemoveDotFiles{redisClient: redisClient, dao: dao},
+		RemoveNonTranscodable: RemoveNonTranscodableHandler{redisClient: redisClient, dao: dao},
 	}
 }
 
@@ -35,4 +39,5 @@ func (e BulkEndpoints) WireUp(baseUrl string) {
 	http.Handle(baseUrl+"/update", e.UpdateHandler)
 	http.Handle(baseUrl+"/delete", e.DeleteHandler)
 	http.Handle(baseUrl+"/action/removeDotFiles", e.RemoveDotFiles)
+	http.Handle(baseUrl+"/action/removeNonTranscodable", e.RemoveNonTranscodable)
 }
