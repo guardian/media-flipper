@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ func PrepareTestData(client redis.Cmdable) BulkList {
 			"path/to/file1",
 			1,
 			ITEM_STATE_COMPLETED,
-			ITEM_TYPE_VIDEO,
+			helpers.ITEM_TYPE_VIDEO,
 		},
 		{
 			uuid.MustParse("AFDB2DD8-6B5F-4DEB-88A7-CBC2CD545DA6"),
@@ -29,7 +30,7 @@ func PrepareTestData(client redis.Cmdable) BulkList {
 			"path/to/file2",
 			2,
 			ITEM_STATE_ACTIVE,
-			ITEM_TYPE_VIDEO,
+			helpers.ITEM_TYPE_VIDEO,
 		},
 		{
 			uuid.MustParse("599B1967-8E69-4A7B-B0E3-710053EFF5C4"),
@@ -37,7 +38,7 @@ func PrepareTestData(client redis.Cmdable) BulkList {
 			"path/to/file3",
 			3,
 			ITEM_STATE_ACTIVE,
-			ITEM_TYPE_VIDEO,
+			helpers.ITEM_TYPE_VIDEO,
 		},
 		{
 			uuid.MustParse("D7285685-03D8-49CD-A4BB-924F326497DD"),
@@ -45,7 +46,7 @@ func PrepareTestData(client redis.Cmdable) BulkList {
 			"anotherpath/to/file4",
 			4,
 			ITEM_STATE_PENDING,
-			ITEM_TYPE_VIDEO,
+			helpers.ITEM_TYPE_VIDEO,
 		},
 	}
 
@@ -457,7 +458,7 @@ func TestBulkListImpl_RemoveRecord(t *testing.T) {
 		"path/to/file3",
 		3,
 		ITEM_STATE_ACTIVE,
-		ITEM_TYPE_VIDEO,
+		helpers.ITEM_TYPE_VIDEO,
 	}
 	remErr := testList.RemoveRecord(&targetRecord, testClient)
 	if remErr != nil {

@@ -5,6 +5,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ func TestRunAsyncActionForBatch_working(t *testing.T) {
 			SourcePath: fmt.Sprintf("path/to/file%d", i),
 			Priority:   1234,
 			State:      ITEM_STATE_PENDING,
-			Type:       ITEM_TYPE_IMAGE,
+			Type:       helpers.ITEM_TYPE_IMAGE,
 		}
 	}
 
