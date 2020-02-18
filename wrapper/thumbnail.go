@@ -44,8 +44,14 @@ func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
 }
 
 func RunImageThumbnail(fileName string) *ThumbnailResult {
-	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
-	startTime := time.Now()
-
-	cmd := exec.Command("convert", fileName, "resize")
+	//outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+	//startTime := time.Now()
+	//
+	//cmd := exec.Command("convert", fileName, "resize")
+	msg := "not implemented yet!"
+	return &ThumbnailResult{
+		nil,
+		&msg,
+		0.0,
+	}
 }

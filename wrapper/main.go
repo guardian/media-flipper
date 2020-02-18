@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
