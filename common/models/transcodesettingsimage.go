@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"strings"
@@ -50,4 +51,12 @@ func (s TranscodeImageSettings) Summarise() JobSettingsSummary {
 		Name:        s.Name,
 		Description: s.Description,
 	}
+}
+
+func (s TranscodeImageSettings) InternalMarshalJSON() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+func (s TranscodeImageSettings) isValid() bool {
+	return s.ScaleX > 0 && s.ScaleY > 0
 }

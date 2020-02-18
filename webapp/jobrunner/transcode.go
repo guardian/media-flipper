@@ -1,7 +1,6 @@
 package jobrunner
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
@@ -17,7 +16,7 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 		return errors.New("Can't perform thumbnail with no media file")
 	}
 
-	jsonTranscodeSettings, marshalErr := json.Marshal(jobDesc.TranscodeSettings)
+	jsonTranscodeSettings, marshalErr := jobDesc.TranscodeSettings.InternalMarshalJSON()
 	if marshalErr != nil {
 		log.Printf("Could not convert settings into json: %s", marshalErr)
 		log.Printf("Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))

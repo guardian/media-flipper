@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"os"
 	"strconv"
@@ -70,28 +69,29 @@ func main() {
 			thumbFrame = 30
 		}
 
-		mediaType := helpers.BulkItemType(os.Getenv("MEDIA_TYPE"))
-		var result *ThumbnailResult
-		switch mediaType {
-		case helpers.ITEM_TYPE_AUDIO:
-			errMsg := "can't thumbnail an audio file"
-			result = &ThumbnailResult{
-				OutPath:      nil,
-				ErrorMessage: &errMsg,
-				TimeTaken:    0,
-			}
-		case helpers.ITEM_TYPE_VIDEO:
-			result = RunVideoThumbnail(filename, thumbFrame)
-		case helpers.ITEM_TYPE_IMAGE:
-			result = RunImageThumbnail(filename)
-		case helpers.ITEM_TYPE_OTHER:
-			errMsg := "can't thumbnail a file with an unrecognised type"
-			result = &ThumbnailResult{
-				OutPath:      nil,
-				ErrorMessage: &errMsg,
-				TimeTaken:    0,
-			}
-		}
+		//mediaType := helpers.BulkItemType(os.Getenv("MEDIA_TYPE"))
+		//var result *ThumbnailResult
+		//switch mediaType {
+		//case helpers.ITEM_TYPE_AUDIO:
+		//	errMsg := "can't thumbnail an audio file"
+		//	result = &ThumbnailResult{
+		//		OutPath:      nil,
+		//		ErrorMessage: &errMsg,
+		//		TimeTaken:    0,
+		//	}
+		//case helpers.ITEM_TYPE_VIDEO:
+		//
+		//case helpers.ITEM_TYPE_IMAGE:
+		//	result = RunImageThumbnail(filename)
+		//case helpers.ITEM_TYPE_OTHER:
+		//	errMsg := "can't thumbnail a file with an unrecognised type"
+		//	result = &ThumbnailResult{
+		//		OutPath:      nil,
+		//		ErrorMessage: &errMsg,
+		//		TimeTaken:    0,
+		//	}
+		//}
+		result := RunVideoThumbnail(filename, thumbFrame)
 
 		log.Print("Got thumbnail result: ", result)
 

@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"testing"
 )
 
@@ -48,7 +49,7 @@ func TestNewJobContainer(t *testing.T) {
 	}
 
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	result, err := mgr.NewJobContainer(expectedUuid)
+	result, err := mgr.NewJobContainer(expectedUuid, helpers.ITEM_TYPE_VIDEO)
 	if err != nil {
 		t.Error("NewJobContainer unexpectedly failed: ", err)
 	} else {

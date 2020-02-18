@@ -76,19 +76,23 @@ func JobStepTranscodeFromMap(mapData map[string]interface{}) (*JobStepTranscode,
 	delete(mapData, "transcodeSettings")
 	err := CustomisedMapStructureDecode(mapData, &rtn)
 
+	//log.Printf("DEBUG: raw transcode settings are %s", spew.Sdump(transcodeSettingsRaw))
 	if err != nil {
 		return nil, err
 	}
 	var transcodeSettingsAV JobSettings
 	avErr := CustomisedMapStructureDecode(transcodeSettingsRaw, &transcodeSettingsAV)
-	if avErr == nil {
+	//log.Printf("DEBUG: attempt at decoding as AV: %s %s", spew.Sdump(transcodeSettingsAV), avErr)
+	if avErr == nil && transcodeSettingsAV.isValid() {
 		rtn.TranscodeSettings = transcodeSettingsAV
 		return &rtn, nil
 	}
 
 	var transcodeSettingsImg TranscodeImageSettings
 	imErr := CustomisedMapStructureDecode(transcodeSettingsRaw, &transcodeSettingsImg)
-	if imErr != nil {
+	//log.Printf("DEBUG: attempt at decoding as image: %s %s", spew.Sdump(transcodeSettingsImg), imErr)
+	//log.Printf("settings valid? %t", transcodeSettingsImg.isValid())
+	if imErr == nil && transcodeSettingsImg.isValid() {
 		rtn.TranscodeSettings = transcodeSettingsImg
 		return &rtn, nil
 	}

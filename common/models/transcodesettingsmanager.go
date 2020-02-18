@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -45,25 +46,26 @@ func loadSettingsFromFile(fileName string) ([]TranscodeTypeSettings, error) {
 	rtn := make([]TranscodeTypeSettings, len(settingsList))
 
 	for i, rawSetting := range settingsList {
-		jobSetting, jsErr := attemptUnmarshalJobSettings(rawSetting)
-		if jsErr == nil {
-			//log.Printf("got transcode settings: %s", spew.Sdump(jobSetting))
-			rtn[i] = jobSetting
-			continue
-		} else {
-			//log.Printf("could not read in as job: %s", jsErr)
-		}
-
 		imageSetting, isErr := attemptUnmarshalImageSettings(rawSetting)
-		if isErr == nil {
-			//log.Printf("got image settings: %s", spew.Sdump(imageSetting))
+		if isErr == nil && imageSetting.isValid() {
+			log.Printf("got image settings: %s", spew.Sdump(imageSetting))
 			rtn[i] = imageSetting
 			continue
 		} else {
-			//log.Printf("could not read in as image: %s", isErr)
+			log.Printf("could not read in setting %d from %s as image: %s", i, fileName, isErr)
 		}
+
+		jobSetting, jsErr := attemptUnmarshalJobSettings(rawSetting)
+		if jsErr == nil && jobSetting.isValid() {
+			log.Printf("got transcode settings: %s", spew.Sdump(jobSetting))
+			rtn[i] = jobSetting
+			continue
+		} else {
+			log.Printf("could not read in setting %d from %s as job: %s", i, fileName, jsErr)
+		}
+
 	}
-	return nil, errors.New("could not read content, see logs for details")
+	return rtn, nil
 }
 
 /**

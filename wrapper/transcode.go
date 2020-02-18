@@ -16,7 +16,7 @@ import (
 /**
 retrieve an object based on the settings passed
 */
-func ParseSettings(rawString string) (*models.JobSettings, error) {
+func ParseSettings(rawString string) (models.TranscodeTypeSettings, error) {
 	var s models.JobSettings
 	marshalErr := json.Unmarshal([]byte(rawString), &s)
 	if marshalErr != nil {
@@ -61,7 +61,7 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 	}
 }
 
-func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
+func RunTranscode(fileName string, settings models.TranscodeTypeSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
 	outFileName := RemoveExtension(fileName) + "_transcoded"
 
 	commandArgs := []string{"-i", fileName}

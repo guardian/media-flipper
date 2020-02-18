@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/guardian/mediaflipper/common/models"
 	"log"
 	"os"
 	"os/exec"
@@ -10,10 +11,25 @@ import (
 
 func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
 	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
-	startTime := time.Now()
 
 	cmd := exec.Command("ffmpeg", "-i", fileName, "-vframes", "1", "-an", "-y", "-ss", fmt.Sprint(atFrame), outFileName)
 
+	return runThumbnailWrapper(cmd, outFileName)
+}
+
+func RunImageThumbnail(fileName string, settings models.TranscodeTypeSettings) *ThumbnailResult {
+	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+
+	commandArgs := []string{fileName}
+	commandArgs = append(commandArgs, settings.MarshalToArray()...)
+	commandArgs = append(commandArgs, outFileName)
+	cmd := exec.Command("/usr/bin/convert", commandArgs...)
+
+	return runThumbnailWrapper(cmd, outFileName)
+}
+
+func runThumbnailWrapper(cmd *exec.Cmd, outFileName string) *ThumbnailResult {
+	startTime := time.Now()
 	_, errContent, err := RunCommand(cmd)
 
 	endTime := time.Now()
@@ -39,19 +55,5 @@ func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
 		OutPath:      &outFileName,
 		ErrorMessage: nil,
 		TimeTaken:    float64(duration) / 1e9,
-	}
-
-}
-
-func RunImageThumbnail(fileName string) *ThumbnailResult {
-	//outFileName := RemoveExtension(fileName) + "_thumb.jpg"
-	//startTime := time.Now()
-	//
-	//cmd := exec.Command("convert", fileName, "resize")
-	msg := "not implemented yet!"
-	return &ThumbnailResult{
-		nil,
-		&msg,
-		0.0,
 	}
 }

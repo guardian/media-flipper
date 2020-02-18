@@ -3,6 +3,8 @@ package models
 import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
+	"log"
+	"strings"
 	"testing"
 )
 
@@ -77,6 +79,37 @@ func TestTranscodeSettingsLoad(t *testing.T) {
 		}
 		if settings[0].Video.Scale.ScaleX != 1280 {
 			t.Errorf("Expected scale.scaleX to be 1280, got %d", settings[0].Video.Scale.ScaleX)
+		}
+	}
+}
+
+func TestTranscodeSettingsMarshal(t *testing.T) {
+	//TranscodeSettings should transparently marshal the underlying type
+	avTest := JobSettings{
+		SettingsId:  uuid.MustParse("21ED49D1-7A79-40DB-94B0-2D0080617A62"),
+		Name:        "avtest",
+		Description: "test av format",
+		Video: VideoSettings{
+			Codec:  "h264",
+			CRF:    19,
+			Preset: "fast",
+			Scale:  nil,
+		},
+		Audio:   AudioSettings{},
+		Wrapper: WrapperSettings{},
+	}
+
+	content, marshalErr := avTest.InternalMarshalJSON()
+	if marshalErr != nil {
+		t.Error("marshal failed unexpectedly: ", marshalErr)
+	} else {
+		strContent := string(content)
+		log.Printf("DEBUG: %s", strContent)
+		if !strings.Contains(strContent, "21ed49d1-7a79-40db-94b0-2d0080617a62") {
+			t.Error("returned content did not contain the right id!")
+		}
+		if !strings.Contains(strContent, "\"name\":\"avtest\"") {
+			t.Error("returned content did not contain the right name!")
 		}
 	}
 }

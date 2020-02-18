@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"log"
@@ -13,6 +14,8 @@ type TranscodeTypeSettings interface {
 	MarshalToArray() []string
 	GetId() uuid.UUID
 	Summarise() JobSettingsSummary
+	InternalMarshalJSON() ([]byte, error)
+	isValid() bool
 }
 
 type ScaleSettings struct {
@@ -147,4 +150,12 @@ func (s JobSettings) Summarise() JobSettingsSummary {
 
 func (s JobSettings) GetId() uuid.UUID {
 	return s.SettingsId
+}
+
+func (s JobSettings) InternalMarshalJSON() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+func (s JobSettings) isValid() bool {
+	return s.Wrapper.Format != "" //so long as we have a wrapper format the settings can be used
 }
