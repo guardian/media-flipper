@@ -1,6 +1,9 @@
 package main
 
-import "strconv"
+import (
+	"errors"
+	"strconv"
+)
 
 type FormatAnalysis struct {
 	StreamCount    int16   `json:"nb_streams"`
@@ -14,15 +17,33 @@ type FormatAnalysis struct {
 	ProbeScore     int32   `json:"probe_score"`
 }
 
+func safeParseFloat(from map[string]interface{}, key string, defaultValue float64) (float64, error) {
+	stringVal, haveString := from[key].(string)
+	if haveString {
+		return strconv.ParseFloat(stringVal, 64)
+	} else {
+		return defaultValue, errors.New("value did not exist")
+	}
+}
+
+func safeParseInt(from map[string]interface{}, key string, defaultValue int64) (int64, error) {
+	stringVal, haveString := from[key].(string)
+	if haveString {
+		return strconv.ParseInt(stringVal, 10, 64)
+	} else {
+		return defaultValue, errors.New("value did not exist")
+	}
+}
+
 /**
 we need to perform this conversion manually because some of the json fields provided
 come through as strings but we need them as numbers
 */
 func FormatAnalysisFromMap(from map[string]interface{}) FormatAnalysis {
-	startConverted, _ := strconv.ParseFloat(from["start_time"].(string), 64)
-	durConverted, _ := strconv.ParseFloat(from["duration"].(string), 64)
-	sizeConverted, _ := strconv.ParseInt(from["size"].(string), 10, 64)
-	brConverted, _ := strconv.ParseFloat(from["bit_rate"].(string), 64)
+	startConverted, _ := safeParseFloat(from, "start_time", 0)
+	durConverted, _ := safeParseFloat(from, "duration", 0)
+	sizeConverted, _ := safeParseInt(from, "size", 0)
+	brConverted, _ := safeParseFloat(from, "bit_rate", 0)
 
 	return FormatAnalysis{
 		StreamCount:    int16(from["nb_streams"].(float64)),

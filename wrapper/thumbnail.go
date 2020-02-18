@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func RunThumbnail(fileName string, atFrame int) *ThumbnailResult {
+func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
 	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
 	startTime := time.Now()
 
@@ -41,4 +41,11 @@ func RunThumbnail(fileName string, atFrame int) *ThumbnailResult {
 		TimeTaken:    float64(duration) / 1e9,
 	}
 
+}
+
+func RunImageThumbnail(fileName string) *ThumbnailResult {
+	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+	startTime := time.Now()
+
+	cmd := exec.Command("convert", fileName, "resize")
 }

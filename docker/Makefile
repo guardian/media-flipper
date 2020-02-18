@@ -9,7 +9,8 @@ else
 endif
 
 dockerbuild:
-	docker build . -t guardianmultimedia/mediaflipper:DEV
+	docker build . -f masterimage/Dockerfile -t guardianmultimedia/mediaflipper:DEV
+	docker build . -f imagethumb/Dockerfile  -t guardianmultimedia/mediaflipper-imagethumb:DEV
 
 clean:
 	rm -f webapp

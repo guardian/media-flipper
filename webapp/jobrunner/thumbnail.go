@@ -24,6 +24,7 @@ func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.C
 		"FILE_NAME":        jobDesc.MediaFile,
 		"THUMBNAIL_FRAME":  fmt.Sprintf("%f", thumbFrameSeconds),
 		"MAX_RETRIES":      "10",
+		"MEDIA_TYPE":       string(jobDesc.ItemType),
 	}
 
 	jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))

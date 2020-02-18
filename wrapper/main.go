@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"os"
 	"strconv"
@@ -30,6 +32,7 @@ WEBAPP_BASE={url-string}  [url to contact main webapp]
 MAX_RETRIES={count}
 THUMBNAIL_FRAME={int} [thumbnail only]
 TRANSCODE_SETTINGS={jsonstring} [transcode only]
+MEDIA_TYPE={video|audio|image|other}
 */
 func main() {
 	testFilePtr := flag.String("filename", "", "testing option, run on this file")
@@ -68,7 +71,29 @@ func main() {
 			thumbFrame = 30
 		}
 
-		result := RunThumbnail(filename, thumbFrame)
+		mediaType := helpers.BulkItemType(os.Getenv("MEDIA_TYPE"))
+		var result *ThumbnailResult
+		switch mediaType {
+		case helpers.ITEM_TYPE_AUDIO:
+			errMsg := "can't thumbnail an audio file"
+			result = &ThumbnailResult{
+				OutPath:      nil,
+				ErrorMessage: &errMsg,
+				TimeTaken:    0,
+			}
+		case helpers.ITEM_TYPE_VIDEO:
+			result = RunVideoThumbnail(filename, thumbFrame)
+		case helpers.ITEM_TYPE_IMAGE:
+			result = RunImageThumbnail(filename)
+		case helpers.ITEM_TYPE_OTHER:
+			errMsg := "can't thumbnail a file with an unrecognised type"
+			result = &ThumbnailResult{
+				OutPath:      nil,
+				ErrorMessage: &errMsg,
+				TimeTaken:    0,
+			}
+		}
+
 		log.Print("Got thumbnail result: ", result)
 
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")

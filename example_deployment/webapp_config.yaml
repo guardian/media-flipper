@@ -21,7 +21,7 @@ data:
         spec:
           containers:
             - name: mediaflipper
-              image: guardianmultimedia/mediaflipper:57
+              image: guardianmultimedia/mediaflipper:58
               #imagePullPolicy: Always
               env:
                 - name: WRAPPER_MODE

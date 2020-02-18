@@ -25,6 +25,7 @@ func CreateAnalysisJob(jobDesc models2.JobStepAnalysis, k8client *kubernetes.Cli
 		"JOB_STEP_ID":      jobDesc.JobStepId.String(),
 		"FILE_NAME":        jobDesc.MediaFile,
 		"MAX_RETRIES":      "10",
+		"MEDIA_TYPE":       string(jobDesc.ItemType),
 	}
 
 	jobName := fmt.Sprintf("mediaflipper-analysis-%s", path.Base(jobDesc.MediaFile))

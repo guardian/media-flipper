@@ -10,35 +10,60 @@ import (
 )
 
 type TranscodeSettingsManager struct {
-	knownSettings map[uuid.UUID]JobSettings
+	knownSettings map[uuid.UUID]TranscodeTypeSettings
+}
+
+func attemptUnmarshalJobSettings(from map[string]interface{}) (TranscodeTypeSettings, error) {
+	var result JobSettings
+	marshalErr := CustomisedMapStructureDecode(from, &result)
+	return result, marshalErr
+}
+
+func attemptUnmarshalImageSettings(from map[string]interface{}) (TranscodeTypeSettings, error) {
+	var result TranscodeImageSettings
+	marshalErr := CustomisedMapStructureDecode(from, &result)
+	return result, marshalErr
 }
 
 /**
 internal function to load the contents of a given yaml file
 */
-func loadSettingsFromFile(fileName string) ([]JobSettings, error) {
+func loadSettingsFromFile(fileName string) ([]TranscodeTypeSettings, error) {
 	fileContent, readErr := ioutil.ReadFile(fileName)
 	if readErr != nil {
 		return nil, readErr
 	}
 
 	//try to unmarshal a list of settings
-	var settingsList []JobSettings
-	listMarshalErr := yaml.UnmarshalStrict(fileContent, &settingsList)
-	if listMarshalErr == nil {
-		return settingsList, nil
+	var settingsList []map[string]interface{}
+
+	extractErr := yaml.Unmarshal(fileContent, &settingsList)
+	if extractErr != nil {
+		return nil, extractErr
 	}
 
-	//if that didn't work, try to unmarshal a single setting
-	var singleSetting JobSettings
-	singleMarshalErr := yaml.UnmarshalStrict(fileContent, &singleSetting)
-	if singleMarshalErr == nil {
-		return []JobSettings{singleSetting}, nil
-	}
+	rtn := make([]TranscodeTypeSettings, len(settingsList))
 
-	log.Printf("Could not unmarshal %s as settings list: %s", fileName, listMarshalErr)
-	log.Printf("Could not unmarshal %s as single setting: %s", fileName, singleMarshalErr)
-	return nil, errors.New("Could not read content, see logs for details.")
+	for i, rawSetting := range settingsList {
+		jobSetting, jsErr := attemptUnmarshalJobSettings(rawSetting)
+		if jsErr == nil {
+			//log.Printf("got transcode settings: %s", spew.Sdump(jobSetting))
+			rtn[i] = jobSetting
+			continue
+		} else {
+			//log.Printf("could not read in as job: %s", jsErr)
+		}
+
+		imageSetting, isErr := attemptUnmarshalImageSettings(rawSetting)
+		if isErr == nil {
+			//log.Printf("got image settings: %s", spew.Sdump(imageSetting))
+			rtn[i] = imageSetting
+			continue
+		} else {
+			//log.Printf("could not read in as image: %s", isErr)
+		}
+	}
+	return nil, errors.New("could not read content, see logs for details")
 }
 
 /**
@@ -58,7 +83,7 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 		return nil, err
 	}
 
-	mgr := TranscodeSettingsManager{knownSettings: make(map[uuid.UUID]JobSettings)}
+	mgr := TranscodeSettingsManager{knownSettings: make(map[uuid.UUID]TranscodeTypeSettings)}
 
 	for _, fileInfo := range files {
 		if fileInfo.IsDir() {
@@ -68,7 +93,7 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 		if readErr == nil {
 			log.Printf("Loaded %d settings from %s...", len(moreSettings), fileInfo.Name())
 			for _, settingsData := range moreSettings {
-				mgr.knownSettings[settingsData.SettingsId] = settingsData
+				mgr.knownSettings[settingsData.GetId()] = settingsData
 			}
 		} else {
 			log.Printf("Could not read in settings from %s", forPath+"/"+fileInfo.Name())
@@ -80,7 +105,7 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 /**
 returns a setting for the given ID, or nil if it is not found
 */
-func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *JobSettings {
+func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *TranscodeTypeSettings {
 	result, gotIt := mgr.knownSettings[forId]
 	if gotIt {
 		return &result
@@ -92,8 +117,8 @@ func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *JobSettings {
 /**
 returns a list of all the known settings
 */
-func (mgr *TranscodeSettingsManager) ListSettings() *[]JobSettings {
-	out := make([]JobSettings, len(mgr.knownSettings))
+func (mgr *TranscodeSettingsManager) ListSettings() *[]TranscodeTypeSettings {
+	out := make([]TranscodeTypeSettings, len(mgr.knownSettings))
 	i := 0
 	for _, s := range mgr.knownSettings {
 		out[i] = s

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/davecgh/go-spew/spew"
 	"log"
 	"os/exec"
 )
@@ -23,14 +24,8 @@ func RunAnalysis(fileName string) (*AnalysisResult, error) {
 		return nil, unmarshalErr
 	}
 
-	//log.Print("debug: raw output is ", rawOutput["format"].(map[string]interface{}))
-	//
-	//var formatInfo FormatAnalysis
-	//err := mapstructure.Decode(rawOutput["format"].(map[string]interface{}), &formatInfo)
-	//
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	log.Printf("DEBUG: analysis result was: %s", spew.Sdump(rawOutput))
+	log.Printf("DEBUG: format result was: %s", spew.Sdump(rawOutput["format"]))
 	return &AnalysisResult{Success: true, Format: FormatAnalysisFromMap(rawOutput["format"].(map[string]interface{}))}, nil
 
 }

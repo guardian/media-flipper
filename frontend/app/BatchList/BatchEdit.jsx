@@ -33,7 +33,7 @@ class BatchEdit extends React.Component {
             entries: [],
             currentReader: null,
             currentAbort: null,
-            pageLoadLimit: 10,
+            pageLoadLimit: 30,
             pageItemsLimit: 1000,
             itemsInPage: 0,
             templateEntries: [],

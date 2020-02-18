@@ -30,6 +30,7 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 		"FILE_NAME":          jobDesc.MediaFile,
 		"TRANSCODE_SETTINGS": string(jsonTranscodeSettings),
 		"MAX_RETRIES":        "10",
+		"MEDIA_TYPE":         string(jobDesc.ItemType),
 	}
 
 	jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))

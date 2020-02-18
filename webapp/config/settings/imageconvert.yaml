@@ -1,0 +1,7 @@
+- settingsid: E1C3F18C-C325-457C-A701-D8B2730D0981
+  name: Thumbnail image file
+  description: Max 1200x1200 jpeg file suitable for thumbnailing, keeps aspect ratio
+  scale_x: 1200
+  x_max_size: true
+  scale_y: 1200
+  y_max_size: true

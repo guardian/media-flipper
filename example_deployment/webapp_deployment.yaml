@@ -19,7 +19,7 @@ spec:
         stack: MediaFlipper
     spec:
       containers:
-        - image: guardianmultimedia/mediaflipper:57
+        - image: guardianmultimedia/mediaflipper:58
           #imagePullPolicy: Always
           name: webapp-mediaflipper
           resources:

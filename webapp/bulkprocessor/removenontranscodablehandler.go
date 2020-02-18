@@ -33,17 +33,17 @@ func removeNTProcessor(itemsChan chan BulkItem, errChan chan error, outputChan c
 			var removeErr error
 
 			switch item.GetItemType() {
-			case ITEM_TYPE_OTHER: //we never know what to do with these
+			case helpers.ITEM_TYPE_OTHER: //we never know what to do with these
 				removeErr = batch.RemoveRecord(item, redisClient)
-			case ITEM_TYPE_IMAGE: //remove image if there is no image preset
+			case helpers.ITEM_TYPE_IMAGE: //remove image if there is no image preset
 				if !hasImageSetting {
 					removeErr = batch.RemoveRecord(item, redisClient)
 				}
-			case ITEM_TYPE_VIDEO:
+			case helpers.ITEM_TYPE_VIDEO:
 				if !hasVideoSetting {
 					removeErr = batch.RemoveRecord(item, redisClient)
 				}
-			case ITEM_TYPE_AUDIO:
+			case helpers.ITEM_TYPE_AUDIO:
 				if !hasAudioSetting {
 					removeErr = batch.RemoveRecord(item, redisClient)
 				}

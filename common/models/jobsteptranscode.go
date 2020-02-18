@@ -2,23 +2,25 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"time"
 )
 
 type JobStepTranscode struct {
-	JobStepType            string         `json:"stepType" mapstructure:"stepType"` //this field is vital so we can correctly unmarshal json data from the store
-	JobStepId              uuid.UUID      `json:"id" mapstructure:"id"`
-	JobContainerId         uuid.UUID      `json:"jobContainerId" mapstructure:"jobContainerId"`
-	ContainerData          *JobRunnerDesc `json:"containerData" mapstructure:"containerData"`
-	StatusValue            JobStatus      `json:"jobStepStatus" mapstructure:"jobStepStatus"`
-	LastError              string         `json:"errorMessage" mapstructure:"errorMessage"`
-	MediaFile              string         `json:"mediaFile" mapstructure:"mediaFile"`
-	ResultId               *uuid.UUID     `json:"transcodeResult" mapstructure:"transcodeResult"`
-	TimeTakenValue         float64        `json:"timeTaken" mapstructure:"timeTaken"`
-	KubernetesTemplateFile string         `json:"templateFile" mapstructure:"templateFile"`
-	StartTime              *time.Time     `json:"startTime" mapstructure:"startTime"`
-	EndTime                *time.Time     `json:"endTime" mapstructure:"startTime"`
-	TranscodeSettings      *JobSettings   `json:"transcodeSettings" mapstructure:"transcodeSettings"`
+	JobStepType            string                 `json:"stepType" mapstructure:"stepType"` //this field is vital so we can correctly unmarshal json data from the store
+	JobStepId              uuid.UUID              `json:"id" mapstructure:"id"`
+	JobContainerId         uuid.UUID              `json:"jobContainerId" mapstructure:"jobContainerId"`
+	ContainerData          *JobRunnerDesc         `json:"containerData" mapstructure:"containerData"`
+	StatusValue            JobStatus              `json:"jobStepStatus" mapstructure:"jobStepStatus"`
+	LastError              string                 `json:"errorMessage" mapstructure:"errorMessage"`
+	MediaFile              string                 `json:"mediaFile" mapstructure:"mediaFile"`
+	ResultId               *uuid.UUID             `json:"transcodeResult" mapstructure:"transcodeResult"`
+	TimeTakenValue         float64                `json:"timeTaken" mapstructure:"timeTaken"`
+	KubernetesTemplateFile string                 `json:"templateFile" mapstructure:"templateFile"`
+	StartTime              *time.Time             `json:"startTime" mapstructure:"startTime"`
+	EndTime                *time.Time             `json:"endTime" mapstructure:"startTime"`
+	TranscodeSettings      *TranscodeTypeSettings `json:"transcodeSettings" mapstructure:"transcodeSettings"`
+	ItemType               helpers.BulkItemType   `json:"itemType"`
 }
 
 func (j JobStepTranscode) StepId() uuid.UUID {

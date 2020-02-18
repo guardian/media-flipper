@@ -14,7 +14,7 @@ type SubmitHandler struct {
 }
 
 func (h SubmitHandler) newJobForItem(i BulkItem, templateId uuid.UUID) (*models.JobContainer, error) {
-	job, err := h.jobTemplateManager.NewJobContainer(templateId)
+	job, err := h.jobTemplateManager.NewJobContainer(templateId, i.GetItemType())
 	if err != nil {
 		return nil, err
 	}

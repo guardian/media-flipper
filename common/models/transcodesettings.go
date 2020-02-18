@@ -11,6 +11,8 @@ import (
 type TranscodeTypeSettings interface {
 	MarshalToString() string
 	MarshalToArray() []string
+	GetId() uuid.UUID
+	Summarise() JobSettingsSummary
 }
 
 type ScaleSettings struct {
@@ -39,12 +41,12 @@ type WrapperSettings struct {
 }
 
 type JobSettings struct {
-	SettingsId  uuid.UUID       `json:"settingsid" yaml:"settingsid"`
-	Name        string          `json:"name" yaml:"name"`
-	Description string          `json:"description" yaml:"description"`
-	Video       VideoSettings   `json:"video" yaml:"video"`
-	Audio       AudioSettings   `json:"audio" yaml:"audio"`
-	Wrapper     WrapperSettings `json:"wrapper" yaml:"wrapper"`
+	SettingsId  uuid.UUID       `json:"settingsid" yaml:"settingsid" mapstructure:"settingsid"`
+	Name        string          `json:"name" yaml:"name" mapstructure:"name"`
+	Description string          `json:"description" yaml:"description" mapstructure:"description"`
+	Video       VideoSettings   `json:"video" yaml:"video" mapstructure:"video"`
+	Audio       AudioSettings   `json:"audio" yaml:"audio" mapstructure:"audio"`
+	Wrapper     WrapperSettings `json:"wrapper" yaml:"wrapper" mapstructure:"wrapper"`
 }
 
 type JobSettingsSummary struct {
@@ -141,4 +143,8 @@ func (s JobSettings) Summarise() JobSettingsSummary {
 		Name:        s.Name,
 		Description: s.Description,
 	}
+}
+
+func (s JobSettings) GetId() uuid.UUID {
+	return s.SettingsId
 }

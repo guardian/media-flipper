@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -60,7 +61,7 @@ func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeS
 	return &mgr, nil
 }
 
-func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContainer, error) {
+func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*JobContainer, error) {
 	tplEntry, tplExists := mgr.loadedTemplates[templateId]
 	if !tplExists {
 		return nil, errors.New(fmt.Sprintf("Request for non-existent template with id %s", templateId))
@@ -80,6 +81,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				StatusValue:            JOB_PENDING,
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
 			break
@@ -95,11 +97,12 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				TimeTakenValue:         0,
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
 			break
 		case "transcode":
-			var s *JobSettings
+			var s *TranscodeTypeSettings
 			spew.Dump(stepTemplate)
 			if stepTemplate.TranscodeSettingsId != "" {
 				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
@@ -127,6 +130,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
 				TranscodeSettings:      s,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
 			break

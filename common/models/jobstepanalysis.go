@@ -2,21 +2,23 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"time"
 )
 
 type JobStepAnalysis struct {
-	JobStepType            string         `json:"stepType" mapstructure:"stepType"`
-	JobStepId              uuid.UUID      `json:"id" mapstructure:"id"`
-	JobContainerId         uuid.UUID      `json:"jobContainerId" mapstructure:"jobContainerId"`
-	ContainerData          *JobRunnerDesc `json:"containerData" mapstructure:"containerData"`
-	StatusValue            JobStatus      `json:"jobStepStatus" mapstructure:"jobStepStatus"`
-	ResultId               uuid.UUID      `json:"analysisResult" mapstructure:"analysisResult"`
-	LastError              string         `json:"errorMessage" mapstructure:"errorMessage"`
-	MediaFile              string         `json:"mediaFile" mapstructure:"mediaFile"`
-	KubernetesTemplateFile string         `json:"templateFile" mapstructure:"templateFile"`
-	StartTime              *time.Time     `json:"startTime" mapstructure:"startTime"`
-	EndTime                *time.Time     `json:"endTime" mapstructure:"startTime"`
+	JobStepType            string               `json:"stepType" mapstructure:"stepType"`
+	JobStepId              uuid.UUID            `json:"id" mapstructure:"id"`
+	JobContainerId         uuid.UUID            `json:"jobContainerId" mapstructure:"jobContainerId"`
+	ContainerData          *JobRunnerDesc       `json:"containerData" mapstructure:"containerData"`
+	StatusValue            JobStatus            `json:"jobStepStatus" mapstructure:"jobStepStatus"`
+	ResultId               uuid.UUID            `json:"analysisResult" mapstructure:"analysisResult"`
+	LastError              string               `json:"errorMessage" mapstructure:"errorMessage"`
+	MediaFile              string               `json:"mediaFile" mapstructure:"mediaFile"`
+	KubernetesTemplateFile string               `json:"templateFile" mapstructure:"templateFile"`
+	StartTime              *time.Time           `json:"startTime" mapstructure:"startTime"`
+	EndTime                *time.Time           `json:"endTime" mapstructure:"startTime"`
+	ItemType               helpers.BulkItemType `json:"itemType"`
 }
 
 func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, error) {

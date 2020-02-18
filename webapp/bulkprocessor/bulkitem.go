@@ -8,11 +8,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
-	"mime"
-	"regexp"
 	"strings"
-	"sync"
 )
 
 type BulkItemState int
@@ -30,14 +28,6 @@ var ItemStates = []BulkItemState{
 	ITEM_STATE_COMPLETED,
 	ITEM_STATE_FAILED,
 }
-
-type BulkItemType string
-const (
-	ITEM_TYPE_VIDEO BulkItemType = "video"
-	ITEM_TYPE_AUDIO BulkItemType = "audio"
-	ITEM_TYPE_IMAGE BulkItemType = "image"
-	ITEM_TYPE_OTHER BulkItemType = "other"
-)
 
 func ItemStateFromString(incoming string) BulkItemState {
 	switch strings.ToLower(incoming) {
@@ -64,17 +54,17 @@ type BulkItem interface {
 	GetSourcePath() string
 	GetPriority() int32
 	GetBulkId() uuid.UUID
-	GetItemType() BulkItemType
-	SetItemType(newType BulkItemType)
+	GetItemType() helpers.BulkItemType
+	SetItemType(newType helpers.BulkItemType)
 }
 
 type BulkItemImpl struct {
-	Id         uuid.UUID     `json:"id"`
-	BulkListId uuid.UUID     `json:"bulkListId"`
-	SourcePath string        `json:"sourcePath"`
-	Priority   int32         `json:"priority"`
-	State      BulkItemState `json:"state"`
-	Type BulkItemType `json:"type"`
+	Id         uuid.UUID            `json:"id"`
+	BulkListId uuid.UUID            `json:"bulkListId"`
+	SourcePath string               `json:"sourcePath"`
+	Priority   int32                `json:"priority"`
+	State      BulkItemState        `json:"state"`
+	Type       helpers.BulkItemType `json:"type"`
 }
 
 func (i *BulkItemImpl) GetId() uuid.UUID {
@@ -93,16 +83,14 @@ func (i *BulkItemImpl) GetBulkId() uuid.UUID {
 	return i.BulkListId
 }
 
-func (i *BulkItemImpl) GetItemType() BulkItemType {
+func (i *BulkItemImpl) GetItemType() helpers.BulkItemType {
 	return i.Type
 }
 
-func (i *BulkItemImpl) SetItemType(newType BulkItemType) {
+func (i *BulkItemImpl) SetItemType(newType helpers.BulkItemType) {
 	i.Type = newType
 }
 
-var xtnXtractor = regexp.MustCompile("(\\.[^\\.]+)$")
-var once sync.Once
 /**
 create a new BulkItem instance for the given filepath.
 if the `priorityOverride` parameter is greater than 0, it is used to set the priority; otherwise
@@ -145,34 +133,14 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 		}
 	}
 
-	once.Do(func() {
-		mime.AddExtensionType(".mxf","video/x-material-exchange-format")
-		mime.AddExtensionType(".mts","video/x-mpeg-transport-stream")
-	})
-
-	var itemType BulkItemType
-	matches := xtnXtractor.FindStringSubmatch(filepath)
-	if matches == nil {
-		itemType = ITEM_TYPE_OTHER
-	} else {
-		mimeType := mime.TypeByExtension(matches[1])
-		if strings.HasPrefix(mimeType, "video/") {
-			itemType = ITEM_TYPE_VIDEO
-		} else if strings.HasPrefix(mimeType, "audio/") {
-			itemType = ITEM_TYPE_AUDIO
-		} else if strings.HasPrefix(mimeType, "image/") {
-			itemType = ITEM_TYPE_IMAGE
-		} else {
-			itemType = ITEM_TYPE_OTHER
-		}
-	}
+	itemType := helpers.ItemTypeForFilepath(filepath)
 
 	uid, _ := uuid.NewRandom()
 	return &BulkItemImpl{
 		Id:         uid,
 		SourcePath: filepath,
 		Priority:   prio,
-		Type: itemType,
+		Type:       itemType,
 	}
 }
 
