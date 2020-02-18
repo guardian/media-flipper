@@ -15,7 +15,7 @@ type TranscodeTypeSettings interface {
 	GetId() uuid.UUID
 	Summarise() JobSettingsSummary
 	InternalMarshalJSON() ([]byte, error)
-	isValid() bool
+	IsValid() bool
 }
 
 type ScaleSettings struct {
@@ -156,6 +156,6 @@ func (s JobSettings) InternalMarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (s JobSettings) isValid() bool {
+func (s JobSettings) IsValid() bool {
 	return s.Wrapper.Format != "" //so long as we have a wrapper format the settings can be used
 }

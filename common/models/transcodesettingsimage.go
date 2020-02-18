@@ -57,6 +57,6 @@ func (s TranscodeImageSettings) InternalMarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func (s TranscodeImageSettings) isValid() bool {
+func (s TranscodeImageSettings) IsValid() bool {
 	return s.ScaleX > 0 && s.ScaleY > 0
 }

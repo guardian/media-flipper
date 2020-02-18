@@ -83,7 +83,7 @@ func JobStepTranscodeFromMap(mapData map[string]interface{}) (*JobStepTranscode,
 	var transcodeSettingsAV JobSettings
 	avErr := CustomisedMapStructureDecode(transcodeSettingsRaw, &transcodeSettingsAV)
 	//log.Printf("DEBUG: attempt at decoding as AV: %s %s", spew.Sdump(transcodeSettingsAV), avErr)
-	if avErr == nil && transcodeSettingsAV.isValid() {
+	if avErr == nil && transcodeSettingsAV.IsValid() {
 		rtn.TranscodeSettings = transcodeSettingsAV
 		return &rtn, nil
 	}
@@ -92,7 +92,7 @@ func JobStepTranscodeFromMap(mapData map[string]interface{}) (*JobStepTranscode,
 	imErr := CustomisedMapStructureDecode(transcodeSettingsRaw, &transcodeSettingsImg)
 	//log.Printf("DEBUG: attempt at decoding as image: %s %s", spew.Sdump(transcodeSettingsImg), imErr)
 	//log.Printf("settings valid? %t", transcodeSettingsImg.isValid())
-	if imErr == nil && transcodeSettingsImg.isValid() {
+	if imErr == nil && transcodeSettingsImg.IsValid() {
 		rtn.TranscodeSettings = transcodeSettingsImg
 		return &rtn, nil
 	}

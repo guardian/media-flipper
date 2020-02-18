@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/models"
@@ -17,14 +18,20 @@ import (
 retrieve an object based on the settings passed
 */
 func ParseSettings(rawString string) (models.TranscodeTypeSettings, error) {
-	var s models.JobSettings
-	marshalErr := json.Unmarshal([]byte(rawString), &s)
-	if marshalErr != nil {
-		log.Printf("Could not understand passed settings: %s. Offending data was: %s", marshalErr, rawString)
-		return nil, marshalErr
+	var avSettings models.JobSettings
+	marshalErr := json.Unmarshal([]byte(rawString), &avSettings)
+
+	if marshalErr == nil && avSettings.IsValid() {
+		return avSettings, nil
 	}
 
-	return &s, nil
+	var imgSettings models.TranscodeImageSettings
+	imgMarshalErr := json.Unmarshal([]byte(rawString), &imgSettings)
+	if imgMarshalErr == nil && imgSettings.IsValid() {
+		return imgSettings, nil
+	}
+
+	return nil, errors.New(fmt.Sprintf("could not translate settings: %s and %s", marshalErr, imgMarshalErr))
 }
 
 /**

@@ -13,8 +13,8 @@ func TestNewTranscodeSettingsManager(t *testing.T) {
 		t.FailNow()
 	}
 
-	if len(mgr.knownSettings) != 2 {
-		t.Errorf("Wrong number of loaded settings, expected 2 got %d", len(mgr.knownSettings))
+	if len(mgr.knownSettings) != 3 {
+		t.Errorf("Wrong number of loaded settings, expected 3 got %d", len(mgr.knownSettings))
 	}
 
 	allSettings := mgr.ListSettings()

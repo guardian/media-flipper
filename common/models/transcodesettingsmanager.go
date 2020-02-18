@@ -47,7 +47,7 @@ func loadSettingsFromFile(fileName string) ([]TranscodeTypeSettings, error) {
 
 	for i, rawSetting := range settingsList {
 		imageSetting, isErr := attemptUnmarshalImageSettings(rawSetting)
-		if isErr == nil && imageSetting.isValid() {
+		if isErr == nil && imageSetting.IsValid() {
 			log.Printf("got image settings: %s", spew.Sdump(imageSetting))
 			rtn[i] = imageSetting
 			continue
@@ -56,7 +56,7 @@ func loadSettingsFromFile(fileName string) ([]TranscodeTypeSettings, error) {
 		}
 
 		jobSetting, jsErr := attemptUnmarshalJobSettings(rawSetting)
-		if jsErr == nil && jobSetting.isValid() {
+		if jsErr == nil && jobSetting.IsValid() {
 			log.Printf("got transcode settings: %s", spew.Sdump(jobSetting))
 			rtn[i] = jobSetting
 			continue
