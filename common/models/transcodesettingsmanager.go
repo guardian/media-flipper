@@ -105,10 +105,10 @@ func NewTranscodeSettingsManager(forPath string) (*TranscodeSettingsManager, err
 /**
 returns a setting for the given ID, or nil if it is not found
 */
-func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) *TranscodeTypeSettings {
+func (mgr *TranscodeSettingsManager) GetSetting(forId uuid.UUID) TranscodeTypeSettings {
 	result, gotIt := mgr.knownSettings[forId]
 	if gotIt {
-		return &result
+		return result
 	} else {
 		return nil
 	}

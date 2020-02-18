@@ -44,6 +44,8 @@ func mapstructureDecodeHook(inType reflect.Type, outType reflect.Type, value int
 		} else {
 			return timeval, nil
 		}
+		//} else if inType == reflect.TypeOf(map[string]interface{}{}) && outType.Implements() {
+
 	} else {
 		return value, nil
 	}

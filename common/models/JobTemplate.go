@@ -102,7 +102,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 			steps[idx] = newStep
 			break
 		case "transcode":
-			var s *TranscodeTypeSettings
+			var s TranscodeTypeSettings
 			spew.Dump(stepTemplate)
 			if stepTemplate.TranscodeSettingsId != "" {
 				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
