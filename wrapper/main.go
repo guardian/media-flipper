@@ -2,7 +2,10 @@ package main
 
 import (
 	"flag"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/common/results"
 	"log"
 	"os"
 	"strconv"
@@ -69,29 +72,25 @@ func main() {
 			thumbFrame = 30
 		}
 
-		//mediaType := helpers.BulkItemType(os.Getenv("MEDIA_TYPE"))
-		//var result *ThumbnailResult
-		//switch mediaType {
-		//case helpers.ITEM_TYPE_AUDIO:
-		//	errMsg := "can't thumbnail an audio file"
-		//	result = &ThumbnailResult{
-		//		OutPath:      nil,
-		//		ErrorMessage: &errMsg,
-		//		TimeTaken:    0,
-		//	}
-		//case helpers.ITEM_TYPE_VIDEO:
-		//
-		//case helpers.ITEM_TYPE_IMAGE:
-		//	result = RunImageThumbnail(filename)
-		//case helpers.ITEM_TYPE_OTHER:
-		//	errMsg := "can't thumbnail a file with an unrecognised type"
-		//	result = &ThumbnailResult{
-		//		OutPath:      nil,
-		//		ErrorMessage: &errMsg,
-		//		TimeTaken:    0,
-		//	}
-		//}
-		result := RunVideoThumbnail(filename, thumbFrame)
+		var result *ThumbnailResult
+		rawSettings := os.Getenv("TRANSCODE_SETTINGS")
+		if rawSettings != "" {
+			transcodeSettings, settingsErr := ParseSettings(os.Getenv("TRANSCODE_SETTINGS"))
+			if settingsErr != nil {
+				log.Fatalf("Could not parse settings from TRANSCODE_SETTINGS var: %s", settingsErr)
+			}
+			if _, isImage := transcodeSettings.(models.TranscodeImageSettings); isImage {
+				log.Printf("Performing image thumbnail with provided settings...")
+				result = RunImageThumbnail(filename, transcodeSettings)
+			}
+			if _, isAV := transcodeSettings.(models.JobSettings); isAV {
+				log.Printf("Performing video thumbnail with provided settings...")
+				result = RunVideoThumbnail(filename, thumbFrame)
+			}
+		} else {
+			log.Printf("Performing video thumbnail by default with no provided settings...")
+			result = RunVideoThumbnail(filename, thumbFrame)
+		}
 
 		log.Print("Got thumbnail result: ", result)
 
@@ -116,18 +115,27 @@ func main() {
 			log.Fatal("Could not parse JOB_STEP_ID as a uuid: ", stepIdErr)
 		}
 
-		result := RunTranscode(filename, transcodeSettings, jobId, stepId)
-		log.Print("Got transcode result: ", result)
+		var result results.TranscodeResult
+		avSettings, isAv := transcodeSettings.(models.JobSettings)
+		if isAv {
+			result = RunTranscode(filename, avSettings, jobId, stepId)
+			log.Print("Got transcode result: ", result)
+		} else {
+			log.Printf("Could not recognise settings type for %s", spew.Sdump(transcodeSettings))
+			result = results.TranscodeResult{
+				OutFile:      "",
+				TimeTaken:    0,
+				ErrorMessage: "could not recognise settings as valid for a transcode operation. Maybe you meant thumbnail?",
+			}
+		}
 
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
-		break
 	default:
 		log.Fatalf("WRAPPER_MODE '%s' is not recognised", os.Getenv("WRAPPER_MODE"))
-		break
 	}
 
 }

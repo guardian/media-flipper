@@ -15,4 +15,5 @@ dockerbuild:
 clean:
 	rm -f webapp
 	rm -f wrapper
+	rm -f reaper
 	rm -f *.tar

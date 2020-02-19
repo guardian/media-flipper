@@ -61,6 +61,28 @@ func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeS
 	return &mgr, nil
 }
 
+func (mgr JobTemplateManager) getTranscodeSettings(transcodeSettingsId string) (TranscodeTypeSettings, error) {
+	var s TranscodeTypeSettings
+	//spew.Dump(stepTemplate)
+	if transcodeSettingsId != "" {
+		id, uuidErr := uuid.Parse(transcodeSettingsId)
+		if uuidErr != nil {
+			errMsg := fmt.Sprintf("template step had an invalid transcode settings id, %s", transcodeSettingsId)
+			return nil, errors.New(errMsg)
+		} else {
+			s = mgr.transcodeSettingsMgr.GetSetting(id)
+			if s == nil {
+				errMsg := fmt.Sprintf("template step has an invalid transcode settings id %s, nothing found that matches it", transcodeSettingsId)
+				return nil, errors.New(errMsg)
+			} else {
+				return s, nil
+			}
+		}
+	} else {
+		return nil, errors.New("template step was missing transcode settings id!")
+	}
+}
+
 func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*JobContainer, error) {
 	tplEntry, tplExists := mgr.loadedTemplates[templateId]
 	if !tplExists {
@@ -84,8 +106,13 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "thumbnail":
+			s, settingsErr := mgr.getTranscodeSettings(stepTemplate.TranscodeSettingsId)
+			if settingsErr != nil {
+				log.Printf("WARNING: Could not get transocde settings for %s: %s", spew.Sdump(stepTemplate), settingsErr)
+				s = nil
+			}
+
 			newStep := JobStepThumbnail{
 				JobStepType:            "thumbnail",
 				JobStepId:              uuid.New(),
@@ -97,26 +124,15 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 				TimeTakenValue:         0,
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				TranscodeSettings:      s,
 				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "transcode":
-			var s TranscodeTypeSettings
-			spew.Dump(stepTemplate)
-			if stepTemplate.TranscodeSettingsId != "" {
-				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
-				if uuidErr != nil {
-					log.Printf("template step had an invalid transcode settings id, %s", stepTemplate.TranscodeSettingsId)
-					s = nil
-				} else {
-					s = mgr.transcodeSettingsMgr.GetSetting(uuid)
-					if s == nil {
-						log.Printf("template step has an invalid transcode settings id %s, nothing found that matches it", stepTemplate.TranscodeSettingsId)
-					}
-				}
-			} else {
-				log.Printf("template step was missing transcode settings id!")
+			s, settingsErr := mgr.getTranscodeSettings(stepTemplate.TranscodeSettingsId)
+			if settingsErr != nil {
+				log.Printf("WARNING: Could not get transocde settings for %s: %s", spew.Sdump(stepTemplate), settingsErr)
+				s = nil
 			}
 
 			newStep := JobStepTranscode{
@@ -133,10 +149,8 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "custom":
 			log.Printf("custom type not implemented yet")
-			break
 		default:
 			log.Printf("ERROR: Unrecognised predetermined type: %s", stepTemplate.PredeterminedType)
 		}
