@@ -19,13 +19,49 @@ func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
 
 func RunImageThumbnail(fileName string, settings models.TranscodeTypeSettings) *ThumbnailResult {
 	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+	removeOnSuccess := false
 
-	commandArgs := []string{fileName}
+	isRaw, checkErr := CheckIsRaw(fileName)
+	if checkErr != nil {
+		log.Printf("WARNING: raw image check for %s failed: %s", fileName, checkErr)
+	}
+	updatedFileName := fileName
+
+	//if we have a RAW file, try to extract out the thumbnail jpeg embedded in the file
+	if isRaw && checkErr == nil {
+		startTime := time.Now()
+		extractedFileName, extractErr := ExtractRawThumbnail(fileName)
+		endTime := time.Now()
+		if extractErr == nil { //if we got an embedded file, return that
+			duration := endTime.UnixNano() - startTime.UnixNano()
+			return &ThumbnailResult{
+				OutPath:      &extractedFileName,
+				ErrorMessage: nil,
+				TimeTaken:    float64(duration) / 1e9,
+			}
+		} else { //if we could not get an embedded file, try to convert the whole thing
+			log.Printf("WARNING: could not extract thumbnail from %s: %s", fileName, extractErr)
+			var convErr error
+			updatedFileName, convErr = RawToTiff(fileName)
+			if convErr != nil {
+				log.Printf("WARNING: could not convert file %s: %s", fileName, convErr)
+				updatedFileName = fileName
+			} else {
+				removeOnSuccess = true
+			}
+		}
+	}
+
+	commandArgs := []string{updatedFileName}
 	commandArgs = append(commandArgs, settings.MarshalToArray()...)
 	commandArgs = append(commandArgs, outFileName)
 	cmd := exec.Command("/usr/bin/convert", commandArgs...)
 
-	return runThumbnailWrapper(cmd, outFileName)
+	result := runThumbnailWrapper(cmd, outFileName)
+	if removeOnSuccess && result.ErrorMessage == nil {
+		os.Remove(updatedFileName)
+	}
+	return result
 }
 
 func runThumbnailWrapper(cmd *exec.Cmd, outFileName string) *ThumbnailResult {
