@@ -47,6 +47,8 @@ type JobContainer struct {
 	EndTime            *time.Time           `json:"end_time"`
 	AssociatedBulkItem *uuid.UUID           `json:"associated_bulk_item"`
 	ItemType           helpers.BulkItemType `json:"item_type"`
+	ThumbnailId        *uuid.UUID           `json:"thumbnail_id"`
+	TranscodedMediaId  *uuid.UUID           `json:"transcoded_media_id"`
 }
 
 func (c JobContainer) Store(redisClient *redis.Client) error {
@@ -158,6 +160,28 @@ func (c *JobContainer) SetMediaFile(newMediaFile string) {
 	}
 }
 
+func optionalUuid(from map[string]interface{}, key string, forId string) *uuid.UUID {
+	var thumbnailIdPtr *uuid.UUID
+	if thumbId, haveThumbId := from[key]; haveThumbId {
+		if thumbId == nil {
+			thumbnailIdPtr = nil
+		} else {
+			thumbIdStr, isStr := thumbId.(string)
+			if !isStr {
+				log.Printf("ERROR: thumbnail ID for %s is not a string!", forId)
+			} else {
+				thumbnailUuid, uuidErr := uuid.Parse(thumbIdStr)
+				if uuidErr != nil {
+					log.Printf("ERROR: could not parse thumbnail id %s as a uuid: %s", thumbIdStr, uuidErr)
+				} else {
+					thumbnailIdPtr = &thumbnailUuid
+				}
+			}
+		}
+	}
+	return thumbnailIdPtr
+}
+
 func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	var rawDataMap map[string]interface{}
 	err := json.Unmarshal(data, &rawDataMap)
@@ -201,6 +225,13 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 				return decErr
 			}
 			steps[i] = decodedStep
+		case "custom":
+			decodedStep, decErr := JobStepCustomFromMap(rawStep)
+			if decErr != nil {
+				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				return decErr
+			}
+			steps[i] = decodedStep
 		default:
 			log.Printf("WARNING: Did not recognise job step type %s", rawStep["stepType"].(string))
 		}
@@ -215,6 +246,8 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.JobTemplateId = uuid.MustParse(rawDataMap["templateId"].(string))
 	c.StartTime = TimeFromOptionalString(rawDataMap["start_time"])
 	c.EndTime = TimeFromOptionalString(rawDataMap["end_time"])
+	c.ThumbnailId = optionalUuid(rawDataMap, "thumbnail_id", rawDataMap["id"].(string))
+	c.TranscodedMediaId = optionalUuid(rawDataMap, "transcoded_media_id", rawDataMap["id"].(string))
 	return nil
 }
 

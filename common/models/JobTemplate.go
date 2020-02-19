@@ -150,7 +150,19 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 			}
 			steps[idx] = newStep
 		case "custom":
-			log.Printf("custom type not implemented yet")
+			newStep := JobStepCustom{
+				JobStepType:            "custom",
+				JobStepId:              uuid.New(),
+				JobContainerId:         newContainerId,
+				StatusValue:            JOB_PENDING,
+				LastError:              "",
+				StartTime:              nil,
+				EndTime:                nil,
+				MediaFile:              "",
+				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				ItemType:               itemType,
+			}
+			steps[idx] = newStep
 		default:
 			log.Printf("ERROR: Unrecognised predetermined type: %s", stepTemplate.PredeterminedType)
 		}

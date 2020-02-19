@@ -97,6 +97,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if fileEntry != nil {
 			tcStep.ResultId = &(fileEntry.Id)
+			jobContainerInfo.TranscodedMediaId = &(fileEntry.Id)
 		}
 
 		var updatedStep models2.JobStep

@@ -120,6 +120,10 @@ func RunTranscode(fileName string, settings models.TranscodeTypeSettings, jobCon
 		}
 	}
 
+	modErr := os.Chmod(outFileName, 0777)
+	if modErr != nil {
+		log.Printf("WARNING: Could not change permissions on output file: %s", modErr)
+	}
 	return results.TranscodeResult{
 		OutFile:      outFileName,
 		TimeTaken:    float64(duration) / 1e9,

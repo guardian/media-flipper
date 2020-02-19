@@ -11,6 +11,7 @@ endif
 dockerbuild:
 	docker build . -f masterimage/Dockerfile -t guardianmultimedia/mediaflipper:DEV
 	docker build . -f imagethumb/Dockerfile  -t guardianmultimedia/mediaflipper-imagethumb:DEV
+	docker build . -f awsupload/Dockerfile -t guardianmultimedia/mediaflipper-aws:DEV
 
 clean:
 	rm -f webapp

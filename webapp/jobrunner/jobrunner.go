@@ -74,11 +74,11 @@ func (j *JobRunner) actionRequest(container *models.JobContainer) error {
 		log.Printf("WARNING: Job %s from template %s had no steps!", container.Id.String(), container.JobTemplateId.String())
 		return errors.New("job had no steps!")
 	} else {
-		return j.actionStep(initialStep)
+		return j.actionStep(initialStep, container)
 	}
 }
 
-func (j *JobRunner) actionStep(step models.JobStep) error {
+func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContainer) error {
 	analysisJob, isAnalysis := step.(*models.JobStepAnalysis)
 	var newQueueEntry *models.JobQueueEntry
 
@@ -119,6 +119,21 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 			return err
 		}
 		log.Printf("External job created for %s with type transcode", tcJob.JobStepId)
+		newQueueEntry = &models.JobQueueEntry{
+			JobId:  step.ContainerId(),
+			StepId: step.StepId(),
+			Status: models.JOB_PENDING,
+		}
+	}
+
+	custJob, isCust := step.(*models.JobStepCustom)
+	if isCust {
+		err := CreateCustomJob(*custJob, container, j.k8client, j.redisClient)
+		if err != nil {
+			log.Print("Could not create custom job! ", err)
+			return err
+		}
+		log.Printf("External job created for %s with type custom", custJob.JobStepId)
 		newQueueEntry = &models.JobQueueEntry{
 			JobId:  step.ContainerId(),
 			StepId: step.StepId(),
@@ -210,7 +225,7 @@ func (j *JobRunner) clearCompletedTick() {
 
 			if nextStep != nil { //nil => this was the last jobstep, not nil => another step to queue
 				log.Printf("Job %s: Moving to next job step ", container.Id)
-				runErr := j.actionStep(nextStep)
+				runErr := j.actionStep(nextStep, container)
 				if runErr != nil {
 					log.Print("Could not action next step: ", runErr)
 					container.Status = models.JOB_FAILED

@@ -3,7 +3,7 @@ package jobrunner
 import (
 	"errors"
 	"fmt"
-	models2 "github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"path"
@@ -12,8 +12,7 @@ import (
 /**
 create an analysis job based on the provided template
 */
-func CreateAnalysisJob(jobDesc models2.JobStepAnalysis, k8client *kubernetes.Clientset) error {
-	log.Printf("In CreateAnalysisJob")
+func CreateAnalysisJob(jobDesc models.JobStepAnalysis, k8client *kubernetes.Clientset) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform analysis with no media file")
 		return errors.New("Can't perform analysis with no media file")
@@ -30,5 +29,5 @@ func CreateAnalysisJob(jobDesc models2.JobStepAnalysis, k8client *kubernetes.Cli
 
 	jobName := fmt.Sprintf("mediaflipper-analysis-%s", path.Base(jobDesc.MediaFile))
 
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

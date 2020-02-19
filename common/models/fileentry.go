@@ -89,7 +89,7 @@ func (f FileEntry) Store(redisClient *redis.Client) error {
 /**
 retrieves a FileEntry for the given file entry ID. returns nil if there is nothing present, or an error if the query fails
 */
-func FileEntryForId(forId uuid.UUID, redisClient *redis.Client) (*FileEntry, error) {
+func FileEntryForId(forId uuid.UUID, redisClient redis.Cmdable) (*FileEntry, error) {
 	dbKey := fmt.Sprintf("mediaflipper:fileentry:%s", forId)
 	rawContent, getErr := redisClient.Get(dbKey).Result()
 
