@@ -1,8 +1,10 @@
 package models
 
 import (
+	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
+	"log"
 	"time"
 )
 
@@ -55,6 +57,21 @@ func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail,
 	}
 
 	return &rtn, err
+}
+
+func (j JobStepThumbnail) DeleteAssociatedItems(redisClient redis.Cmdable) []error {
+	if j.ResultId != nil {
+		fileEntry, getErr := FileEntryForId(*j.ResultId, redisClient)
+		if getErr != nil {
+			log.Printf("ERROR: Could not retrieve file entry associated with thumbnail step %s: %s", j.JobStepId, getErr)
+		} else {
+			removeErr := fileEntry.Delete(true, redisClient)
+			if removeErr != nil {
+				return []error{removeErr}
+			}
+		}
+	}
+	return []error{}
 }
 
 func (j JobStepThumbnail) StepId() uuid.UUID {

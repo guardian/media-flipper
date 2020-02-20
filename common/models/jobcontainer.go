@@ -51,7 +51,36 @@ type JobContainer struct {
 	TranscodedMediaId  *uuid.UUID           `json:"transcoded_media_id"`
 }
 
-func (c JobContainer) Store(redisClient *redis.Client) error {
+/**
+remove any dependant objects from the datastore. This calls out to each job step and asks them to perform the operation.
+*/
+func (c JobContainer) DeleteAssociatedItems(redisClient redis.Cmdable) []error {
+	errorList := make([]error, 0)
+
+	for _, s := range c.Steps {
+		newErrors := s.DeleteAssociatedItems(redisClient)
+		errorList = append(errorList, newErrors...)
+	}
+
+	//we can't delete an associated bulk item here as we should do it from the whole bulk list
+	return errorList
+}
+
+/**
+remove this object from the datastore. You should make sure you call DeleteAssociatedItems first
+to prevent items becoming orphaned in the store.
+*/
+func (c JobContainer) Remove(redisClient redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", c.Id)
+	_, err := redisClient.Del(dbKey).Result()
+	if err == nil {
+		idxErr := removeFromIndex(c.Id, redisClient)
+		return idxErr
+	}
+	return err
+}
+
+func (c JobContainer) Store(redisClient redis.Cmdable) error {
 	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", c.Id)
 
 	content, marshalErr := json.Marshal(c)
@@ -289,9 +318,10 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 		keys, nextCursor, scanErr = redisclient.Scan(cursor, "mediaflipper:JobContainer:*", limit).Result()
 		break
 	case SORT_CTIME:
+		log.Printf("DEBUG: getting revrange on %s", REDIDX_CTIME)
 		jobIdList, err := redisclient.ZRevRange(REDIDX_CTIME, int64(cursor), limit).Result()
 		scanErr = err
-
+		log.Printf("DEBUG: index gave a total of %d items with a limit of %d", len(jobIdList), limit)
 		if err == nil {
 			keys = make([]string, len(jobIdList))
 			for i, jobId := range jobIdList {
@@ -326,16 +356,20 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 		cmds[i] = pipe.Get(key)
 	}
 
-	_, getErr := pipe.Exec()
-	if getErr != nil {
-		log.Print("Could not retrieve job data: ", getErr)
-		return nil, 0, scanErr
-	}
+	results, _ := pipe.Exec()
 
-	rtn := make([]string, len(cmds))
-	for i, cmd := range cmds {
-		content, _ := cmd.Result()
-		rtn[i] = content
+	log.Printf("DEBUG: pipelining a total of %d commands", len(cmds))
+	rtn := make([]string, 0)
+	for _, r := range results {
+		cmd := r.(*redis.StringCmd)
+
+		content, getErr := cmd.Result()
+		if getErr != nil {
+			log.Printf("could not %s: %s", cmd.String(), getErr)
+		}
+		if content != "" {
+			rtn = append(rtn, content)
+		}
 	}
 	return &rtn, nextCursor, nil
 }
@@ -344,6 +378,12 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 	jsonBlobs, nextCursor, scanErr := ListJobContainersJson(cursor, limit, redisclient, sort)
 	if scanErr != nil {
 		return nil, 0, scanErr
+	}
+
+	if jsonBlobs == nil {
+		log.Printf("No jobs to list!")
+		rtnList := make([]JobContainer, 0)
+		return &rtnList, 0, nil
 	}
 
 	rtn := make([]JobContainer, len(*jsonBlobs))
@@ -360,11 +400,18 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 /**
 adds a single entry to the ctime index
 */
-func indexSingleEntry(ent *JobContainer, client *redis.Client) error {
+func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
+	log.Printf("indexing job %s", ent.Id)
 	_, err := client.ZAdd(REDIDX_CTIME, &redis.Z{
 		Score:  float64(ent.StartTime.UnixNano()),
 		Member: ent.Id.String(),
 	}).Result()
+	return err
+}
+
+func removeFromIndex(forId uuid.UUID, client redis.Cmdable) error {
+	log.Printf("removing job %s from index", forId)
+	_, err := client.ZRem(REDIDX_CTIME, forId.String()).Result()
 	return err
 }
 
@@ -394,6 +441,7 @@ func indexNextPage(cursor uint64, limit int64, p redis.Pipeliner, client *redis.
 			Member: jobInfo.Id.String(),
 		})
 	}
+	log.Printf("DEBUG: indexNextPage queued %d index entries", len(*contentPtr))
 	return len(*contentPtr), nextCursor, nil
 }
 

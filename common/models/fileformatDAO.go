@@ -15,7 +15,7 @@ func keyForFileId(id uuid.UUID) string {
 /**
 Retrieve the file format data for a given UUID from the datastore. Returns nil, nil if the job does not exist
 */
-func GetFileFormat(forId uuid.UUID, redisClient *redis.Client) (*FileFormatInfo, error) {
+func GetFileFormat(forId uuid.UUID, redisClient redis.Cmdable) (*FileFormatInfo, error) {
 	jobKey := keyForFileId(forId)
 
 	result := redisClient.Get(jobKey)
@@ -39,7 +39,7 @@ func GetFileFormat(forId uuid.UUID, redisClient *redis.Client) (*FileFormatInfo,
 /**
 Save the given job object to the datastore. Returns nil if successful, or an error
 */
-func PutFileFormat(record *FileFormatInfo, redisClient *redis.Client) error {
+func PutFileFormat(record *FileFormatInfo, redisClient redis.Cmdable) error {
 	jobKey := keyForFileId(record.Id)
 
 	encoded, encodErr := json.Marshal(*record)
@@ -55,4 +55,12 @@ func PutFileFormat(record *FileFormatInfo, redisClient *redis.Client) error {
 	} else {
 		return nil
 	}
+}
+
+func RemoveFileFormat(forId uuid.UUID, redisClient redis.Cmdable) error {
+	jobKey := keyForFileId(forId)
+
+	deletedCount, err := redisClient.Del(jobKey).Result()
+	log.Printf("deleted %d records for file format with id %s", deletedCount, forId)
+	return err
 }

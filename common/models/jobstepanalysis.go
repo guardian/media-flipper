@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"time"
@@ -25,6 +26,20 @@ func JobStepAnalysisFromMap(mapData map[string]interface{}) (*JobStepAnalysis, e
 	var rtn JobStepAnalysis
 	err := CustomisedMapStructureDecode(mapData, &rtn)
 	return &rtn, err
+}
+
+func (j JobStepAnalysis) DeleteAssociatedItems(redisClient redis.Cmdable) []error {
+	blankId := uuid.UUID{}
+	if j.ResultId != blankId {
+		removeErr := RemoveFileFormat(j.ResultId, redisClient)
+		if removeErr != nil {
+			return []error{removeErr}
+		} else {
+			return []error{}
+		}
+	} else {
+		return []error{}
+	}
 }
 
 func (j JobStepAnalysis) StepId() uuid.UUID {

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 )
 
@@ -15,4 +16,5 @@ type JobStep interface {
 	ErrorMessage() string
 	RunnerDesc() *JobRunnerDesc
 	WithNewMediaFile(newMediaFile string) JobStep
+	DeleteAssociatedItems(redisClient redis.Cmdable) []error
 }

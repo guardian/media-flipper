@@ -185,6 +185,10 @@ func (j *JobRunner) clearCompletedTick() {
 		runners, runErr := FindRunnerFor(queueEntry.StepId, jobClient)
 		if runErr != nil {
 			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
+			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
+			if removeErr != nil {
+				log.Printf("WARNING: Could not remove inaccurate record from running queue")
+			}
 			continue //proceed to next one, don't abort
 		}
 

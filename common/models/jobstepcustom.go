@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"time"
@@ -28,6 +29,9 @@ func JobStepCustomFromMap(mapData map[string]interface{}) (*JobStepCustom, error
 	return &rtn, err
 }
 
+func (j JobStepCustom) DeleteAssociatedItems(redisClient redis.Cmdable) []error {
+	return []error{} //no assocaited items to delete
+}
 func (j JobStepCustom) StepId() uuid.UUID {
 	return j.JobStepId
 }

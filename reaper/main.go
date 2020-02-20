@@ -73,8 +73,11 @@ func DeleteK8Job(forId uuid.UUID, jobClient v1.JobInterface, dryRun bool) error 
 		if k8job.Status == models.CONTAINER_ACTIVE {
 			log.Printf("%s seems to still be active, not removing it.", k8job.Name)
 		} else {
+			propagationPolicy := metav1.DeletePropagationForeground
+			log.Printf("dryRunValue is %s", dryRunValue)
 			err := jobClient.Delete(k8job.Name, &metav1.DeleteOptions{
-				DryRun: dryRunValue,
+				DryRun:            dryRunValue,
+				PropagationPolicy: &propagationPolicy,
 			})
 			if err != nil {
 				log.Printf("ERROR: Could not delete k8 job %s for mediaflipper job %s: %s", k8job.Name, forId.String(), err)
@@ -88,12 +91,24 @@ func DeleteK8Job(forId uuid.UUID, jobClient v1.JobInterface, dryRun bool) error 
 /**
 called for each job in our datastore, check whether it needs to be removed and remove it if so
 */
-func ProcessJob(job *models.JobContainer, cutoffTime time.Time, dryRun bool, jobClient v1.JobInterface) error {
+func ProcessJob(job *models.JobContainer, cutoffTime time.Time, dryRun bool, jobClient v1.JobInterface, redisClient redis.Cmdable) error {
 	if job.EndTime != nil && job.EndTime.Before(cutoffTime) {
 		log.Printf("Removing old job with id %s", job.Id)
 		err := DeleteK8Job(job.Id, jobClient, dryRun)
 		if err != nil {
 			return err
+		}
+		deleteErrors := job.DeleteAssociatedItems(redisClient)
+		if len(deleteErrors) > 0 {
+			log.Printf("WARNING: Encountered %d errors when deleting associated objects from job %s: ", len(deleteErrors), job.Id)
+			for _, err := range deleteErrors {
+				log.Printf("\t%s", err)
+			}
+		} else {
+			finalDeleteErr := job.Remove(redisClient)
+			if finalDeleteErr != nil {
+				log.Printf("could not delete job record %s: %s", job.Id, finalDeleteErr)
+			}
 		}
 	}
 
@@ -120,6 +135,7 @@ func FindOrphanedJobs(cutoffTime time.Time, dryRun bool, jobClient v1.JobInterfa
 		log.Print("ERROR: Could not list k8s job containers: ", err)
 		return err
 	}
+	log.Printf("found %d potentially orphaned job containers", len(response.Items))
 	for _, j := range response.Items {
 		ourIdString, hasOurId := j.Labels["mediaflipper.jobStepId"]
 		if hasOurId {
@@ -131,13 +147,19 @@ func FindOrphanedJobs(cutoffTime time.Time, dryRun bool, jobClient v1.JobInterfa
 				if getErr != nil {
 					if strings.Contains(getErr.Error(), "redis: nil") {
 						log.Printf("Found job %s with non-existing mediaflipper id %s, removing it", j.Name, ourIdString)
-						jobClient.Delete(j.Name, &metav1.DeleteOptions{DryRun: dryRunValue})
+						propagationPolicy := metav1.DeletePropagationForeground
+						deleteErr := jobClient.Delete(j.Name, &metav1.DeleteOptions{DryRun: dryRunValue, PropagationPolicy: &propagationPolicy})
+						if deleteErr != nil {
+							log.Printf("ERROR: Could not delete %s: %s", j.Name, deleteErr)
+						}
 					} else {
 						log.Printf("ERROR: could not look up job container for %s: %s", ourIdString, getErr)
 						return getErr
 					}
 				}
 			}
+		} else {
+			log.Printf("%s has no mediaflipper.jobStepId", j.Name)
 		}
 	}
 	return nil
@@ -189,7 +211,7 @@ func main() {
 		}
 
 		for _, j := range *jobs {
-			procErr := ProcessJob(&j, cutoffTime, *dryRun, jobClient)
+			procErr := ProcessJob(&j, cutoffTime, *dryRun, jobClient, redisClient)
 			if procErr != nil {
 				log.Fatal(procErr)
 			}

@@ -86,6 +86,16 @@ func (f FileEntry) Store(redisClient *redis.Client) error {
 	return nil
 }
 
+func (f FileEntry) Delete(removeFromDisk bool, redisClient redis.Cmdable) error {
+	if removeFromDisk {
+		deleteErr := os.Remove(f.ServerPath)
+		if deleteErr != nil {
+			log.Printf("WARNING: Could not delete file %s for entry %s: %s", f.ServerPath, f.Id, deleteErr)
+		}
+	}
+	return RemoveFileEntry(f.Id, redisClient)
+}
+
 /**
 retrieves a FileEntry for the given file entry ID. returns nil if there is nothing present, or an error if the query fails
 */
@@ -106,6 +116,13 @@ func FileEntryForId(forId uuid.UUID, redisClient redis.Cmdable) (*FileEntry, err
 	}
 
 	return &ent, nil
+}
+
+func RemoveFileEntry(forId uuid.UUID, redisClient redis.Cmdable) error {
+	dbKey := fmt.Sprintf("mediaflipper:fileentry:%s", forId)
+	deletedCount, err := redisClient.Del(dbKey).Result()
+	log.Printf("Deleted %d items for file entry %s", deletedCount, forId)
+	return err
 }
 
 /**
