@@ -8,6 +8,8 @@ import (
 	"github.com/deckarep/golang-set"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
+	"github.com/guardian/mediaflipper/common/models"
 	"log"
 	"regexp"
 	"strings"
@@ -54,6 +56,9 @@ type BulkList interface {
 	SetAudioTemplateId(newId uuid.UUID)
 	GetImageTemplateId() uuid.UUID
 	SetImageTemplateId(newId uuid.UUID)
+
+	EnqueueContentsAsync(redisClient redis.Cmdable) chan error
+	DequeueContentsAsync() chan error
 }
 
 /*
@@ -864,4 +869,52 @@ func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImp
 	}
 
 	return results, nil
+}
+
+/**
+put every item onto the waiting queue asynchronously
+returns a channel that yields either an error if the operation fails or nil if it is successful
+*/
+func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable) chan error {
+	rtnChan := make(chan error)
+
+	go func() {
+		resultsChan, errChan := l.GetAllRecordsAsync(redisClient)
+		for {
+			select {
+			case rec := <-resultsChan:
+				if rec == nil {
+					log.Printf("Completed enqueueing contents")
+					rtnChan <- nil
+					return
+				}
+				var job *models.JobContainer
+				var buildErr error
+				templateMgr := models.JobTemplateManager{} //FIXME: WON'T WORK - Needs the golbal TemplateManager to be injected at construction
+				switch rec.GetItemType() {
+				case helpers.ITEM_TYPE_VIDEO:
+					job, buildErr = templateMgr.NewJobContainer(l.VideoTemplateId, rec.GetItemType())
+				case helpers.ITEM_TYPE_AUDIO:
+					job, buildErr = templateMgr.NewJobContainer(l.AudioTemplateId, rec.GetItemType())
+				case helpers.ITEM_TYPE_IMAGE:
+					job, buildErr = templateMgr.NewJobContainer(l.ImageTemplateId, rec.GetItemType())
+				case helpers.ITEM_TYPE_OTHER:
+					buildErr = errors.New("WARNING: can't enqueue an item of TYPE_OTHER, don't know what to do with it")
+				}
+
+				if buildErr == nil {
+					job.SetMediaFile()
+				}
+			case err := <-errChan:
+				rtnChan <- err
+				return
+			}
+		}
+	}()
+
+	return rtnChan
+}
+
+func (l *BulkListImpl) DequeueContentsAsync() chan error {
+
 }

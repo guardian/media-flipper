@@ -48,6 +48,18 @@ type BulkListMock struct {
 	allRecordsList []BulkItem
 }
 
+func (l *BulkListMock) EnqueueContentsAsync() chan error {
+	rtn := make(chan error, 1)
+	rtn <- errors.New("mock does not implement enqueueContents")
+	return rtn
+}
+
+func (l *BulkListMock) DequeueContentsAsync() chan error {
+	rtn := make(chan error, 1)
+	rtn <- errors.New("mock does not implement dequeueContents")
+	return rtn
+}
+
 func (l *BulkListMock) testNotImplementedSync() error {
 	return errors.New("not implemented in test mock")
 }
