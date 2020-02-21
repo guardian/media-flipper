@@ -18,6 +18,10 @@ class JobStatusComponent extends React.Component {
                 return <span className={this.props.className}><FontAwesomeIcon icon="check-circle" className="inline-icon" style={{color: "darkgreen"}}/>Success</span>;
             case 3:
                 return <span className={this.props.className}><FontAwesomeIcon icon="times-circle" className="inline-icon" style={{color: "darkred"}}/>Failed</span>;
+            case 4:
+                return <span className={this.props.className}><FontAwesomeIcon icon="eject" className="inline-icon" style={{color:"darkred"}}/>Purged</span>;
+            case 5:
+                return <span className={this.props.className}><FontAwesomeIcon icon="hand-paper" className="inline-icon" style={{color:"darkblue"}}/>Not queued</span>;
             default:
                 return <span className={this.props.className}>Unknown value {this.props.status}</span>;
         }

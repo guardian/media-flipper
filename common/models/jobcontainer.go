@@ -20,6 +20,8 @@ const (
 	JOB_STARTED
 	JOB_COMPLETED
 	JOB_FAILED
+	JOB_ABORTED
+	JOB_NOT_QUEUED
 )
 
 type JobSort int

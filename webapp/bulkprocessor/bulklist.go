@@ -38,6 +38,7 @@ type BulkList interface {
 	UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error)
 	AddRecord(record BulkItem, redisClient redis.Cmdable) error
 	RemoveRecord(record BulkItem, redisClient redis.Cmdable) error
+	ReindexRecord(record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error
 	ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error)
 	RebuildSortedIndex(redisClient redis.Cmdable) error
 	GetId() uuid.UUID
@@ -715,6 +716,18 @@ func (list *BulkListImpl) RemoveRecord(record BulkItem, redisClient redis.Cmdabl
 	}
 }
 
+/**
+update any indices containing this record
+*/
+func (list *BulkListImpl) ReindexRecord(record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error {
+	baseKey := fmt.Sprintf("mediaflipper:bulklist:%s", list.BulkListId)
+	log.Printf("DEBUG: ReindexRecord old record is %s", spew.Sdump(oldRecord))
+	removeFromStateIndex(oldRecord, baseKey, redisClient)
+	log.Printf("DEBUG: ReindexRecord new record is %s", spew.Sdump(record))
+	addToStateIndex(record, baseKey, redisClient)
+	return nil
+}
+
 func (list *BulkListImpl) ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error) {
 	dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId)
 	rank, err := redisClient.ZRank(dbKey, id.String()).Result()
@@ -764,19 +777,25 @@ func (list *BulkListImpl) Store(redisClient redis.Cmdable) error {
 		return marshalErr
 	}
 
-	pipe := redisClient.Pipeline()
-	defer pipe.Close()
+	var pipe redis.Pipeliner
+	if castPipeline, isAlreadyPipeline := redisClient.(redis.Pipeliner); isAlreadyPipeline {
+		pipe = castPipeline
+	} else {
+		pipe = redisClient.Pipeline()
+		defer pipe.Close()
+	}
 
-	pipe.Set(dbKey, string(content), -1).Result()
+	pipe.Set(dbKey, string(content), -1)
 	pipe.ZAdd("mediaflipper:bulklist:timeindex", &redis.Z{
 		Score:  float64(list.CreationTime.Unix()),
 		Member: list.BulkListId.String(),
 	})
 
-	_, putErr := pipe.Exec()
-
-	if putErr != nil {
-		return putErr
+	if _, isAlreadyPipeline := redisClient.(redis.Pipeliner); !isAlreadyPipeline {
+		_, putErr := pipe.Exec()
+		if putErr != nil {
+			return putErr
+		}
 	}
 	return nil
 }
@@ -872,6 +891,55 @@ func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImp
 	return results, nil
 }
 
+func (l *BulkListImpl) asyncUpdateItemStatus(records chan BulkItem, newState BulkItemState, commitEvery int, client redis.Cmdable) chan error {
+	errorChan := make(chan error)
+
+	go func() {
+		var currentPipeline redis.Pipeliner = nil
+		var pendingCount int = 0
+
+		for {
+			select {
+			case rec := <-records:
+				if rec == nil {
+					if currentPipeline != nil {
+						log.Printf("asyncStoreItemsBulk: got the last item, committing %d pending records...", pendingCount)
+						_, putErr := currentPipeline.Exec()
+						if putErr != nil {
+							log.Printf("ERROR: could not commit all records: %s", putErr)
+						}
+						currentPipeline.Close()
+					}
+					errorChan <- nil
+					return
+				}
+
+				if currentPipeline == nil {
+					log.Printf("asyncStoreItemsBulk: creating new pipeline")
+					currentPipeline = client.Pipeline()
+				}
+
+				updatedRecord := rec.CopyWithNewState(newState)
+				updatedRecord.Store(currentPipeline)
+				l.ReindexRecord(updatedRecord, rec, currentPipeline)
+
+				pendingCount++
+				if pendingCount >= commitEvery {
+					_, putErr := currentPipeline.Exec()
+					if putErr != nil {
+						log.Printf("ERROR: could not commit all records: %s", putErr)
+					}
+					currentPipeline.Close()
+					currentPipeline = nil
+					pendingCount = 0
+				}
+			}
+		}
+	}()
+
+	return errorChan
+}
+
 /**
 put every item onto the waiting queue asynchronously
 returns a channel that yields either an error if the operation fails or nil if it is successful
@@ -884,6 +952,12 @@ func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable, templateM
 
 	resultsChan, errChan := l.GetAllRecordsAsync(redisClient)
 
+	updateChan := make(chan BulkItem, 10)
+	storeErrChan := l.asyncUpdateItemStatus(updateChan, ITEM_STATE_PENDING, 50, redisClient)
+	go func() {
+		<-storeErrChan
+	}()
+
 	go func() {
 		for {
 			select {
@@ -892,6 +966,7 @@ func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable, templateM
 					log.Printf("Completed enqueueing contents")
 					l.ClearActionRunning(JOBS_QUEUEING, redisClient)
 					l.Store(redisClient)
+					updateChan <- nil
 					rtnChan <- nil
 					return
 				}
@@ -910,7 +985,6 @@ func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable, templateM
 					buildErr = errors.New("ERROR: item had no item type! this should not happen")
 				}
 
-				log.Printf("%s %s", spew.Sdump(job), buildErr)
 				if buildErr == nil {
 					job.SetMediaFile(rec.GetSourcePath())
 					recordId := rec.GetId()
@@ -920,6 +994,7 @@ func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable, templateM
 						log.Printf("ERROR: Could not store new job %s for bulk item %s: %s", job.Id, rec.GetId(), storErr)
 					} else {
 						addErr := runner.AddJob(job)
+						updateChan <- rec //bulk-store the updated records
 						if addErr != nil {
 							log.Printf("ERROR: Could not add created job to jobrunner: %s", addErr)
 						}

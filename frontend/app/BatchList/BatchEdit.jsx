@@ -168,6 +168,8 @@ class BatchEdit extends React.Component {
                 activeCount: content.activeCount,
                 completedCount: content.completedCount,
                 errorCount: content.errorCount,
+                abortedCount: content.abortedCount,
+                nonQueuedCount: content.nonQueuedCount,
                 removeFilesRunning: content.runningActions.includes("remove-system-files"),
                 enqueueRunning: content.runningActions.includes("jobs-queueing"),
             })

@@ -20,6 +20,8 @@ const (
 	ITEM_STATE_ACTIVE
 	ITEM_STATE_COMPLETED
 	ITEM_STATE_FAILED
+	ITEM_STATE_ABORTED
+	ITEM_STATE_NOT_QUEUED
 )
 
 var ItemStates = []BulkItemState{
@@ -27,6 +29,8 @@ var ItemStates = []BulkItemState{
 	ITEM_STATE_ACTIVE,
 	ITEM_STATE_COMPLETED,
 	ITEM_STATE_FAILED,
+	ITEM_STATE_ABORTED,
+	ITEM_STATE_NOT_QUEUED,
 }
 
 func ItemStateFromString(incoming string) BulkItemState {
@@ -39,6 +43,10 @@ func ItemStateFromString(incoming string) BulkItemState {
 		return ITEM_STATE_COMPLETED
 	case "failed":
 		return ITEM_STATE_FAILED
+	case "aborted":
+		return ITEM_STATE_ABORTED
+	case "notqueued":
+		return ITEM_STATE_NOT_QUEUED
 	default:
 		return ITEM_STATE_PENDING
 	}
@@ -48,6 +56,7 @@ type BulkItem interface {
 	Store(client redis.Cmdable) error
 	Delete(client redis.Cmdable) error
 	SetState(newState BulkItemState)
+	CopyWithNewState(newState BulkItemState) BulkItem
 	GetState() BulkItemState
 	UpdateBulkItemId(newId uuid.UUID)
 	GetId() uuid.UUID
@@ -141,6 +150,7 @@ func NewBulkItem(filepath string, priorityOverride int32) BulkItem {
 		SourcePath: filepath,
 		Priority:   prio,
 		Type:       itemType,
+		State:      ITEM_STATE_NOT_QUEUED,
 	}
 }
 
@@ -154,8 +164,13 @@ func (i *BulkItemImpl) Store(client redis.Cmdable) error {
 
 	content, _ := json.Marshal(i)
 
-	_, err := client.Set(dbKey, string(content), -1).Result()
-	return err
+	cmd := client.Set(dbKey, string(content), -1)
+	if _, isPipeline := client.(redis.Pipeliner); isPipeline {
+		return nil
+	} else {
+		_, err := cmd.Result()
+		return err
+	}
 }
 
 func (i *BulkItemImpl) Delete(client redis.Cmdable) error {
@@ -166,6 +181,16 @@ func (i *BulkItemImpl) Delete(client redis.Cmdable) error {
 
 func (i *BulkItemImpl) SetState(newState BulkItemState) {
 	i.State = newState
+}
+
+/**
+create a new BulkItem with the updated state without affecting the old one.
+use this if you need to keep the old record around, e.g. for safe index update
+*/
+func (i *BulkItemImpl) CopyWithNewState(newState BulkItemState) BulkItem {
+	newItem := *i
+	newItem.State = newState
+	return &newItem
 }
 
 func (i *BulkItemImpl) GetState() BulkItemState {

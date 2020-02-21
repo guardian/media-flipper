@@ -58,6 +58,8 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ActiveCount:     itemStats[ITEM_STATE_ACTIVE],
 		CompletedCount:  itemStats[ITEM_STATE_COMPLETED],
 		ErrorCount:      itemStats[ITEM_STATE_FAILED],
+		AbortedCount:    itemStats[ITEM_STATE_ABORTED],
+		NonQueuedCount:  itemStats[ITEM_STATE_NOT_QUEUED],
 		RunningActions:  runningActionsStrings,
 	}
 	helpers.WriteJsonContent(&rsp, w, 200)
