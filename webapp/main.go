@@ -123,7 +123,7 @@ func main() {
 	app.files = files.NewFilesEndpoints(redisClient)
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
-	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient)
+	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr, &runner)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)

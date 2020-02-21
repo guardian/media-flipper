@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"log"
 	"regexp"
 	"strings"
@@ -57,7 +58,7 @@ type BulkList interface {
 	GetImageTemplateId() uuid.UUID
 	SetImageTemplateId(newId uuid.UUID)
 
-	EnqueueContentsAsync(redisClient redis.Cmdable) chan error
+	EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, runner jobrunner.JobRunnerIF) chan error
 	DequeueContentsAsync() chan error
 }
 
@@ -201,7 +202,7 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 		var rec *BulkItemImpl
 		marshalErr := json.Unmarshal([]byte(recordContent), &rec)
 		if marshalErr != nil {
-			log.Printf("Could not unmarshal data: %s. Offending data was: %s", marshalErr, recordContent)
+			log.Printf("WARNING BatchFetchRecords - Could not unmarshal data: %s. Offending data was: %s", marshalErr, recordContent)
 			continue
 		}
 		*outputChan <- rec
@@ -875,37 +876,60 @@ func ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImp
 put every item onto the waiting queue asynchronously
 returns a channel that yields either an error if the operation fails or nil if it is successful
 */
-func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable) chan error {
-	rtnChan := make(chan error)
+func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, runner jobrunner.JobRunnerIF) chan error {
+	rtnChan := make(chan error, 10)
+
+	l.SetActionRunning(JOBS_QUEUEING, redisClient)
+	l.Store(redisClient)
+
+	resultsChan, errChan := l.GetAllRecordsAsync(redisClient)
 
 	go func() {
-		resultsChan, errChan := l.GetAllRecordsAsync(redisClient)
 		for {
 			select {
 			case rec := <-resultsChan:
 				if rec == nil {
 					log.Printf("Completed enqueueing contents")
+					l.ClearActionRunning(JOBS_QUEUEING, redisClient)
+					l.Store(redisClient)
 					rtnChan <- nil
 					return
 				}
 				var job *models.JobContainer
 				var buildErr error
-				templateMgr := models.JobTemplateManager{} //FIXME: WON'T WORK - Needs the golbal TemplateManager to be injected at construction
 				switch rec.GetItemType() {
 				case helpers.ITEM_TYPE_VIDEO:
-					job, buildErr = templateMgr.NewJobContainer(l.VideoTemplateId, rec.GetItemType())
+					job, buildErr = templateManager.NewJobContainer(l.VideoTemplateId, rec.GetItemType())
 				case helpers.ITEM_TYPE_AUDIO:
-					job, buildErr = templateMgr.NewJobContainer(l.AudioTemplateId, rec.GetItemType())
+					job, buildErr = templateManager.NewJobContainer(l.AudioTemplateId, rec.GetItemType())
 				case helpers.ITEM_TYPE_IMAGE:
-					job, buildErr = templateMgr.NewJobContainer(l.ImageTemplateId, rec.GetItemType())
+					job, buildErr = templateManager.NewJobContainer(l.ImageTemplateId, rec.GetItemType())
 				case helpers.ITEM_TYPE_OTHER:
 					buildErr = errors.New("WARNING: can't enqueue an item of TYPE_OTHER, don't know what to do with it")
+				default:
+					buildErr = errors.New("ERROR: item had no item type! this should not happen")
 				}
 
+				log.Printf("%s %s", spew.Sdump(job), buildErr)
 				if buildErr == nil {
-					job.SetMediaFile()
+					job.SetMediaFile(rec.GetSourcePath())
+					recordId := rec.GetId()
+					job.AssociatedBulkItem = &recordId
+					storErr := job.Store(redisClient)
+					if storErr != nil {
+						log.Printf("ERROR: Could not store new job %s for bulk item %s: %s", job.Id, rec.GetId(), storErr)
+					} else {
+						addErr := runner.AddJob(job)
+						if addErr != nil {
+							log.Printf("ERROR: Could not add created job to jobrunner: %s", addErr)
+						}
+					}
+				} else {
+					log.Printf("ERROR: could not build job for %s %s: %s", rec.GetItemType(), rec.GetSourcePath(), buildErr)
 				}
 			case err := <-errChan:
+				l.ClearActionRunning(JOBS_QUEUEING, redisClient)
+				l.Store(redisClient)
 				rtnChan <- err
 				return
 			}
@@ -916,5 +940,7 @@ func (l *BulkListImpl) EnqueueContentsAsync(redisClient redis.Cmdable) chan erro
 }
 
 func (l *BulkListImpl) DequeueContentsAsync() chan error {
-
+	rtnChan := make(chan error, 1)
+	rtnChan <- errors.New("not implemented yet")
+	return rtnChan
 }

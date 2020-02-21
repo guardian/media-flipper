@@ -2,6 +2,8 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"net/http"
 )
 
@@ -14,9 +16,10 @@ type BulkEndpoints struct {
 	DeleteHandler         DeleteHandler
 	RemoveDotFiles        RemoveDotFiles
 	RemoveNonTranscodable RemoveNonTranscodableHandler
+	EnqueueHandler        BulkEnqueueHandler
 }
 
-func NewBulkEndpoints(redisClient *redis.Client) BulkEndpoints {
+func NewBulkEndpoints(redisClient *redis.Client, templateManager *models.JobTemplateManager, jobRunner *jobrunner.JobRunner) BulkEndpoints {
 	dao := BulkListDAOImpl{}
 
 	return BulkEndpoints{
@@ -28,6 +31,7 @@ func NewBulkEndpoints(redisClient *redis.Client) BulkEndpoints {
 		DeleteHandler:         DeleteHandler{redisClient: redisClient},
 		RemoveDotFiles:        RemoveDotFiles{redisClient: redisClient, dao: dao},
 		RemoveNonTranscodable: RemoveNonTranscodableHandler{redisClient: redisClient, dao: dao},
+		EnqueueHandler:        BulkEnqueueHandler{redisClient: redisClient, templateManager: templateManager, runner: jobRunner},
 	}
 }
 
@@ -40,4 +44,5 @@ func (e BulkEndpoints) WireUp(baseUrl string) {
 	http.Handle(baseUrl+"/delete", e.DeleteHandler)
 	http.Handle(baseUrl+"/action/removeDotFiles", e.RemoveDotFiles)
 	http.Handle(baseUrl+"/action/removeNonTranscodable", e.RemoveNonTranscodable)
+	http.Handle(baseUrl+"/action/enqueue", e.EnqueueHandler)
 }

@@ -39,11 +39,13 @@ class BatchEdit extends React.Component {
             templateEntries: [],
             scrollPosition: 0,
             showingModalWarning: false,
+            jobUpdateTimer: null
         };
 
         this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
         this.triggerRemoveNonTranscodable = this.triggerRemoveNonTranscodable.bind(this);
         this.maybeTriggerNonTranscodable = this.maybeTriggerNonTranscodable.bind(this);
+        this.triggerEnqueueItems = this.triggerEnqueueItems.bind(this);
     }
 
     setStatePromise(newState) {
@@ -82,6 +84,18 @@ class BatchEdit extends React.Component {
         } else {
             const bodyContent = await response.text();
             await this.setStatePromise({loading: false, lastError: bodyContent});
+        }
+    }
+
+    async triggerEnqueueItems() {
+        await this.setStatePromise({loading: true});
+        const response = await fetch("/api/bulk/action/enqueue?forId=" + this.state.batchId, {method:"POST"});
+        if(response.status===200){
+            await response.body.cancel();
+            return this.loadExistingData(this.state.batchId);
+        } else {
+            const bodyContent = await resposne.text();
+            return this.setStatePromise({loading: false, lastError: bodyContent})
         }
     }
 
@@ -154,7 +168,8 @@ class BatchEdit extends React.Component {
                 activeCount: content.activeCount,
                 completedCount: content.completedCount,
                 errorCount: content.errorCount,
-                removeFilesRunning: content.runningActions.includes("remove-system-files")
+                removeFilesRunning: content.runningActions.includes("remove-system-files"),
+                enqueueRunning: content.runningActions.includes("jobs-queueing"),
             })
         } else {
             try {
@@ -217,12 +232,18 @@ class BatchEdit extends React.Component {
         await this.loadTemplatesList();
 
         if(batchId!=="new" && batchId!=="") {
-            this.loadExistingData(batchId).then(()=>this.loadBatchContent(batchId))
+            await this.loadExistingData(batchId);
+            await this.setStatePromise({jobUpdateTimer: window.setInterval(()=>this.loadExistingData(batchId), 3000)});
+
+            return this.loadBatchContent(batchId);
         }
     }
 
     componentWillUnmount() {
-        window.removeEventListener('scroll', this.listenToScroll)
+        window.removeEventListener('scroll', this.listenToScroll);
+        if(this.state.jobUpdateTimer) {
+            window.clearTimeout(this.state.jobUpdateTimer);
+        }
     }
 
     listenToScroll = () => {

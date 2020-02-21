@@ -57,7 +57,7 @@ class BatchListMain extends React.Component {
                 <Link className="clickable button" style={{display: "inline", padding: "0.4em", textDecoration: "none"}} to="/batch/new">New batch...</Link>
                 <ul className="batch-list">
                     {
-                        this.state.batches.map(entry=><BatchListEntry entry={entry} entryWasDeleted={this.entryWasDeleted}/>)
+                        this.state.batches.map(entry=><BatchListEntry entry={entry} key={entry.bulkListId} entryWasDeleted={this.entryWasDeleted}/>)
                     }
                 </ul>
             </div>

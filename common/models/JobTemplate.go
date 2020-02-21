@@ -27,6 +27,12 @@ type JobTemplateDefinition struct {
 	Steps       []JobStepTemplateDefinition `yaml:"Steps"`
 }
 
+type TemplateManagerIF interface {
+	NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*JobContainer, error)
+	ListTemplates() []JobTemplateDefinition
+	GetJob(jobId uuid.UUID) (JobTemplateDefinition, bool)
+}
+
 type JobTemplateManager struct {
 	loadedTemplates      map[uuid.UUID]JobTemplateDefinition
 	transcodeSettingsMgr *TranscodeSettingsManager

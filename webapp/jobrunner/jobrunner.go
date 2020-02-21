@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+type JobRunnerIF interface {
+	AddJob(container *models.JobContainer) error
+}
+
 type JobRunner struct {
 	redisClient     *redis.Client
 	k8client        *kubernetes.Clientset

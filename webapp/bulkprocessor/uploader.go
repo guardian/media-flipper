@@ -4,6 +4,8 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
+	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"log"
 	"net/http"
 	"strings"
@@ -12,7 +14,9 @@ import (
 )
 
 type BulkListUploader struct {
-	redisClient *redis.Client
+	redisClient     *redis.Client
+	TemplateManager *models.JobTemplateManager
+	JobRunner       *jobrunner.JobRunner
 }
 
 func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {

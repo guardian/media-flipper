@@ -4,7 +4,11 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
+	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -48,7 +52,7 @@ type BulkListMock struct {
 	allRecordsList []BulkItem
 }
 
-func (l *BulkListMock) EnqueueContentsAsync() chan error {
+func (l *BulkListMock) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, runner jobrunner.JobRunnerIF) chan error {
 	rtn := make(chan error, 1)
 	rtn <- errors.New("mock does not implement enqueueContents")
 	return rtn
@@ -195,3 +199,50 @@ func (l *BulkListMock) GetImageTemplateId() uuid.UUID {
 	return uuid.UUID{}
 }
 func (l *BulkListMock) SetImageTemplateId(newId uuid.UUID) {}
+
+type TemplateManagerMock struct {
+	Test                              *testing.T
+	FakeContainer                     *models.JobContainer
+	NewJobContainerError              error
+	ExpectedNewJobContainerTemplateId uuid.UUID
+	ExpectedNewJobContainerItemType   helpers.BulkItemType
+
+	TemplateDefinitions []models.JobTemplateDefinition
+}
+
+func (m TemplateManagerMock) NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*models.JobContainer, error) {
+	//if templateId != m.ExpectedNewJobContainerTemplateId {
+	//	m.Test.Errorf("NewJobContainer called with incorrect templateId, expected %s got %s", m.ExpectedNewJobContainerTemplateId, templateId)
+	//}
+	//if itemType != m.ExpectedNewJobContainerItemType {
+	//	m.Test.Errorf("NewJobContainer called with incorrect itemType, expected %s got %s", m.ExpectedNewJobContainerItemType, itemType)
+	//}
+	if m.NewJobContainerError != nil {
+		return nil, m.NewJobContainerError
+	}
+	return m.FakeContainer, nil
+}
+
+func (m TemplateManagerMock) ListTemplates() []models.JobTemplateDefinition {
+	return m.TemplateDefinitions
+}
+
+func (m TemplateManagerMock) GetJob(jobId uuid.UUID) (models.JobTemplateDefinition, bool) {
+	return models.JobTemplateDefinition{}, false
+}
+
+type JobRunnerMock struct {
+	Test                    *testing.T
+	AddJobExpectedContainer models.JobContainer
+	AddJobReturnError       error
+
+	AddedContainers []*models.JobContainer
+}
+
+func (m *JobRunnerMock) AddJob(container *models.JobContainer) error {
+	m.AddedContainers = append(m.AddedContainers, container)
+	if m.AddJobReturnError != nil {
+		return m.AddJobReturnError
+	}
+	return nil
+}

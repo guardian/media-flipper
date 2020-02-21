@@ -9,7 +9,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
-	"github.com/guardian/mediaflipper/common/models"
 	"log"
 	"strings"
 )
@@ -92,9 +91,6 @@ func (i *BulkItemImpl) SetItemType(newType helpers.BulkItemType) {
 	i.Type = newType
 }
 
-func (i *BulkItemImpl) MakeJob() (*models.JobContainer, error) {
-	i.
-}
 /**
 create a new BulkItem instance for the given filepath.
 if the `priorityOverride` parameter is greater than 0, it is used to set the priority; otherwise
