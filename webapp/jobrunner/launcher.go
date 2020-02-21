@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-func CreateGenericJob(jobStepID uuid.UUID, jobName string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, k8client *kubernetes.Clientset) error {
+func CreateGenericJob(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, k8client *kubernetes.Clientset) error {
 	svcClient, svcClientErr := GetServiceClient(k8client)
 	if svcClientErr != nil {
 		log.Printf("ERROR: Could not get k8s service client: %s", svcClientErr)
@@ -27,11 +27,11 @@ func CreateGenericJob(jobStepID uuid.UUID, jobName string, envVars map[string]st
 		}
 
 		envVars["WEBAPP_BASE"] = *svcUrlPtr
-		return createGenericJobInternal(jobStepID, jobName, envVars, overwriteExistingVars, kubernetesTemplateFile, jobClient)
+		return createGenericJobInternal(jobStepID, jobNameBase, envVars, overwriteExistingVars, kubernetesTemplateFile, jobClient)
 	}
 }
 
-func createGenericJobInternal(jobStepID uuid.UUID, jobName string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, jobClient v1.JobInterface) error {
+func createGenericJobInternal(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, jobClient v1.JobInterface) error {
 	jobPtr, loadErr := LoadFromTemplate(kubernetesTemplateFile)
 
 	if loadErr != nil {
@@ -64,7 +64,8 @@ func createGenericJobInternal(jobStepID uuid.UUID, jobName string, envVars map[s
 
 	jobPtr.Spec.Template.Spec.Containers[0].Env = vars
 
-	jobPtr.ObjectMeta.Name = jobName
+	jobPtr.ObjectMeta.Name = ""
+	jobPtr.ObjectMeta.GenerateName = jobNameBase
 
 	_, err := jobClient.Create(jobPtr)
 	if err != nil {

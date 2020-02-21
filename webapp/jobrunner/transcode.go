@@ -2,12 +2,10 @@ package jobrunner
 
 import (
 	"errors"
-	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	models2 "github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
-	"path"
 )
 
 func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.Clientset) error {
@@ -32,6 +30,6 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 		"MEDIA_TYPE":         string(jobDesc.ItemType),
 	}
 
-	jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	//jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))
+	return CreateGenericJob(jobDesc.JobStepId, "transc", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

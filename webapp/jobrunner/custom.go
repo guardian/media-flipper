@@ -1,12 +1,10 @@
 package jobrunner
 
 import (
-	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
-	"path"
 )
 
 func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContainer, k8client *kubernetes.Clientset, redisClient redis.Cmdable) error {
@@ -45,7 +43,7 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 		vars[k] = v
 	}
 
-	jobName := fmt.Sprintf("mediaflipper-custom-%s", path.Base(jobDesc.MediaFile))
+	//jobName := fmt.Sprintf("mediaflipper-custom-%s", path.Base(jobDesc.MediaFile))
 
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, false, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "custom-", vars, false, jobDesc.KubernetesTemplateFile, k8client)
 }

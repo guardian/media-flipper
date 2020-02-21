@@ -7,7 +7,6 @@ import (
 	models2 "github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
 	"log"
-	"path"
 )
 
 func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.Clientset) error {
@@ -39,6 +38,6 @@ func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.C
 		"MEDIA_TYPE":         string(jobDesc.ItemType),
 	}
 
-	jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	//jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))
+	return CreateGenericJob(jobDesc.JobStepId, "thumb", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }
