@@ -89,7 +89,7 @@ class BatchEdit extends React.Component {
 
     async triggerEnqueueItems() {
         await this.setStatePromise({loading: true});
-        const response = await fetch("/api/bulk/action/enqueue?forId=" + this.state.batchId, {method:"POST"});
+        const response = await fetch("/api/jobrunner/enqueue?forId=" + this.state.batchId, {method:"POST"});
         if(response.status===200){
             await response.body.cancel();
             return this.loadExistingData(this.state.batchId);

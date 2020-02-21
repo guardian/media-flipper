@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/jobrunner"
 	"sync"
 	"testing"
 	"time"
@@ -39,6 +38,14 @@ func (dao BulkListDAOMock) ScanBulkList(start int64, stop int64, client redis.Cm
 	}
 }
 
+func (dao BulkListDAOMock) UpdateById(bulkId uuid.UUID, itemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) error {
+	return errors.New("mock does not implement UpdateById")
+}
+
+func (dao BulkListDAOMock) ReindexRecord(listId uuid.UUID, record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error {
+	return errors.New("mock does not implement ReindexRecord")
+}
+
 /**
 Mock implementation of BulkList, to inject direclty controllable instances when doing testing
 and eliminate issues that come from expecting miniredis to behave _exactly_ like real redis (e.g. sort)
@@ -50,12 +57,6 @@ type BulkListMock struct {
 	callCountMutex sync.Mutex
 	CallArgsMap    map[string][][]string
 	allRecordsList []BulkItem
-}
-
-func (l *BulkListMock) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, runner jobrunner.JobRunnerIF) chan error {
-	rtn := make(chan error, 1)
-	rtn <- errors.New("mock does not implement enqueueContents")
-	return rtn
 }
 
 func (l *BulkListMock) DequeueContentsAsync() chan error {

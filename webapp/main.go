@@ -109,7 +109,7 @@ func main() {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
 	}
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 10, !(*noProcessor))
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, !(*noProcessor))
 
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
@@ -124,8 +124,8 @@ func main() {
 	app.files = files.NewFilesEndpoints(redisClient)
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
-	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr, &runner)
-	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient)
+	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr)
+	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient, templateMgr, &runner)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)

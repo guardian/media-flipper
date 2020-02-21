@@ -1,10 +1,10 @@
-package bulkprocessor
+package jobrunner
 
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/jobrunner"
+	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"log"
 	"net/http"
 )
@@ -12,7 +12,7 @@ import (
 type BulkEnqueueHandler struct {
 	redisClient     *redis.Client
 	templateManager *models.JobTemplateManager
-	runner          *jobrunner.JobRunner
+	runner          *JobRunner
 }
 
 func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +34,7 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		syncMode = true
 	}
 
-	batchList, getErr := BulkListForId(*batchId, h.redisClient)
+	batchList, getErr := bulkprocessor.BulkListForId(*batchId, h.redisClient)
 	if getErr != nil {
 		log.Printf("ERROR: Could not get bulk list for %s: %s", *batchId, getErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
@@ -44,7 +44,13 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	completionChan := batchList.EnqueueContentsAsync(h.redisClient, h.templateManager, h.runner)
+	batchListImplPtr, isok := batchList.(*bulkprocessor.BulkListImpl)
+	if !isok {
+		log.Printf("ERROR: BulkEnqueueHandler does not yet support mocked BulkList")
+		return
+	}
+
+	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr)
 
 	if syncMode {
 		log.Printf("INFO: BulkEnqueueHandler running in sync mode, waiting for completion...")

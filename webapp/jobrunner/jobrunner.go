@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"k8s.io/client-go/kubernetes"
 	"log"
 	"reflect"
@@ -22,12 +23,13 @@ type JobRunner struct {
 	queuePollTicker *time.Ticker
 	templateMgr     *models.JobTemplateManager
 	maxJobs         int32
+	bulkListDAO     bulkprocessor.BulkListDAO
 }
 
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, channelBuffer int, maxJobs int32, runProcessor bool) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, maxJobs int32, runProcessor bool) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
@@ -38,6 +40,7 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 		queuePollTicker: queuePollTicker,
 		templateMgr:     templateManager,
 		maxJobs:         maxJobs,
+		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
 	}
 	if runProcessor {
 		go runner.requestProcessor()
@@ -73,6 +76,13 @@ func (j *JobRunner) requestProcessor() {
 trigger the action for a given item and put it onto the running queue if successful
 */
 func (j *JobRunner) actionRequest(container *models.JobContainer) error {
+	association := container.AssociatedBulk
+	if association != nil {
+		updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_ACTIVE, j.redisClient)
+		if updateErr != nil {
+			log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
+		}
+	}
 	initialStep := container.InitialStep()
 	if initialStep == nil {
 		log.Printf("WARNING: Job %s from template %s had no steps!", container.Id.String(), container.JobTemplateId.String())
@@ -245,6 +255,15 @@ func (j *JobRunner) clearCompletedTick() {
 						log.Printf("Could not store updated job container: %s", storErr)
 					}
 				}
+			} else {
+				association := container.AssociatedBulk
+				if association != nil {
+					log.Printf("DEBUG clearCompletedTick: updating bulk item %s in list %s to completed", association.Item, association.List)
+					updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_COMPLETED, j.redisClient)
+					if updateErr != nil {
+						log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
+					}
+				}
 			}
 		case models.CONTAINER_FAILED:
 			/*
@@ -265,6 +284,17 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("Could not store job container: %s", storErr)
 			} else {
 				log.Printf("Job failed and saved")
+			}
+
+			association := container.AssociatedBulk
+			if association != nil {
+				log.Printf("DEBUG clearCompletedTick: updating bulk item %s in list %s to failed", association.Item, association.List)
+				updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_FAILED, j.redisClient)
+				if updateErr != nil {
+					log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
+				}
+			} else {
+				log.Printf("DEBUG clearCompletedTick: job %s has no associated bulk item", container.Id)
 			}
 
 		case models.CONTAINER_ACTIVE:

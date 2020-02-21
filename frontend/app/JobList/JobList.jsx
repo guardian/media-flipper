@@ -121,6 +121,9 @@ class JobList extends React.Component {
                                 <TimestampFormatter relative={false} formatString="HH:mm:ss dd Do MMM" value={entry.start_time} prefix="Started " nullValueString="Not started yet"/><br/>
                                 <TimestampFormatter relative={false} formatString="HH:mm:ss dd Do MMM" value={entry.end_time} prefix="Completed " nullValueString="Not finished yet"/><br/>
                             </div>
+                            <div className="job-list-entry-cell baseline">{
+                                entry.associated_bulk ? <a href={"/batch/" + entry.associated_bulk.list}>Bulk list ></a> : <p>(quick job)</p>
+                            }</div>
                             <div className="job-list-entry-cell wide">Completed {entry.completed_steps} steps out of {entry.steps.length}<br/><span className="error-text">{entry.error_message}</span></div>
                         </div>
                         <div className="job-list-content-indented">

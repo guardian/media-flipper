@@ -36,21 +36,26 @@ const (
 	REDIDX_CTIME = "mediaflipper:jobcontainer:starttimeindex"
 )
 
+type BulkAssociation struct {
+	Item uuid.UUID `json:"item"`
+	List uuid.UUID `json:"list"`
+}
+
 //containers are initiated from JobTemplateManager, so there is no New function
 type JobContainer struct {
-	Id                 uuid.UUID            `json:"id"`
-	Steps              []JobStep            `json:"steps"`
-	CompletedSteps     int                  `json:"completed_steps"`
-	Status             JobStatus            `json:"status"`
-	JobTemplateId      uuid.UUID            `json:"templateId"`
-	ErrorMessage       string               `json:"error_message"`
-	IncomingMediaFile  string               `json:"incoming_media_file"`
-	StartTime          *time.Time           `json:"start_time"`
-	EndTime            *time.Time           `json:"end_time"`
-	AssociatedBulkItem *uuid.UUID           `json:"associated_bulk_item"`
-	ItemType           helpers.BulkItemType `json:"item_type"`
-	ThumbnailId        *uuid.UUID           `json:"thumbnail_id"`
-	TranscodedMediaId  *uuid.UUID           `json:"transcoded_media_id"`
+	Id                uuid.UUID            `json:"id"`
+	Steps             []JobStep            `json:"steps"`
+	CompletedSteps    int                  `json:"completed_steps"`
+	Status            JobStatus            `json:"status"`
+	JobTemplateId     uuid.UUID            `json:"templateId"`
+	ErrorMessage      string               `json:"error_message"`
+	IncomingMediaFile string               `json:"incoming_media_file"`
+	StartTime         *time.Time           `json:"start_time"`
+	EndTime           *time.Time           `json:"end_time"`
+	AssociatedBulk    *BulkAssociation     `json:"associated_bulk"`
+	ItemType          helpers.BulkItemType `json:"item_type"`
+	ThumbnailId       *uuid.UUID           `json:"thumbnail_id"`
+	TranscodedMediaId *uuid.UUID           `json:"transcoded_media_id"`
 }
 
 /**
@@ -279,6 +284,13 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.EndTime = TimeFromOptionalString(rawDataMap["end_time"])
 	c.ThumbnailId = optionalUuid(rawDataMap, "thumbnail_id", rawDataMap["id"].(string))
 	c.TranscodedMediaId = optionalUuid(rawDataMap, "transcoded_media_id", rawDataMap["id"].(string))
+
+	_, haveAssocBulk := rawDataMap["associated_bulk"]
+	if haveAssocBulk && rawDataMap["associated_bulk"] != nil {
+		associatedBulkRaw := rawDataMap["associated_bulk"].(map[string]interface{})
+		associatedBulkContent := &BulkAssociation{Item: safeGetUUID(associatedBulkRaw["item"].(string)), List: safeGetUUID(associatedBulkRaw["list"].(string))}
+		c.AssociatedBulk = associatedBulkContent
+	}
 	return nil
 }
 
@@ -388,6 +400,8 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 		return &rtnList, 0, nil
 	}
 
+	log.Printf("DEBUG: ListJobContainers top container is %s", spew.Sdump((*jsonBlobs)[0]))
+
 	rtn := make([]JobContainer, len(*jsonBlobs))
 	for i, blob := range *jsonBlobs {
 		marshalErr := json.Unmarshal([]byte(blob), &rtn[i])
@@ -396,6 +410,7 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 			return nil, 0, marshalErr
 		}
 	}
+	log.Printf("DEBUG: ListJobContainers top container is %s", spew.Sdump(rtn[0]))
 	return &rtn, nextCursor, nil
 }
 
