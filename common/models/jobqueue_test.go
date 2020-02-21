@@ -272,3 +272,54 @@ func TestWhenQueueAvailable(t *testing.T) {
 		t.Errorf("Test completed too quickly, in %dms instead of 500ms. Suggests that the queue wait failed.", testDoneMs-testStartMs)
 	}
 }
+
+func TestAllQueuesLength(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	runningKey := fmt.Sprintf("mediaflipper:%s", RUNNING_QUEUE)
+	s.Lpush(runningKey, "a") //actual content is irrelevant for this test
+	s.Lpush(runningKey, "a")
+	s.Lpush(runningKey, "a")
+	s.Lpush(runningKey, "a")
+
+	waitingKey := fmt.Sprintf("mediaflipper:%s", REQUEST_QUEUE)
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+	s.Lpush(waitingKey, "a")
+
+	result, reqErr := AllQueuesLength(testClient)
+	if reqErr != nil {
+		t.Error("AllQueuesLength unexpectedly failed: ", reqErr)
+	} else {
+		runningCount, getRunErr := result[RUNNING_QUEUE]
+		if !getRunErr {
+			t.Error("got no result for running queue")
+		} else {
+			if runningCount != 4 {
+				t.Errorf("got wrong count for running queue, expected 4 got %d", runningCount)
+			}
+		}
+
+		waitingCount, getWaitErr := result[REQUEST_QUEUE]
+		if !getWaitErr {
+			t.Error("got no result for request queue")
+		} else {
+			if waitingCount != 8 {
+				t.Errorf("got wrong count for request queue, expected 8 got %d", waitingCount)
+			}
+		}
+	}
+}

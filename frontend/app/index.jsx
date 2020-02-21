@@ -12,6 +12,7 @@ import { faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown, fa
 import BatchListMain from "./BatchList/BatchListMain.jsx";
 import BatchEdit from "./BatchList/BatchEdit.jsx";
 import BatchNew  from "./BatchList/BatchNew.jsx";
+import AdminViewMain from "./Admin/AdminViewMain.jsx";
 //import { faPauseCircle } from "@fortawesome/free-regular-svg-icons";
 
 library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown,faWrench, faTools,
@@ -21,6 +22,7 @@ library.add(faUpload, faCloudUploadAlt, faFileUpload, faCaretRight, faCaretDown,
 class App extends React.Component {
     render() {
         return <Switch>
+                <Route path="/admin" component={AdminViewMain}/>
                 <Route path="/jobs" component={JobList}/>
                 <Route path="/quicktranscode" component={QuickTranscode}/>
                 <Route path="/batch/new" component={BatchNew}/>

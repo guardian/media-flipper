@@ -33,6 +33,7 @@ type MyHttpApp struct {
 	tsettings   transcodesettings.TranscodeSettingsEndpoints
 	transcode   transcode2.TranscodeEndpoints
 	bulk        bulkprocessor.BulkEndpoints
+	runner      jobrunner.JobRunnerEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -124,6 +125,7 @@ func main() {
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
 	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr, &runner)
+	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -138,6 +140,7 @@ func main() {
 	app.tsettings.WireUp("/api/transcodesettings")
 	app.transcode.WireUp("/api/transcode")
 	app.bulk.WireUp("/api/bulk")
+	app.runner.WireUp("/api/jobrunner")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
