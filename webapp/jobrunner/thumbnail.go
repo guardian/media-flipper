@@ -39,5 +39,5 @@ func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.C
 	}
 
 	//jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, "thumb", vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-thumb", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

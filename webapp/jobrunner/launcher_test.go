@@ -24,9 +24,6 @@ func TestCreateGenericJobInternal(t *testing.T) {
 		}
 		if len(mockClient.JobsCreated) > 0 {
 			j := *mockClient.JobsCreated[0]
-			if j.ObjectMeta.Name != "test-fake-job" {
-				t.Errorf("Name was set incorrectly, expected %s got %s", "test-fake-job", j.ObjectMeta.Name)
-			}
 			if len(j.Spec.Template.Spec.Containers) == 0 {
 				t.Errorf("Created job had no containers, this is not right")
 			} else {

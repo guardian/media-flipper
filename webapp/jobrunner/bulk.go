@@ -8,6 +8,7 @@ import (
 	"github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"log"
+	"time"
 )
 
 func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkprocessor.BulkItemState, l bulkprocessor.BulkList, commitEvery int, client redis.Cmdable) chan error {
@@ -25,7 +26,7 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 						log.Printf("asyncStoreItemsBulk: got the last item, committing %d pending records...", pendingCount)
 						_, putErr := currentPipeline.Exec()
 						if putErr != nil {
-							log.Printf("ERROR: could not commit all records: %s", putErr)
+							log.Printf("ERROR: jobrunner/asyncUpdateItemStatus could not commit all records: %s", putErr)
 						}
 						currentPipeline.Close()
 					}
@@ -39,6 +40,8 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 				}
 
 				updatedRecord := rec.CopyWithNewState(newState)
+				//since we are pipelining these will never return errors (execution is not happening immediately)
+				//so it's pointless testing error codes here
 				updatedRecord.Store(currentPipeline)
 				l.ReindexRecord(updatedRecord, rec, currentPipeline)
 
@@ -46,7 +49,7 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 				if pendingCount >= commitEvery {
 					_, putErr := currentPipeline.Exec()
 					if putErr != nil {
-						log.Printf("ERROR: could not commit all records: %s", putErr)
+						log.Printf("ERROR: jobrunner/asyncUpdateItemStatus could not commit all records: %s", putErr)
 					}
 					currentPipeline.Close()
 					currentPipeline = nil
@@ -63,7 +66,7 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 put every item onto the waiting queue asynchronously
 returns a channel that yields either an error if the operation fails or nil if it is successful
 */
-func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl) chan error {
+func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error {
 	rtnChan := make(chan error, 10)
 
 	l.SetActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
@@ -73,19 +76,27 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 
 	updateChan := make(chan bulkprocessor.BulkItem, 10)
 	storeErrChan := asyncUpdateItemStatus(updateChan, bulkprocessor.ITEM_STATE_PENDING, l, 50, redisClient)
-	go func() {
-		<-storeErrChan
-	}()
 
 	go func() {
 		for {
 			select {
 			case rec := <-resultsChan:
 				if rec == nil {
-					log.Printf("Completed enqueueing contents")
+					log.Printf("INFO EnqueueContentsAsync completed enqueueing contents, waiting for async store to complete")
+					updateChan <- nil
+					//wait for up to 2 seconds for the store thread to indicate that it has completed
+					tmr := time.NewTimer(2 * time.Second)
+					select {
+					case <-storeErrChan:
+						tmr.Stop()
+						break
+					case <-tmr.C:
+						log.Printf("ERROR: EnqueueContentsAsync timed out while waiting for async store to complete")
+					}
+
+					log.Printf("INFO EnqueueContentsAsync store completed, exiting")
 					l.ClearActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
 					l.Store(redisClient)
-					updateChan <- nil
 					rtnChan <- nil
 					return
 				}
@@ -115,7 +126,12 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 					if storErr != nil {
 						log.Printf("ERROR: Could not store new job %s for bulk item %s: %s", job.Id, rec.GetId(), storErr)
 					} else {
-						addErr := runner.AddJob(job)
+						var addErr error
+						if testRunner != nil {
+							addErr = testRunner.AddJob(job)
+						} else {
+							addErr = runner.AddJob(job)
+						}
 						updateChan <- rec //bulk-store the updated records
 						if addErr != nil {
 							log.Printf("ERROR: Could not add created job to jobrunner: %s", addErr)

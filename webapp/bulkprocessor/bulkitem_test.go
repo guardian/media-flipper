@@ -20,8 +20,8 @@ func TestNewBulkItem(t *testing.T) {
 	if realItem.SourcePath != "path/to/somefile" {
 		t.Errorf("newly created item path was wrong, expected path/to/somefile, got %s", realItem.SourcePath)
 	}
-	if realItem.State != ITEM_STATE_PENDING {
-		t.Errorf("newly created item state was wrong, expected ITEM_STATE_PENDING got %d", realItem.State)
+	if realItem.State != ITEM_STATE_NOT_QUEUED {
+		t.Errorf("newly created item state was wrong, expected ITEM_STATE_NOT_QUEUED got %d", realItem.State)
 	}
 	if realItem.Priority != 1885434984 {
 		t.Errorf("got unexpected value for item priority, expected 1885434984 got %d", realItem.Priority)
@@ -40,8 +40,8 @@ func TestNewBulkItem(t *testing.T) {
 	if realItem2.SourcePath != "path/to/somefile" {
 		t.Errorf("newly created item path was wrong, expected path/to/somefile, got %s", realItem.SourcePath)
 	}
-	if realItem2.State != ITEM_STATE_PENDING {
-		t.Errorf("newly created item state was wrong, expected ITEM_STATE_PENDING got %d", realItem.State)
+	if realItem2.State != ITEM_STATE_NOT_QUEUED {
+		t.Errorf("newly created item state was wrong, expected ITEM_STATE_NOT_QUEUED got %d", realItem.State)
 	}
 	if realItem2.Priority != 243 {
 		t.Errorf("got unexpected value for item priority, expected 1885434984 got %d", realItem.Priority)

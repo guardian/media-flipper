@@ -50,7 +50,7 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr)
+	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, nil)
 
 	if syncMode {
 		log.Printf("INFO: BulkEnqueueHandler running in sync mode, waiting for completion...")

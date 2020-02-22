@@ -27,5 +27,5 @@ func CreateAnalysisJob(jobDesc models.JobStepAnalysis, k8client *kubernetes.Clie
 
 	//jobName := fmt.Sprintf("analysis-%s", path.Base(jobDesc.MediaFile))
 
-	return CreateGenericJob(jobDesc.JobStepId, "analysis", vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-analysis", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

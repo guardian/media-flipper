@@ -31,5 +31,5 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 	}
 
 	//jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, "transc", vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-transc", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

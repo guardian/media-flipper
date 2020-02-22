@@ -45,5 +45,5 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 
 	//jobName := fmt.Sprintf("mediaflipper-custom-%s", path.Base(jobDesc.MediaFile))
 
-	return CreateGenericJob(jobDesc.JobStepId, "custom-", vars, false, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-custom", vars, false, jobDesc.KubernetesTemplateFile, k8client)
 }

@@ -14,6 +14,7 @@ import (
 
 type JobRunnerIF interface {
 	AddJob(container *models.JobContainer) error
+	EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
 }
 
 type JobRunner struct {

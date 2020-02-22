@@ -4,10 +4,7 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
-	"github.com/guardian/mediaflipper/common/helpers"
-	"github.com/guardian/mediaflipper/common/models"
 	"sync"
-	"testing"
 	"time"
 )
 
@@ -139,8 +136,8 @@ func (l *BulkListMock) CountForState(state BulkItemState, redisClient redis.Cmda
 func (l *BulkListMock) CountForAllStates(redisClient redis.Cmdable) (map[BulkItemState]int64, error) {
 	return nil, l.testNotImplementedSync()
 }
-func (l *BulkListMock) UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) (*BulkItem, error) {
-	return nil, l.testNotImplementedSync()
+func (l *BulkListMock) UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) error {
+	return l.testNotImplementedSync()
 }
 func (l *BulkListMock) AddRecord(record BulkItem, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
@@ -148,6 +145,10 @@ func (l *BulkListMock) AddRecord(record BulkItem, redisClient redis.Cmdable) err
 func (l *BulkListMock) RemoveRecord(record BulkItem, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
+func (l *BulkListMock) ReindexRecord(record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error {
+	return l.testNotImplementedSync()
+}
+
 func (l *BulkListMock) ExistsInIndex(id uuid.UUID, redisClient redis.Cmdable) (bool, error) {
 	return false, l.testNotImplementedSync()
 }
@@ -200,50 +201,3 @@ func (l *BulkListMock) GetImageTemplateId() uuid.UUID {
 	return uuid.UUID{}
 }
 func (l *BulkListMock) SetImageTemplateId(newId uuid.UUID) {}
-
-type TemplateManagerMock struct {
-	Test                              *testing.T
-	FakeContainer                     *models.JobContainer
-	NewJobContainerError              error
-	ExpectedNewJobContainerTemplateId uuid.UUID
-	ExpectedNewJobContainerItemType   helpers.BulkItemType
-
-	TemplateDefinitions []models.JobTemplateDefinition
-}
-
-func (m TemplateManagerMock) NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*models.JobContainer, error) {
-	//if templateId != m.ExpectedNewJobContainerTemplateId {
-	//	m.Test.Errorf("NewJobContainer called with incorrect templateId, expected %s got %s", m.ExpectedNewJobContainerTemplateId, templateId)
-	//}
-	//if itemType != m.ExpectedNewJobContainerItemType {
-	//	m.Test.Errorf("NewJobContainer called with incorrect itemType, expected %s got %s", m.ExpectedNewJobContainerItemType, itemType)
-	//}
-	if m.NewJobContainerError != nil {
-		return nil, m.NewJobContainerError
-	}
-	return m.FakeContainer, nil
-}
-
-func (m TemplateManagerMock) ListTemplates() []models.JobTemplateDefinition {
-	return m.TemplateDefinitions
-}
-
-func (m TemplateManagerMock) GetJob(jobId uuid.UUID) (models.JobTemplateDefinition, bool) {
-	return models.JobTemplateDefinition{}, false
-}
-
-type JobRunnerMock struct {
-	Test                    *testing.T
-	AddJobExpectedContainer models.JobContainer
-	AddJobReturnError       error
-
-	AddedContainers []*models.JobContainer
-}
-
-func (m *JobRunnerMock) AddJob(container *models.JobContainer) error {
-	m.AddedContainers = append(m.AddedContainers, container)
-	if m.AddJobReturnError != nil {
-		return m.AddJobReturnError
-	}
-	return nil
-}

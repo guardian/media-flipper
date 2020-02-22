@@ -8,7 +8,6 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
-	"github.com/guardian/mediaflipper/common/models"
 	"strings"
 	"testing"
 	"time"
@@ -564,117 +563,6 @@ func TestBulkList_RunningActions(t *testing.T) {
 	} else {
 		if len(lastList) != 0 {
 			t.Errorf("Got wrong length of final list. Expected 0, got %d", len(lastList))
-		}
-	}
-}
-
-/**
-EnqueueContentsAsync should:
- - create a job from template for each item of the bulk
- - add that job to the provided runner
-*/
-func TestBulkListImpl_EnqueueContentsAsync(t *testing.T) {
-	s, err := miniredis.Run()
-	if err != nil {
-		panic(err)
-	}
-	defer s.Close()
-
-	testClient := redis.NewClient(&redis.Options{
-		Addr: s.Addr(),
-	})
-
-	jobId := uuid.MustParse("8020F41F-4E46-489D-BB27-77BDCB27DC3B")
-	nowTime := time.Now()
-	mockedJobContainer := &models.JobContainer{
-		Id:                 jobId,
-		Steps:              []models.JobStep{},
-		CompletedSteps:     0,
-		Status:             0,
-		JobTemplateId:      uuid.UUID{},
-		ErrorMessage:       "",
-		IncomingMediaFile:  "",
-		StartTime:          &nowTime,
-		EndTime:            nil,
-		AssociatedBulkItem: nil,
-		ItemType:           "",
-		ThumbnailId:        nil,
-		TranscodedMediaId:  nil,
-	}
-
-	templateMgr := TemplateManagerMock{
-		Test:                              t,
-		FakeContainer:                     mockedJobContainer,
-		NewJobContainerError:              nil,
-		ExpectedNewJobContainerTemplateId: uuid.UUID{},
-		ExpectedNewJobContainerItemType:   "",
-		TemplateDefinitions:               nil,
-	}
-
-	runner := &JobRunnerMock{
-		Test:                    t,
-		AddJobExpectedContainer: *mockedJobContainer,
-		AddJobReturnError:       nil,
-	}
-
-	bulkId := uuid.MustParse("3479D940-0285-45BB-AE26-AEB69F811145")
-	bulk := BulkListImpl{
-		BulkListId:      bulkId,
-		CreationTime:    time.Time{},
-		NickName:        "",
-		VideoTemplateId: uuid.UUID{},
-		AudioTemplateId: uuid.UUID{},
-		ImageTemplateId: uuid.UUID{},
-	}
-
-	itemId := uuid.MustParse("BF7E9BF6-9F5C-463D-B8A2-918EB4A6409D")
-	testRecord := BulkItemImpl{
-		Id:         itemId,
-		BulkListId: bulkId,
-		SourcePath: "path/to/videofile",
-		Priority:   0,
-		State:      ITEM_STATE_PENDING,
-		Type:       helpers.ITEM_TYPE_VIDEO,
-	}
-	addErr := bulk.AddRecord(&testRecord, testClient)
-	if addErr != nil {
-		t.Error("AddRecord failed unexpectedly: ", addErr)
-		t.FailNow()
-	}
-
-	errorChan := bulk.EnqueueContentsAsync(testClient, templateMgr, runner)
-	actions, actsErr := bulk.GetActionsRunning(testClient)
-	if actsErr != nil {
-		t.Error("GetActionsRunning failed unexpectedly: ", actsErr)
-	} else {
-		if len(actions) != 1 {
-			t.Errorf("Got wrong number of current actions, expected 1 got %d", len(actions))
-		} else {
-			if actions[0] != JOBS_QUEUEING {
-				t.Errorf("Got wrong current action, expected %s got %s", JOBS_QUEUEING, actions[0])
-			}
-		}
-	}
-
-	receivedErr := <-errorChan //wait for async to complete
-
-	postActs, postActsErr := bulk.GetActionsRunning(testClient)
-	if postActsErr != nil {
-		t.Error("GetActionsRunning failed unexpectedly once the async finished: ", postActsErr)
-	} else {
-		if len(postActs) != 0 {
-			t.Errorf("Action was not cleared")
-		}
-	}
-	if receivedErr != nil {
-		t.Errorf("EnqueueContentsAsync failed unexpectedly: %s", receivedErr)
-	}
-	if len(runner.AddedContainers) != 1 {
-		t.Errorf("Got wrong number of jobs added to the runner, expected 1 got %d", len(runner.AddedContainers))
-	} else {
-		if runner.AddedContainers[0] != mockedJobContainer {
-			t.Errorf("Got wrong container added to the runner, expected %s got %s",
-				spew.Sdump(mockedJobContainer), spew.Sdump(runner.AddedContainers[0]))
 		}
 	}
 }
