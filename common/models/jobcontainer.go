@@ -285,7 +285,10 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.EndTime = TimeFromOptionalString(rawDataMap["end_time"])
 	c.ThumbnailId = optionalUuid(rawDataMap, "thumbnail_id", rawDataMap["id"].(string))
 	c.TranscodedMediaId = optionalUuid(rawDataMap, "transcoded_media_id", rawDataMap["id"].(string))
-	c.OutputPath = rawDataMap["output_path"].(string)
+	outputPath, haveOutputPath := rawDataMap["output_path"]
+	if haveOutputPath {
+		c.OutputPath = outputPath.(string)
+	}
 
 	_, haveAssocBulk := rawDataMap["associated_bulk"]
 	if haveAssocBulk && rawDataMap["associated_bulk"] != nil {
