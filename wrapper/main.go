@@ -44,7 +44,7 @@ func EnsureOutputPath(sendUrl string, maxTries int) {
 				os.Exit(1)
 			}
 		} else {
-			if os.IsExist(statErr) {
+			if os.IsNotExist(statErr) {
 				log.Printf("INFO: creating directory %s", maybeOutPath)
 				makeErr := os.MkdirAll(maybeOutPath, 0777)
 				if makeErr != nil {
