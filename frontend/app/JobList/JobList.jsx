@@ -52,9 +52,9 @@ class JobList extends React.Component {
         if(this.props.location.search.length<2) {
             return {}
         }
-        const baseString = this.props.location.search.slice(1,-1);
-        const parts = baseString.split("&");
-        const result = parts.reduce((acc,elem)=>{
+        const baseString = this.props.location.search.slice(1,-1);  //slice off the leading ?
+        const parts = baseString.split("&");                        //split on & character
+        const result = parts.reduce((acc,elem)=>{                   //split each entry on = and add it to an object
             const kv=elem.split("=");
             const newentry = {};
             newentry[kv[0]] = kv[1];
