@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import JobStatusComponent from "../JobList/JobStatusComponent.jsx";
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {Link} from "react-router-dom";
 
 class BatchEntry extends React.Component {
     static propTypes = {
@@ -107,7 +108,10 @@ class BatchEntry extends React.Component {
                 </div>
 
             </div>
-            <div className="batch-entry-cell mini"><JobStatusComponent status={this.props.entry.state}/></div>
+            <div className="batch-entry-cell mini">
+                <JobStatusComponent status={this.props.entry.state}/><br/>
+                <Link to={"/jobs?jobId=" + this.props.entry.id}>Details ></Link>
+            </div>
         </div>
     }
 }

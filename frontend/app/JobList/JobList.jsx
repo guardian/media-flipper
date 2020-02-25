@@ -48,8 +48,31 @@ class JobList extends React.Component {
         }
     }
 
+    getQueryParams() {
+        if(this.props.location.search.length<2) {
+            return {}
+        }
+        const baseString = this.props.location.search.slice(1,-1);
+        const parts = baseString.split("&");
+        const result = parts.reduce((acc,elem)=>{
+            const kv=elem.split("=");
+            const newentry = {};
+            newentry[kv[0]] = kv[1];
+            return Object.assign(newentry, acc)
+        },{});
+        return result;
+    }
+
     async loadJobListPage() {
-        const response = await fetch("/api/job");
+        const qps = this.getQueryParams();
+        console.log("got queryparams: ", qps);
+        let url;
+        if(qps.hasOwnProperty("jobId")) {
+            url = "/api/job?jobId=" + qps["jobId"];
+        } else {
+            url = "/api/job"
+        }
+        const response = await fetch(url);
         if(response.status===200){
             const data = await response.json();
             return new Promise((resolve, reject)=>this.setState(prevState=>{

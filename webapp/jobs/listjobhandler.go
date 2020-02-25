@@ -2,8 +2,10 @@ package jobs
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -59,7 +61,28 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jobs, nextCursor, getErr := models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME)
+	var jobs *[]models2.JobContainer
+	var nextCursor uint64
+	var getErr error
+	specificIdString := requestUrl.Query().Get("jobId")
+	if specificIdString != "" {
+		specificId, idParseErr := uuid.Parse(specificIdString)
+		if idParseErr != nil {
+			log.Printf("ERROR ListJobHandler was passed invalid jobId '%s': %s", specificIdString, idParseErr)
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_data", "jobId parameter not valid"}, w, 400)
+			return
+		}
+		job, singleGetErr := models2.JobContainerForId(specificId, h.RedisClient)
+		getErr = singleGetErr
+		if job != nil {
+			jobs = &[]models2.JobContainer{*job}
+		} else {
+			jobs = nil
+		}
+	} else {
+		jobs, nextCursor, getErr = models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME)
+	}
+
 	if getErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
 			Status: "db_error",
@@ -67,7 +90,6 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}, w, 500)
 		return
 	}
-
 	response := ListJobResponse{
 		Status:     "ok",
 		NextCursor: nextCursor,
