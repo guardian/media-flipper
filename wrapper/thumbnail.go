@@ -9,16 +9,16 @@ import (
 	"time"
 )
 
-func RunVideoThumbnail(fileName string, atFrame int) *ThumbnailResult {
-	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+func RunVideoThumbnail(fileName string, outPath string, atFrame int) *ThumbnailResult {
+	outFileName := GetOutputFilenameThumb(outPath, fileName)
 
 	cmd := exec.Command("ffmpeg", "-i", fileName, "-vframes", "1", "-an", "-y", "-ss", fmt.Sprint(atFrame), outFileName)
 
 	return runThumbnailWrapper(cmd, outFileName)
 }
 
-func RunImageThumbnail(fileName string, settings models.TranscodeTypeSettings) *ThumbnailResult {
-	outFileName := RemoveExtension(fileName) + "_thumb.jpg"
+func RunImageThumbnail(fileName string, outPath string, settings models.TranscodeTypeSettings) *ThumbnailResult {
+	outFileName := GetOutputFilenameThumb(outPath, fileName)
 	removeOnSuccess := false
 
 	isRaw, checkErr := CheckIsRaw(fileName)

@@ -98,7 +98,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 	var newQueueEntry *models.JobQueueEntry
 
 	if isAnalysis {
-		err := CreateAnalysisJob(*analysisJob, j.k8client)
+		err := CreateAnalysisJob(*analysisJob, container.OutputPath, j.k8client)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
@@ -113,7 +113,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 
 	thumbJob, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
-		err := CreateThumbnailJob(*thumbJob, j.k8client)
+		err := CreateThumbnailJob(*thumbJob, container.OutputPath, j.k8client)
 		if err != nil {
 			log.Print("Could not create thumbnail job! ", err)
 			return err
@@ -128,7 +128,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 
 	tcJob, isTc := step.(*models.JobStepTranscode)
 	if isTc {
-		err := CreateTranscodeJob(*tcJob, j.k8client)
+		err := CreateTranscodeJob(*tcJob, container.OutputPath, j.k8client)
 		if err != nil {
 			log.Print("Could not create transcode job! ", err)
 			return err

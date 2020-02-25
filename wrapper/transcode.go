@@ -68,9 +68,10 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 	}
 }
 
-func RunTranscode(fileName string, settings models.TranscodeTypeSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
-	outFileName := RemoveExtension(fileName) + "_transcoded"
+func RunTranscode(fileName string, maybeOutPath string, settings models.TranscodeTypeSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
+	outFileName := GetOutputFileTransc(maybeOutPath, fileName, settings.GetLikelyExtension())
 
+	log.Printf("INFO: RunTranscode output file is %s", outFileName)
 	commandArgs := []string{"-i", fileName}
 	commandArgs = append(commandArgs, settings.MarshalToArray()...)
 	commandArgs = append(commandArgs, "-y", outFileName)

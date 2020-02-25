@@ -16,6 +16,7 @@ type TranscodeTypeSettings interface {
 	Summarise() JobSettingsSummary
 	InternalMarshalJSON() ([]byte, error)
 	IsValid() bool
+	GetLikelyExtension() string
 }
 
 type ScaleSettings struct {
@@ -56,6 +57,10 @@ type JobSettingsSummary struct {
 	SettingsId  uuid.UUID `json:"settingsid" yaml:"settingsid"`
 	Name        string    `json:"name" yaml:"name"`
 	Description string    `json:"description" yaml:"description"`
+}
+
+func (s JobSettings) GetLikelyExtension() string {
+	return s.Wrapper.Format
 }
 
 func (s ScaleSettings) MarshalToString() string {

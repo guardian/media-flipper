@@ -60,3 +60,7 @@ func (s TranscodeImageSettings) InternalMarshalJSON() ([]byte, error) {
 func (s TranscodeImageSettings) IsValid() bool {
 	return s.ScaleX > 0 && s.ScaleY > 0
 }
+
+func (s TranscodeImageSettings) GetLikelyExtension() string {
+	return "jpg" //a reasonable assumption
+}

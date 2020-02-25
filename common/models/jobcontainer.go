@@ -56,6 +56,7 @@ type JobContainer struct {
 	ItemType          helpers.BulkItemType `json:"item_type"`
 	ThumbnailId       *uuid.UUID           `json:"thumbnail_id"`
 	TranscodedMediaId *uuid.UUID           `json:"transcoded_media_id"`
+	OutputPath        string               `json:"output_path"` //optional output location
 }
 
 /**
@@ -284,6 +285,7 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	c.EndTime = TimeFromOptionalString(rawDataMap["end_time"])
 	c.ThumbnailId = optionalUuid(rawDataMap, "thumbnail_id", rawDataMap["id"].(string))
 	c.TranscodedMediaId = optionalUuid(rawDataMap, "transcoded_media_id", rawDataMap["id"].(string))
+	c.OutputPath = rawDataMap["output_path"].(string)
 
 	_, haveAssocBulk := rawDataMap["associated_bulk"]
 	if haveAssocBulk && rawDataMap["associated_bulk"] != nil {

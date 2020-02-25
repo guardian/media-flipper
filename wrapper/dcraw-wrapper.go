@@ -31,6 +31,9 @@ func CheckIsRaw(filename string) (bool, error) {
 	}
 }
 
+/**
+attempt to use dcraw to extract an embedded jpeg thumbnail
+*/
 func ExtractRawThumbnail(filename string) (string, error) {
 	expectedOutputFilename := fmt.Sprintf("%s.thumb.jpg", RemoveExtension(filename))
 

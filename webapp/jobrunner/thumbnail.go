@@ -9,7 +9,7 @@ import (
 	"log"
 )
 
-func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.Clientset) error {
+func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, maybeOutPath string, k8client *kubernetes.Clientset) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform thumbnail with no media file")
 		return errors.New("can't perform thumbnail with no media file")
@@ -36,6 +36,7 @@ func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, k8client *kubernetes.C
 		"THUMBNAIL_FRAME":    fmt.Sprintf("%f", thumbFrameSeconds),
 		"MAX_RETRIES":        "10",
 		"MEDIA_TYPE":         string(jobDesc.ItemType),
+		"OUTPUT_PATH":        maybeOutPath,
 	}
 
 	//jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))

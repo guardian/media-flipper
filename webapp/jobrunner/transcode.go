@@ -8,16 +8,16 @@ import (
 	"log"
 )
 
-func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.Clientset) error {
+func CreateTranscodeJob(jobDesc models2.JobStepTranscode, maybeOutPath string, k8client *kubernetes.Clientset) error {
 	if jobDesc.MediaFile == "" {
-		log.Printf("Can't perform thumbnail with no media file")
+		log.Printf("ERROR: CreateTranscodeJob Can't perform transcode with no media file")
 		return errors.New("Can't perform thumbnail with no media file")
 	}
 
 	jsonTranscodeSettings, marshalErr := jobDesc.TranscodeSettings.InternalMarshalJSON()
 	if marshalErr != nil {
-		log.Printf("Could not convert settings into json: %s", marshalErr)
-		log.Printf("Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))
+		log.Printf("ERROR: CreateTranscodeJob Could not convert settings into json: %s", marshalErr)
+		log.Printf("ERROR: CreateTranscodeJob Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))
 		return marshalErr
 	}
 	vars := map[string]string{
@@ -28,8 +28,8 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 		"TRANSCODE_SETTINGS": string(jsonTranscodeSettings),
 		"MAX_RETRIES":        "10",
 		"MEDIA_TYPE":         string(jobDesc.ItemType),
+		"OUTPUT_PATH":        maybeOutPath,
 	}
 
-	//jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))
 	return CreateGenericJob(jobDesc.JobStepId, "flip-transc", vars, true, jobDesc.KubernetesTemplateFile, k8client)
 }

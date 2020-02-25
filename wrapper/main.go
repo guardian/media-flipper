@@ -34,6 +34,7 @@ MAX_RETRIES={count}
 THUMBNAIL_FRAME={int} [thumbnail only]
 TRANSCODE_SETTINGS={jsonstring} [transcode only]
 MEDIA_TYPE={video|audio|image|other}
+OUTPUT_PATH={optional path to output. defaults to same location as incoming media}
 */
 func main() {
 	testFilePtr := flag.String("filename", "", "testing option, run on this file")
@@ -81,15 +82,15 @@ func main() {
 			}
 			if _, isImage := transcodeSettings.(models.TranscodeImageSettings); isImage {
 				log.Printf("Performing image thumbnail with provided settings...")
-				result = RunImageThumbnail(filename, transcodeSettings)
+				result = RunImageThumbnail(filename, os.Getenv("OUTPUT_PATH"), transcodeSettings)
 			}
 			if _, isAV := transcodeSettings.(models.JobSettings); isAV {
 				log.Printf("Performing video thumbnail with provided settings...")
-				result = RunVideoThumbnail(filename, thumbFrame)
+				result = RunVideoThumbnail(filename, os.Getenv("OUTPUT_PATH"), thumbFrame)
 			}
 		} else {
 			log.Printf("Performing video thumbnail by default with no provided settings...")
-			result = RunVideoThumbnail(filename, thumbFrame)
+			result = RunVideoThumbnail(filename, os.Getenv("OUTPUT_PATH"), thumbFrame)
 		}
 
 		log.Print("Got thumbnail result: ", result)
@@ -118,7 +119,7 @@ func main() {
 		var result results.TranscodeResult
 		avSettings, isAv := transcodeSettings.(models.JobSettings)
 		if isAv {
-			result = RunTranscode(filename, avSettings, jobId, stepId)
+			result = RunTranscode(filename, os.Getenv("OUTPUT_PATH"), avSettings, jobId, stepId)
 			log.Print("Got transcode result: ", result)
 		} else {
 			log.Printf("Could not recognise settings type for %s", spew.Sdump(transcodeSettings))

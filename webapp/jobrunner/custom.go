@@ -37,6 +37,7 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 		"MEDIA_TYPE":       string(jobDesc.ItemType),
 		"TRANSCODED_MEDIA": transcodedMediaPath,
 		"THUMBNAIL_IMAGE":  thumbnailImagePath,
+		"OUTPUT_PATH":      container.OutputPath,
 	}
 
 	for k, v := range jobDesc.CustomArguments { //add in custom arguments

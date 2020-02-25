@@ -25,6 +25,7 @@ type JobTemplateDefinition struct {
 	Id          uuid.UUID                   `yaml:"Id"`
 	JobTypeName string                      `yaml:"Name"`
 	Steps       []JobStepTemplateDefinition `yaml:"Steps"`
+	OutputPath  string                      `yaml:"OutputPath"`
 }
 
 type TemplateManagerIF interface {
@@ -182,6 +183,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 		CompletedSteps: 0,
 		Status:         JOB_PENDING,
 		StartTime:      &startTime,
+		OutputPath:     tplEntry.OutputPath,
 	}, nil
 }
 
