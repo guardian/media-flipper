@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/models"
@@ -21,6 +22,45 @@ func GetMaxRetries() int {
 		return int(value)
 	} else {
 		return 10 //default value
+	}
+}
+
+func EnsureOutputPath(sendUrl string, maxTries int) {
+	maybeOutPath := os.Getenv("OUTPUT_PATH")
+	if maybeOutPath != "" {
+		log.Printf("INFO: ensuring output directory %s exists", maybeOutPath)
+		statInfo, statErr := os.Stat(maybeOutPath)
+		if statErr == nil {
+			if !statInfo.IsDir() {
+				result := results.TranscodeResult{
+					OutFile:      "",
+					TimeTaken:    0,
+					ErrorMessage: fmt.Sprintf("output path %s existed but was not a directory!", maybeOutPath),
+				}
+				sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+				if sendErr != nil {
+					log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+				}
+				os.Exit(1)
+			}
+		} else {
+			if os.IsExist(statErr) {
+				log.Printf("INFO: creating directory %s", maybeOutPath)
+				makeErr := os.MkdirAll(maybeOutPath, 0777)
+				if makeErr != nil {
+					result := results.TranscodeResult{
+						OutFile:      "",
+						TimeTaken:    0,
+						ErrorMessage: fmt.Sprintf("could not create output path %s: %s", maybeOutPath, makeErr),
+					}
+					sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+					if sendErr != nil {
+						log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+					}
+					os.Exit(1)
+				}
+			}
+		}
 	}
 }
 
@@ -51,6 +91,9 @@ func main() {
 
 	switch os.Getenv("WRAPPER_MODE") {
 	case "analyse":
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		EnsureOutputPath(sendUrl, maxTries)
+
 		result, err := RunAnalysis(filename)
 
 		if err != nil {
@@ -58,13 +101,15 @@ func main() {
 		}
 
 		log.Print("Got analysis result: ", result)
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
 		break
 	case "thumbnail":
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		EnsureOutputPath(sendUrl, maxTries)
+
 		var thumbFrame int
 		if os.Getenv("THUMBNAIL_FRAME") != "" {
 			thumbFrame64, _ := strconv.ParseInt(os.Getenv("THUMBNAIL_FRAME"), 10, 32)
@@ -95,13 +140,15 @@ func main() {
 
 		log.Print("Got thumbnail result: ", result)
 
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
 		}
 		break
 	case "transcode":
+		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		EnsureOutputPath(sendUrl, maxTries)
+
 		log.Printf("Raw transcode settings: %s", os.Getenv("TRANSCODE_SETTINGS"))
 		transcodeSettings, settingsErr := ParseSettings(os.Getenv("TRANSCODE_SETTINGS"))
 		if settingsErr != nil {
@@ -130,7 +177,6 @@ func main() {
 			}
 		}
 
-		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
