@@ -27,6 +27,7 @@ list out job items in order of creation time
 query parameters:
 - startindex - the first item to get. Defaults to 0, i.e. the latet
 - limit - the maximum number of items to get. Defaults to 100
+- jobId - limit results to this specific job ID. Used when linking from batch view -> job view
 */
 func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !helpers.AssertHttpMethod(r, w, "GET") {

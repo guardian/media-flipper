@@ -39,7 +39,8 @@ class BatchEdit extends React.Component {
             templateEntries: [],
             scrollPosition: 0,
             showingModalWarning: false,
-            jobUpdateTimer: null
+            jobUpdateTimer: null,
+            statusFilter: null
         };
 
         this.triggerRemoveDotFiles = this.triggerRemoveDotFiles.bind(this);
@@ -127,9 +128,14 @@ class BatchEdit extends React.Component {
         }
     }
 
-    componentDidUpdate(prevProps, prevState, snapshot) {
+    async componentDidUpdate(prevProps, prevState, snapshot) {
         if(this.state.batchNickname!==prevState.batchNickname || this.state.videoTemplateId!==prevState.videoTemplateId || this.state.audioTemplateId !== prevState.audioTemplateId || this.state.imageTemplateId !== prevState.imageTemplateId) {
-            this.storeUpdatedInfo();
+            await this.storeUpdatedInfo();
+        }
+        if(this.state.statusFilter !== prevState.statusFilter) {
+            console.log("statusFilter updated");
+            const batchId = this.props.match.params.batchId;
+            await this.loadBatchContent(batchId);
         }
     }
 
@@ -186,11 +192,21 @@ class BatchEdit extends React.Component {
     }
 
     async loadBatchContent(batchId) {
-        await this.setStatePromise({loading: true});
+        if(this.state.currentAbort!==null) {
+            console.log("aborting current operation....");
+            this.state.currentAbort.abort();
+        }
+        await this.setStatePromise({loading: true, entries:[], currentAbort: null});
 
         const abortController = new AbortController();
 
-        const response = await fetch("/api/bulk/content?forId=" + batchId, {signal: abortController.signal});
+        let baseUrl = "/api/bulk/content?";
+        if(this.state.statusFilter) {
+            baseUrl = "/api/bulk/content?state=" + this.state.statusFilter + "&"
+        }
+        console.log("baseUrl is ", baseUrl, " statusFilter is ", this.state.statusFilter);
+
+        const response = await fetch(baseUrl + "forId=" + batchId, {signal: abortController.signal});
         const stream = await ndjsonStream(response.body);
         const reader = stream.getReader();
 
@@ -198,14 +214,12 @@ class BatchEdit extends React.Component {
 
         function readNextChunk(reader, currentCount) {
             reader.read().then(({done, value}) =>{
-                console.log(currentCount);
                 if(value) {
-                    //console.log("Got ", value);
                     this.setState(oldState=>{
                         return {entries: oldState.entries.concat([value]), itemsInPage: oldState.items +1}
                     }, ()=>{
                         if(done || currentCount>=this.state.pageLoadLimit-1) {
-                            this.setState({loading: false, lastError: null});
+                            this.setState({loading: false, lastError: null, currentAbort: null});
                         } else {
                             window.setTimeout(()=> {
                                 readNextChunk(reader, currentCount + 1);
@@ -293,7 +307,11 @@ class BatchEdit extends React.Component {
 
 
                 <label className="grid-form-label" htmlFor="status">Status</label>
-                <BatchStatusSummary batchStatus={this.state} className="grid-form-control-stretch"/>
+                <BatchStatusSummary batchStatus={this.state}
+                                    className="grid-form-control-stretch"
+                                    filterClicked={(newValue)=>this.setState({statusFilter: newValue})}
+                                    currentFilterName={this.state.statusFilter}
+                />
 
                 <label className="grid-form-label" htmlFor="progress">Overall progress</label>
                 <span id="progress" className="grid-form-control emphasis">{Math.ceil(100*(this.state.completedCount+this.state.errorCount)/(this.state.pendingCount+this.state.activeCount + this.state.completedCount + this.state.errorCount))} %</span>

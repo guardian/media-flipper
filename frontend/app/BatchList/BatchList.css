@@ -58,8 +58,17 @@ ul.batch-list {
 .status-summary-entry {
     flex: 1;
     align-items: center;
+    margin-right: 6px;
+    margin-left: 6px;
+    margin-top: auto;
+    margin-bottom: auto;
+    border-radius: 6px;
+    padding: 6px;
 }
 
+.status-summary-entry.selected {
+    background-color: #44444488;
+}
 .batch-master-container {
     display: flex;
     max-width: 1200px;
