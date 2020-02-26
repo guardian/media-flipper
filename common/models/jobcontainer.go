@@ -33,8 +33,9 @@ const (
 )
 
 const (
-	REDIDX_CTIME  = "mediaflipper:jobcontainer:starttimeindex"
-	JOBIDX_STATUS = "mediaflipper:jobcontainer:statusindex"
+	REDIDX_CTIME               = "mediaflipper:jobcontainer:starttimeindex"
+	JOBIDX_STATUS              = "mediaflipper:jobcontainer:statusindex"
+	JOBIDX_BULKITEMASSOCIATION = "mediaflipper:jobcontainer:bulkassociation:item" //hash-table index. Key is the uuid of the bulk item we are associated with and value is the id of the job
 )
 
 type BulkAssociation struct {
@@ -300,7 +301,7 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func JobContainerForId(forId uuid.UUID, redisClient *redis.Client) (*JobContainer, error) {
+func JobContainerForId(forId uuid.UUID, redisClient redis.Cmdable) (*JobContainer, error) {
 	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", forId)
 
 	content, getErr := redisClient.Get(dbKey).Result()
@@ -428,6 +429,31 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 }
 
 /**
+get job data associated with the given bulk item.
+returns:
+ - nil, nil if there is no job found
+ - nil, error if the retrieve fails
+ - ptr to JobContainer, nil if the retrieve succeeds
+*/
+func JobContainerForBulkItem(bulkItemId uuid.UUID, redisClient redis.Cmdable) (*JobContainer, error) {
+	jobIdStr, getErr := redisClient.HGet(JOBIDX_BULKITEMASSOCIATION, bulkItemId.String()).Result()
+	log.Printf("JobContainerForBulkItem DEBUG result from index: %s %s", jobIdStr, getErr)
+	if getErr != nil {
+		return nil, getErr
+	}
+	if jobIdStr == "" {
+		return nil, nil
+	}
+
+	jobId, parseErr := uuid.Parse(jobIdStr)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	return JobContainerForId(jobId, redisClient)
+}
+
+/**
 adds a single entry to the ctime and status indices
 */
 func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
@@ -445,6 +471,9 @@ func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 		Member: ent.Id.String(),
 	})
 
+	if ent.AssociatedBulk != nil {
+		p.HSet(JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String())
+	}
 	_, err := p.Exec()
 	return err
 }
@@ -489,6 +518,9 @@ func indexNextPage(cursor uint64, limit int64, p redis.Pipeliner, client *redis.
 			Score:  float64(score),
 			Member: jobInfo.Id.String(),
 		})
+		if jobInfo.AssociatedBulk != nil {
+			p.HSet(JOBIDX_BULKITEMASSOCIATION, jobInfo.AssociatedBulk.Item.String(), jobInfo.Id.String())
+		}
 	}
 	log.Printf("DEBUG: indexNextPage queued %d index entries", len(*contentPtr))
 	return len(*contentPtr), nextCursor, nil

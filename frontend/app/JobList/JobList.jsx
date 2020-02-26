@@ -72,6 +72,13 @@ class JobList extends React.Component {
         } else {
             url = "/api/job"
         }
+
+        if(qps.length===0){
+            url = "/api/job"
+        } else {
+            url = url + this.props.location.search
+        }
+
         const response = await fetch(url);
         if(response.status===200){
             const data = await response.json();

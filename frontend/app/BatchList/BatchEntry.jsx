@@ -110,7 +110,7 @@ class BatchEntry extends React.Component {
             </div>
             <div className="batch-entry-cell mini">
                 <JobStatusComponent status={this.props.entry.state}/><br/>
-                <Link to={"/jobs?jobId=" + this.props.entry.id}>Details ></Link>
+                <Link to={"/jobs?bulkItem=" + this.props.entry.id}>Details ></Link>
             </div>
         </div>
     }
