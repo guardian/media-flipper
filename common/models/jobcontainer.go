@@ -33,7 +33,8 @@ const (
 )
 
 const (
-	REDIDX_CTIME = "mediaflipper:jobcontainer:starttimeindex"
+	REDIDX_CTIME  = "mediaflipper:jobcontainer:starttimeindex"
+	JOBIDX_STATUS = "mediaflipper:jobcontainer:statusindex"
 )
 
 type BulkAssociation struct {
@@ -327,18 +328,25 @@ parameters:
 - cursor - for SORT_NONE the iteration cursor, for SORT_CTIME the latest item  index to get. 0 for "since the top of the list" i.e. latest
 - limit - for SORT_NONE the number of items to return, for SORT_CTIME the earliest item index to get. -1 for "everything".
 */
-func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client, sort JobSort) (*[]string, uint64, error) {
+func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client, sort JobSort, maybeStatus *JobStatus) (*[]string, uint64, error) {
 	var keys []string
 	var nextCursor uint64
 	var scanErr error
+
+	var indexName string
+	if maybeStatus == nil {
+		indexName = REDIDX_CTIME
+	} else {
+		indexName = fmt.Sprintf("%s:%d", JOBIDX_STATUS, *maybeStatus)
+	}
 
 	switch sort {
 	case SORT_NONE:
 		keys, nextCursor, scanErr = redisclient.Scan(cursor, "mediaflipper:JobContainer:*", limit).Result()
 		break
 	case SORT_CTIME:
-		log.Printf("DEBUG: getting revrange on %s", REDIDX_CTIME)
-		jobIdList, err := redisclient.ZRevRange(REDIDX_CTIME, int64(cursor), limit).Result()
+		log.Printf("DEBUG: getting revrange on %s", indexName)
+		jobIdList, err := redisclient.ZRevRange(indexName, int64(cursor), limit).Result()
 		scanErr = err
 		log.Printf("DEBUG: index gave a total of %d items with a limit of %d", len(jobIdList), limit)
 		if err == nil {
@@ -349,7 +357,7 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 		}
 		break
 	case SORT_CTIME_OLDEST:
-		jobIdList, err := redisclient.ZRevRange(REDIDX_CTIME, int64(cursor), limit).Result()
+		jobIdList, err := redisclient.ZRevRange(indexName, int64(cursor), limit).Result()
 		scanErr = err
 
 		if err == nil {
@@ -420,20 +428,34 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 }
 
 /**
-adds a single entry to the ctime index
+adds a single entry to the ctime and status indices
 */
 func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 	log.Printf("indexing job %s", ent.Id)
-	_, err := client.ZAdd(REDIDX_CTIME, &redis.Z{
+	p := client.Pipeline()
+
+	p.ZAdd(REDIDX_CTIME, &redis.Z{
 		Score:  float64(ent.StartTime.UnixNano()),
 		Member: ent.Id.String(),
-	}).Result()
+	})
+
+	statusKey := fmt.Sprintf("%s:%d", JOBIDX_STATUS, ent.Status)
+	p.ZAdd(statusKey, &redis.Z{
+		Score:  float64(ent.StartTime.UnixNano()),
+		Member: ent.Id.String(),
+	})
+
+	_, err := p.Exec()
 	return err
 }
 
 func removeFromIndex(forId uuid.UUID, client redis.Cmdable) error {
 	log.Printf("removing job %s from index", forId)
-	_, err := client.ZRem(REDIDX_CTIME, forId.String()).Result()
+	p := client.Pipeline()
+
+	p.ZRem(REDIDX_CTIME, forId.String())
+	p.ZRem(JOBIDX_STATUS, forId.String())
+	_, err := p.Exec()
 	return err
 }
 
@@ -459,6 +481,11 @@ func indexNextPage(cursor uint64, limit int64, p redis.Pipeliner, client *redis.
 	for _, jobInfo := range *contentPtr {
 		score := jobInfo.StartTime.UnixNano()
 		p.ZAdd(REDIDX_CTIME, &redis.Z{
+			Score:  float64(score),
+			Member: jobInfo.Id.String(),
+		})
+		statusKey := fmt.Sprintf("%s:%d", JOBIDX_STATUS, jobInfo.Status)
+		p.ZAdd(statusKey, &redis.Z{
 			Score:  float64(score),
 			Member: jobInfo.Id.String(),
 		})
