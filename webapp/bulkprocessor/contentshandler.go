@@ -43,7 +43,6 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		recordsChan, errChan = bulkList.GetAllRecordsAsync(h.redisClient)
 	} else if byStateRequest != "" && byNameReqest == "" {
 		s := ItemStateFromString(byStateRequest)
-		log.Printf("ContentsHandler DEBUG itemStateFromString is ", s)
 		recordsChan, errChan = bulkList.FilterRecordsByStateAsync(s, h.redisClient)
 	} else if byStateRequest == "" && byNameReqest != "" {
 		recordsChan, errChan = bulkList.FilterRecordsByNameAsync(byNameReqest, h.redisClient)
