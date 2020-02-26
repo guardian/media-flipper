@@ -2,6 +2,7 @@ package jobrunner
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
@@ -50,7 +51,22 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, nil)
+	var specificItemUuid *uuid.UUID
+	specificItemIdString := parsedUrl.Query().Get("forItem")
+	if specificItemIdString == "" {
+		specificItemUuid = nil
+	} else {
+		var parseErr error
+		uid, parseErr := uuid.Parse(specificItemIdString)
+
+		if parseErr != nil {
+			log.Printf("BulkEnqueueHandler ERROR invalid forItem key: '%s' (%s)", specificItemIdString, parseErr)
+			helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_data", "invalid forItem key"}, w, 500)
+			return
+		}
+		specificItemUuid = &uid
+	}
+	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, specificItemUuid, nil)
 
 	if syncMode {
 		log.Printf("INFO: BulkEnqueueHandler running in sync mode, waiting for completion...")

@@ -9,7 +9,8 @@ class BatchEntry extends React.Component {
         entry: PropTypes.object.isRequired,
         validVideoSettings: PropTypes.bool,
         validAudioSettings: PropTypes.bool,
-        validImageSettings: PropTypes.bool
+        validImageSettings: PropTypes.bool,
+        onRetryRequested: PropTypes.func
     };
 
     constructor(props) {
@@ -111,6 +112,9 @@ class BatchEntry extends React.Component {
             <div className="batch-entry-cell mini">
                 <JobStatusComponent status={this.props.entry.state}/><br/>
                 <Link to={"/jobs?bulkItem=" + this.props.entry.id}>Details ></Link>
+                <div style={{display: this.props.entry.state===3 && this.props.onRetryRequested ? "inherit" : "none"}}>
+                    <label className="button clickable" onClick={()=>this.props.onRetryRequested(this.props.entry.id)}>Requeue</label>
+                </div>
             </div>
         </div>
     }

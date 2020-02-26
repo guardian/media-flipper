@@ -115,6 +115,10 @@ func (l *BulkListMock) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkI
 	return outputChan, errChan
 }
 
+func (l *BulkListMock) GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	return nil, l.testNotImplementedAsync()
+}
+
 func (l *BulkListMock) FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error) {
 	return nil, l.testNotImplementedSync()
 }

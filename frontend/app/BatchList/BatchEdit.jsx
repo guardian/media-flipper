@@ -47,10 +47,24 @@ class BatchEdit extends React.Component {
         this.triggerRemoveNonTranscodable = this.triggerRemoveNonTranscodable.bind(this);
         this.maybeTriggerNonTranscodable = this.maybeTriggerNonTranscodable.bind(this);
         this.triggerEnqueueItems = this.triggerEnqueueItems.bind(this);
+        this.retryRequested = this.retryRequested.bind(this);
     }
 
     setStatePromise(newState) {
         return new Promise((resolve, reject)=>this.setState(newState, ()=>resolve()))
+    }
+
+    async retryRequested(forId) {
+        console.log("Retry requested for ", forId);
+        await this.setStatePromise({loading: true});
+        const response = await fetch("/api/jobrunner/enqueue?forId=" + this.state.batchId + "&forItem=" + forId, {method:"POST"});
+        if(response.status===200){
+            await response.body.cancel();
+            return this.loadExistingData(this.state.batchId);
+        } else {
+            const bodyContent = await response.text();
+            return this.setStatePromise({loading: false, lastError: bodyContent})
+        }
     }
 
     async triggerRemoveDotFiles() {
@@ -95,7 +109,7 @@ class BatchEdit extends React.Component {
             await response.body.cancel();
             return this.loadExistingData(this.state.batchId);
         } else {
-            const bodyContent = await resposne.text();
+            const bodyContent = await response.text();
             return this.setStatePromise({loading: false, lastError: bodyContent})
         }
     }
@@ -339,6 +353,7 @@ class BatchEdit extends React.Component {
                                     validAudioSettings={this.state.audioTemplateId!=="00000000-0000-0000-0000-000000000000"}
                                     validVideoSettings={this.state.videoTemplateId!=="00000000-0000-0000-0000-000000000000"}
                                     validImageSettings={this.state.imageTemplateId!=="00000000-0000-0000-0000-000000000000"}
+                                    onRetryRequested={this.retryRequested}
                         /></li>)
                 }
             </ul>

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
+	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
@@ -66,13 +67,20 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 put every item onto the waiting queue asynchronously
 returns a channel that yields either an error if the operation fails or nil if it is successful
 */
-func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error {
+func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, maybeSpecificID *uuid.UUID, testRunner JobRunnerIF) chan error {
 	rtnChan := make(chan error, 10)
 
 	l.SetActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
 	l.Store(redisClient)
 
-	resultsChan, errChan := l.GetAllRecordsAsync(redisClient)
+	var resultsChan chan bulkprocessor.BulkItem
+	var errChan chan error
+
+	if maybeSpecificID == nil {
+		resultsChan, errChan = l.GetAllRecordsAsync(redisClient)
+	} else {
+		resultsChan, errChan = l.GetSpecificRecordAsync(*maybeSpecificID, redisClient)
+	}
 
 	updateChan := make(chan bulkprocessor.BulkItem, 10)
 	storeErrChan := asyncUpdateItemStatus(updateChan, bulkprocessor.ITEM_STATE_PENDING, l, 50, redisClient)

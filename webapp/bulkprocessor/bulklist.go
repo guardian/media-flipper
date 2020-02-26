@@ -25,6 +25,7 @@ const (
 type BulkList interface {
 	GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error)
 	GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error)
+	GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByName(name string, redisClient redis.Cmdable) ([]BulkItem, error)
@@ -221,6 +222,37 @@ const (
 	INDEX_MODE_UNSORTED indexMode = iota
 	INDEX_MODE_SORTED
 )
+
+/**
+get a single item asynchronously. This is here to lift specific items using the same protocol as GetAllRecordsAsync for retrying individual items
+in a bulk list that failed
+*/
+func (list *BulkListImpl) GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+	outputChan := make(chan BulkItem)
+	errChan := make(chan error)
+
+	go func() {
+		recordKey := fmt.Sprintf("mediaflipper:bulkitem:%s", itemId.String())
+
+		stringContent, getErr := redisClient.Get(recordKey).Result()
+		if getErr != nil {
+			errChan <- getErr
+			return
+		}
+
+		var rec BulkItemImpl
+		marshalErr := json.Unmarshal([]byte(stringContent), &rec)
+		if marshalErr != nil {
+			errChan <- marshalErr
+			return
+		}
+		outputChan <- &rec
+		outputChan <- nil
+	}()
+
+	return outputChan, errChan
+
+}
 
 func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
 	//dbKey := fmt.Sprintf("mediaflipper:bulklist:%s:index", list.BulkListId.String())
