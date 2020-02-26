@@ -61,7 +61,7 @@ func (m *JobRunnerMockRealEnqueue) AddJob(container *models.JobContainer) error 
 }
 
 func (m *JobRunnerMockRealEnqueue) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error {
-	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, testRunner)
+	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, testRunner)
 }
 
 /**
