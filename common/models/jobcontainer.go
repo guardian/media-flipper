@@ -402,7 +402,7 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 }
 
 func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, sort JobSort) (*[]JobContainer, uint64, error) {
-	jsonBlobs, nextCursor, scanErr := ListJobContainersJson(cursor, limit, redisclient, sort)
+	jsonBlobs, nextCursor, scanErr := ListJobContainersJson(cursor, limit, redisclient, sort, nil)
 	if scanErr != nil {
 		return nil, 0, scanErr
 	}
