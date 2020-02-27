@@ -89,15 +89,11 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_data", "jobId parameter not valid"}, w, 400)
 			return
 		}
-		job, singleGetErr := models2.JobContainerForBulkItem(bulkId, h.RedisClient)
+		jobsList, singleGetErr := models2.JobContainerForBulkItem(bulkId, h.RedisClient)
 		getErr = singleGetErr
-		if job != nil {
-			jobs = &[]models2.JobContainer{*job}
-		} else {
-			jobs = nil
-		}
+		jobs = &jobsList
 	} else {
-		jobs, nextCursor, getErr = models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME)
+		jobs, nextCursor, getErr = models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME, nil)
 	}
 
 	if getErr != nil {

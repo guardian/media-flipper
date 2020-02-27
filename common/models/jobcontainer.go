@@ -10,6 +10,7 @@ import (
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -84,7 +85,7 @@ func (c JobContainer) Remove(redisClient redis.Cmdable) error {
 	dbKey := fmt.Sprintf("mediaflipper:JobContainer:%s", c.Id)
 	_, err := redisClient.Del(dbKey).Result()
 	if err == nil {
-		idxErr := removeFromIndex(c.Id, redisClient)
+		idxErr := removeFromIndex(c.Id, c.AssociatedBulk, redisClient)
 		return idxErr
 	}
 	return err
@@ -402,8 +403,8 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 	return &rtn, nextCursor, nil
 }
 
-func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, sort JobSort) (*[]JobContainer, uint64, error) {
-	jsonBlobs, nextCursor, scanErr := ListJobContainersJson(cursor, limit, redisclient, sort, nil)
+func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, sort JobSort, maybeStatus *JobStatus) (*[]JobContainer, uint64, error) {
+	jsonBlobs, nextCursor, scanErr := ListJobContainersJson(cursor, limit, redisclient, sort, maybeStatus)
 	if scanErr != nil {
 		return nil, 0, scanErr
 	}
@@ -428,6 +429,34 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 	return &rtn, nextCursor, nil
 }
 
+func fetchJobContainersList(idList []uuid.UUID, redisClient redis.Cmdable) ([]JobContainer, error) {
+	pipe := redisClient.Pipeline()
+
+	//cmds := make([]*redis.StringCmd, len(idList))
+	for _, jobId := range idList {
+		pipe.Get(fmt.Sprintf("mediaflipper:JobContainer:%s", jobId))
+	}
+
+	results, pipeErr := pipe.Exec()
+	if pipeErr != nil {
+		log.Printf("ERROR fetchJobContainersList could not retrieve items: %s", pipeErr)
+		return nil, pipeErr
+	}
+
+	output := make([]JobContainer, len(results))
+
+	for i, result := range results {
+		cmd := result.(*redis.StringCmd)
+		content, _ := cmd.Result()
+
+		marshalErr := json.Unmarshal([]byte(content), &output[i])
+		if marshalErr != nil {
+			log.Printf("ERROR fetchJobContainersList could not parse content from datastore for %s: %s", cmd.String(), marshalErr)
+		}
+	}
+	return output, nil
+}
+
 /**
 get job data associated with the given bulk item.
 returns:
@@ -435,26 +464,98 @@ returns:
  - nil, error if the retrieve fails
  - ptr to JobContainer, nil if the retrieve succeeds
 */
-func JobContainerForBulkItem(bulkItemId uuid.UUID, redisClient redis.Cmdable) (*JobContainer, error) {
-	jobIdStr, getErr := redisClient.HGet(JOBIDX_BULKITEMASSOCIATION, bulkItemId.String()).Result()
-	log.Printf("JobContainerForBulkItem DEBUG result from index: %s %s", jobIdStr, getErr)
+func JobContainerForBulkItem(bulkItemId uuid.UUID, redisClient redis.Cmdable) ([]JobContainer, error) {
+	jobIdListStr, getErr := redisClient.HGet(JOBIDX_BULKITEMASSOCIATION, bulkItemId.String()).Result()
+	log.Printf("JobContainerForBulkItem DEBUG result from index: %s %s", jobIdListStr, getErr)
 	if getErr != nil {
 		return nil, getErr
 	}
-	if jobIdStr == "" {
+
+	if jobIdListStr == "" {
 		return nil, nil
 	}
 
-	jobId, parseErr := uuid.Parse(jobIdStr)
-	if parseErr != nil {
-		return nil, parseErr
+	parts := strings.Split(jobIdListStr, "|")
+	idList := make([]uuid.UUID, 0)
+	for _, idStr := range parts {
+		if idStr == "" {
+			continue //get rid of annoying error message if it's blank
+		}
+		uid, parseErr := uuid.Parse(idStr)
+		if parseErr == nil {
+			idList = append(idList, uid)
+		} else {
+			log.Printf("WARNING JobContainerForBulkItem could not parse value '%s' from datastore: %s", idStr, parseErr)
+		}
 	}
 
-	return JobContainerForId(jobId, redisClient)
+	log.Printf("JobContainerForBulkItem DEBUG got id list: %s", idList)
+	return fetchJobContainersList(idList, redisClient)
 }
 
 /**
-adds a single entry to the ctime and status indices
+concatenate the given data to the given hashkey via a lua script on the
+redis datastore
+*/
+func indexLuaConcat(ent *JobContainer, client redis.Cmdable) error {
+	/**
+	luaScript expects to be called with 3 arguments:
+	- ARGV[1] - name of the index
+	- ARGV[2] - id of the associated item to link to
+	- ARGV[3] - id of the job to link from
+	*/
+
+	luaScript := `local currentValue = redis.call("hget",ARGV[1],ARGV[2])
+if currentValue == false then
+	currentValue = ""
+end
+local replacement = currentValue .. "|" .. ARGV[3]
+redis.call("hset",ARGV[1],ARGV[2],replacement)
+return replacement
+`
+	if ent.AssociatedBulk != nil {
+		_, err := client.Eval(luaScript, []string{}, JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String()).Result()
+		return err
+	}
+	return nil
+}
+
+/**
+remove the given data from the given hashkey via a lua script on the
+redis datastore
+*/
+func indexLuaRemove(jobId uuid.UUID, bulk *BulkAssociation, client redis.Cmdable) error {
+	/**
+	luaScript expects to be called with 3 arguments:
+	- ARGV[1] - name of the index
+	- ARGV[2] - id of the associated item to link to
+	- ARGV[3] - id of the job that we are removing link from
+	*/
+
+	luaScript := `local currentValue = redis.call("hget",ARGV[1],ARGV[2])
+local final = {}
+for value in string.gmatch(currentValue, "([^|]+)") do
+	if value ~= ARGV[3] then
+		table.insert(final, value)
+	end
+end
+local replacement = table.concat(final, "|")
+if replacement == "" then
+	redis.call("hdel",ARGV[1],ARGV[2])
+else
+	redis.call("hset",ARGV[1],ARGV[2],replacement)
+end
+return replacement
+`
+	if bulk != nil {
+		_, err := client.Eval(luaScript, []string{}, JOBIDX_BULKITEMASSOCIATION, bulk.Item.String(), jobId.String()).Result()
+		return err
+	}
+	return nil
+}
+
+/**
+adds a single entry to the ctime, status and associated item indices
 */
 func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 	log.Printf("indexing job %s", ent.Id)
@@ -471,19 +572,24 @@ func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 		Member: ent.Id.String(),
 	})
 
-	if ent.AssociatedBulk != nil {
-		p.HSet(JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String())
-	}
+	indexLuaConcat(ent, p) //no point checking error as we don't execute until p.Exec()
+	//if ent.AssociatedBulk != nil {
+	//	p.HSet(JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String())
+	//}
 	_, err := p.Exec()
 	return err
 }
 
-func removeFromIndex(forId uuid.UUID, client redis.Cmdable) error {
+func removeFromIndex(forId uuid.UUID, bulkAssociation *BulkAssociation, client redis.Cmdable) error {
 	log.Printf("removing job %s from index", forId)
 	p := client.Pipeline()
 
 	p.ZRem(REDIDX_CTIME, forId.String())
 	p.ZRem(JOBIDX_STATUS, forId.String())
+	if bulkAssociation != nil {
+		//p.HDel(JOBIDX_BULKITEMASSOCIATION, bulkAssociation.Item.String())
+		indexLuaRemove(forId, bulkAssociation, client)
+	}
 	_, err := p.Exec()
 	return err
 }
@@ -502,7 +608,7 @@ return:
 */
 func indexNextPage(cursor uint64, limit int64, p redis.Pipeliner, client *redis.Client) (int, uint64, error) {
 	log.Printf("INFO: indexNextPage from %d with a limit of %d", cursor, limit)
-	contentPtr, nextCursor, err := ListJobContainers(cursor, limit, client, SORT_NONE)
+	contentPtr, nextCursor, err := ListJobContainers(cursor, limit, client, SORT_NONE, nil)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -519,7 +625,8 @@ func indexNextPage(cursor uint64, limit int64, p redis.Pipeliner, client *redis.
 			Member: jobInfo.Id.String(),
 		})
 		if jobInfo.AssociatedBulk != nil {
-			p.HSet(JOBIDX_BULKITEMASSOCIATION, jobInfo.AssociatedBulk.Item.String(), jobInfo.Id.String())
+			//p.HSet(JOBIDX_BULKITEMASSOCIATION, jobInfo.AssociatedBulk.Item.String(), jobInfo.Id.String())
+			indexLuaConcat(&jobInfo, p)
 		}
 	}
 	log.Printf("DEBUG: indexNextPage queued %d index entries", len(*contentPtr))
@@ -530,10 +637,11 @@ func ReIndexJobContainers(redisclient *redis.Client) error {
 	log.Printf("Starting re-index of job containers")
 	startTime := time.Now().Unix()
 
-	log.Printf("DEBUG: Removing existing index")
+	log.Printf("DEBUG: Removing existing indices")
 	redisclient.Del(REDIDX_CTIME)
+	redisclient.Del(JOBIDX_BULKITEMASSOCIATION)
 
-	log.Printf("DEBUG: Building new index")
+	log.Printf("DEBUG: Building new indices")
 
 	var nextCursor uint64 = 0
 	processedItemsTotal := 0
