@@ -6,9 +6,9 @@ ls -lh "${TRANSCODED_MEDIA}"
 echo ${THUMBNAIL_IMAGE}
 ls -lh "${THUMBNAIL_IMAGE}"
 
-if [ "${MEDIA_FILE}" != "" ]; then
+if [ "${FILE_NAME}" != "" ]; then
   #make sure any leading / is removed as s3 does not really like these (well s3 does not technically care but it makes finding stuff a pain)
-    OUTPUT_PATH=`dirname "${MEDIA_FILE}" | sed  's/^\///'`
+    OUTPUT_PATH=`dirname "${FILE_NAME}" | sed  's/^\///'`
     echo Using output path ${OUTPUT_PATH} from media file path
 else
     echo Using output path ${OUTPUT_PATH} from settings
