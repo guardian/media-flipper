@@ -509,9 +509,15 @@ func indexLuaConcat(ent *JobContainer, client redis.Cmdable) error {
 if currentValue == false then
 	currentValue = ""
 end
-local replacement = currentValue .. "|" .. ARGV[3]
-redis.call("hset",ARGV[1],ARGV[2],replacement)
-return replacement
+
+local comparisonString = string.gsub(ARGV[3],"-","%%-")
+if string.find(currentValue, comparisonString) then
+	return currentValue
+else
+	local replacement = currentValue .. "|" .. ARGV[3]
+	redis.call("hset",ARGV[1],ARGV[2],replacement)
+	return replacement
+end
 `
 	if ent.AssociatedBulk != nil {
 		_, err := client.Eval(luaScript, []string{}, JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String()).Result()

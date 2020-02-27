@@ -192,6 +192,19 @@ func TestIndexLuaConcat(t *testing.T) {
 	if existingTestResult != existingTestExpected {
 		t.Errorf("indexLuaConcat did not write correct value, expected %s got %s", existingTestExpected, existingTestResult)
 	}
+
+	//indexLuaConcat should not append the value if it is already present
+	s.HSet(JOBIDX_BULKITEMASSOCIATION, bulkAssociation.Item.String(), "|someexistingvalue|492b3831-e7b1-48a0-8c1b-5a8b4a4d8ef3")
+
+	dupeTestErr := indexLuaConcat(&ent, testClient)
+	if dupeTestErr != nil {
+		t.Errorf("indexLuaConcat failed unexpectedly: %s", testErr)
+	}
+	dupeTestResult := s.HGet(JOBIDX_BULKITEMASSOCIATION, bulkAssociation.Item.String())
+	dupeTestExpected := "|someexistingvalue|492b3831-e7b1-48a0-8c1b-5a8b4a4d8ef3"
+	if dupeTestResult != dupeTestExpected {
+		t.Errorf("indexLuaConcat did not write correct value, expected %s got %s", dupeTestExpected, dupeTestResult)
+	}
 }
 
 func TestIndexLuaRemove(t *testing.T) {
