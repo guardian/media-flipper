@@ -128,6 +128,14 @@ class JobList extends React.Component {
                     <div className="job-list-entry-cell baseline"><MediaPreview className="thumbnail-preview" fileId={step.transcodeResult}/></div>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
                 </div>;
+            case "custom":
+                return <div className="job-list-container">
+                    <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
+                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">Custom ({step.templateFile})</div>
+                    <div className="job-list-entry-cell baseline"/>
+                    <div className="job-list-entry-cell wide">{step.errorMessage}</div>
+                </div>;
             default:
                 return <div className="job-list-container"><div className="job-list-entry-cell wide">Unknown job step type {step.stepType}</div></div>
         }
