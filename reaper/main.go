@@ -185,7 +185,7 @@ func main() {
 
 	var cursor uint64 = 0
 	for {
-		jobs, nextCursor, err := models.ListJobContainers(cursor, *pageSize, redisClient, models.SORT_CTIME_OLDEST)
+		jobs, nextCursor, err := models.ListJobContainers(cursor, *pageSize, redisClient, models.SORT_CTIME_OLDEST, nil)
 
 		if err != nil {
 			log.Fatalf("ERROR: Could not retrieve page of jobs: %s", err)
