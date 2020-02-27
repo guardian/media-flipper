@@ -13,12 +13,13 @@ import (
 )
 
 type JobStepTemplateDefinition struct {
-	Id                     uuid.UUID `yaml:"Id"`
-	PredeterminedType      string    `yaml:"PredeterminedType"`
-	KubernetesTemplateFile string    `yaml:"KubernetesTemplateFile"`
-	InProgressLabel        string    `yaml:"InProgressLabel"`
-	TranscodeSettingsId    string    `yaml:"TranscodeSettingsId"`
-	ThumbnailFrameSeconds  float64   `yaml:"ThumbnailFrameSeconds"`
+	Id                     uuid.UUID         `yaml:"Id"`
+	PredeterminedType      string            `yaml:"PredeterminedType"`
+	KubernetesTemplateFile string            `yaml:"KubernetesTemplateFile"`
+	InProgressLabel        string            `yaml:"InProgressLabel"`
+	TranscodeSettingsId    string            `yaml:"TranscodeSettingsId"`
+	ThumbnailFrameSeconds  float64           `yaml:"ThumbnailFrameSeconds"`
+	CustomArguments        map[string]string `yaml:"CustomArguments"`
 }
 
 type JobTemplateDefinition struct {
@@ -168,6 +169,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType hel
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
 				ItemType:               itemType,
+				CustomArguments:        stepTemplate.CustomArguments,
 			}
 			steps[idx] = newStep
 		default:

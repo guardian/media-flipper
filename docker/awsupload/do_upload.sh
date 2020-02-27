@@ -6,12 +6,30 @@ ls -lh "${TRANSCODED_MEDIA}"
 echo ${THUMBNAIL_IMAGE}
 ls -lh "${THUMBNAIL_IMAGE}"
 
+STRIP_PATH_COUNT=`echo ${CUSTOM_ARGS}| sed -E 's/^.*stripPath=([^,]*).*$/\1/'`
+if [ "${STRIP_PATH_COUNT}" == "${CUSTOM_ARGS}"]; then
+  STRIP_PATH_COUNT=""
+else
+  echo Strip path is ${STRIP_PATH_COUNT}
+fi
+
 if [ "${FILE_NAME}" != "" ]; then
   #make sure any leading / is removed as s3 does not really like these (well s3 does not technically care but it makes finding stuff a pain)
     OUTPUT_PATH=`dirname "${FILE_NAME}" | sed  's/^\///'`
     echo Using output path ${OUTPUT_PATH} from media file path
 else
     echo Using output path ${OUTPUT_PATH} from settings
+fi
+
+if [ "${STRIP_PATH_COUNT}" != "" ]; then
+    echo Removing ${STRIP_PATH_COUNT} segments from upload path
+    NEW_OUTPUT_PATH=`echo ${OUTPUT_PATH} | sed -E 's/([^\/]+\/){'${STRIP_PATH_COUNT}'}//'`
+    if [ "${NEW_OUTPUT_PATH}" == "" ]; then
+      echo Removed too many segments!
+    else
+      OUTPUT_PATH=${NEW_OUTPUT_PATH}
+    fi
+    echo Output path is now ${OUTPUT_PATH}
 fi
 
 echo Uploading \"${TRANSCODED_MEDIA}\" to \"${OUTPUT_PATH}\" on \"${OUTPUT_BUCKET}\"...

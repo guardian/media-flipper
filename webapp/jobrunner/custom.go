@@ -1,6 +1,7 @@
 package jobrunner
 
 import (
+	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/models"
 	"k8s.io/client-go/kubernetes"
@@ -28,6 +29,10 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 		}
 	}
 
+	var customArgumentString string
+	for k, v := range jobDesc.CustomArguments {
+		customArgumentString += fmt.Sprintf("%s=%s,", k, v)
+	}
 	vars := map[string]string{
 		"WRAPPER_MODE":     "custom",
 		"JOB_CONTAINER_ID": jobDesc.JobContainerId.String(),
@@ -38,6 +43,7 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 		"TRANSCODED_MEDIA": transcodedMediaPath,
 		"THUMBNAIL_IMAGE":  thumbnailImagePath,
 		"OUTPUT_PATH":      container.OutputPath,
+		"CUSTOM_ARGS":      customArgumentString,
 	}
 
 	for k, v := range jobDesc.CustomArguments { //add in custom arguments
