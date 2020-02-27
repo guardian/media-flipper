@@ -59,6 +59,7 @@ func FormatAnalysisFromMap(from map[string]interface{}) FormatAnalysis {
 }
 
 type AnalysisResult struct {
-	Success bool           `json:"successful"`
-	Format  FormatAnalysis `json:"format"`
+	Success      bool           `json:"successful"`
+	Format       FormatAnalysis `json:"format"`
+	ErrorMessage *string        `json:"errorMessage"`
 }

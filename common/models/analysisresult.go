@@ -13,6 +13,7 @@ type FormatAnalysis struct {
 }
 
 type AnalysisResult struct {
-	Success bool           `json:"successful"`
-	Format  FormatAnalysis `json:"format"`
+	Success      bool           `json:"successful"`
+	Format       FormatAnalysis `json:"format"`
+	ErrorMessage *string        `json:"errorMessage"`
 }

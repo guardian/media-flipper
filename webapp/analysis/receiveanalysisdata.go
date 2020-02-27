@@ -4,7 +4,7 @@ import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
-	models2 "github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/common/models"
 	"log"
 	"net/http"
 	"reflect"
@@ -31,7 +31,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var incoming models2.AnalysisResult
+	var incoming models.AnalysisResult
 	readErr := helpers.ReadJsonBody(r.Body, &incoming)
 	if readErr != nil {
 		log.Printf("ERROR: Could not parse incoming data to ReceiveAnalysisData: %s", readErr)
@@ -42,7 +42,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	completionChan := make(chan models2.FileFormatInfo)
+	completionChan := make(chan models.FileFormatInfo)
 	errorChan := make(chan error)
 
 	//the following block is only run when the queue is not busy, so we know that job completion notifications
@@ -56,7 +56,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jobContainerInfo, containerGetErr := models2.JobContainerForId(*jobContainerId, h.redisClient)
+		jobContainerInfo, containerGetErr := models.JobContainerForId(*jobContainerId, h.redisClient)
 		if containerGetErr != nil {
 			log.Printf("Could not retrieve job container for %s: %s", jobContainerId.String(), containerGetErr)
 			helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "Invalid job id"}, w, 400)
@@ -74,7 +74,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		jobStepCopy := *jobStepCopyPtr
 
-		analysisStep, isAnalysis := jobStepCopy.(*models2.JobStepAnalysis)
+		analysisStep, isAnalysis := jobStepCopy.(*models.JobStepAnalysis)
 
 		if !isAnalysis {
 			log.Printf("Expected step %s of job %s to be analysis type but got %s", jobStepId, jobContainerId, reflect.TypeOf(jobStepCopy))
@@ -83,51 +83,70 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		analysisStep.StatusValue = models2.JOB_COMPLETED
-		analysisStep.ResultId = uuid.New()
+		if !incoming.Success || incoming.ErrorMessage != nil {
+			analysisStep.StatusValue = models.JOB_FAILED
+			analysisStep.LastError = *incoming.ErrorMessage
 
-		newRecord := models2.FileFormatInfo{
-			Id:             analysisStep.ResultId,
-			FormatAnalysis: incoming.Format,
+			updateErr := jobContainerInfo.UpdateStepById(*jobStepId, analysisStep)
+			if updateErr != nil {
+				log.Printf("Could not set jobstep info for %s in job %s: %s", jobStepId, jobContainerId, updateErr)
+				helpers.WriteJsonContent(helpers.GenericErrorResponse{
+					Status: "error",
+					Detail: updateErr.Error(),
+				}, w, 500)
+				errorChan <- nil
+				return
+			}
+			completionChan <- models.FileFormatInfo{}
+		} else {
+			analysisStep.StatusValue = models.JOB_COMPLETED
+			analysisStep.ResultId = uuid.New()
+
+			newRecord := models.FileFormatInfo{
+				Id:             analysisStep.ResultId,
+				FormatAnalysis: incoming.Format,
+			}
+
+			putErr := models.PutFileFormat(&newRecord, h.redisClient)
+			if putErr != nil {
+				log.Printf("Could not save record to datastore")
+				helpers.WriteJsonContent(helpers.GenericErrorResponse{
+					Status: "db_error",
+					Detail: "Could not save record",
+				}, w, 500)
+				errorChan <- nil
+				return
+			}
+
+			updateErr := jobContainerInfo.UpdateStepById(*jobStepId, analysisStep)
+			if updateErr != nil {
+				log.Printf("Could not set jobstep info for %s in job %s: %s", jobStepId, jobContainerId, updateErr)
+				helpers.WriteJsonContent(helpers.GenericErrorResponse{
+					Status: "error",
+					Detail: updateErr.Error(),
+				}, w, 500)
+				errorChan <- nil
+				return
+			}
+
+			jobSaveErr := jobContainerInfo.Store(h.redisClient)
+			if jobSaveErr != nil {
+				log.Printf("Could not save record to datastore")
+				helpers.WriteJsonContent(helpers.GenericErrorResponse{
+					Status: "db_error",
+					Detail: "Could not save record",
+				}, w, 500)
+				errorChan <- nil
+				return
+			}
+
+			helpers.WriteJsonContent(map[string]string{"status": "ok", "detail": "Record saved", "entryId": newRecord.Id.String()}, w, 200)
+			completionChan <- newRecord
 		}
 
-		putErr := models2.PutFileFormat(&newRecord, h.redisClient)
-		if putErr != nil {
-			log.Printf("Could not save record to datastore")
-			helpers.WriteJsonContent(helpers.GenericErrorResponse{
-				Status: "db_error",
-				Detail: "Could not save record",
-			}, w, 500)
-			errorChan <- nil
-			return
-		}
-
-		updateErr := jobContainerInfo.UpdateStepById(*jobStepId, analysisStep)
-		if updateErr != nil {
-			log.Printf("Could not set jobstep info for %s in job %s: %s", jobStepId, jobContainerId, updateErr)
-			helpers.WriteJsonContent(helpers.GenericErrorResponse{
-				Status: "error",
-				Detail: updateErr.Error(),
-			}, w, 500)
-			errorChan <- nil
-			return
-		}
-
-		jobSaveErr := jobContainerInfo.Store(h.redisClient)
-		if jobSaveErr != nil {
-			log.Printf("Could not save record to datastore")
-			helpers.WriteJsonContent(helpers.GenericErrorResponse{
-				Status: "db_error",
-				Detail: "Could not save record",
-			}, w, 500)
-			errorChan <- nil
-			return
-		}
-		helpers.WriteJsonContent(map[string]string{"status": "ok", "detail": "Record saved", "entryId": newRecord.Id.String()}, w, 200)
-		completionChan <- newRecord
 	}
 
-	models2.WhenQueueAvailable(h.redisClient, models2.RUNNING_QUEUE, whenQueueReady, true)
+	models.WhenQueueAvailable(h.redisClient, models.RUNNING_QUEUE, whenQueueReady, true)
 	//we need to wait for completion or error, otherwise something below us writes out an empty response before the async function can
 	select {
 	case <-completionChan:

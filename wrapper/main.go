@@ -64,6 +64,26 @@ func EnsureOutputPath(sendUrl string, maxTries int) {
 	}
 }
 
+//check for a valid input file
+//returns true, "" if it's valid or false with a descriptive string if not
+func checkInputFile(filename string) (bool, string) {
+	statInfo, statErr := os.Stat(filename)
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
+			return false, fmt.Sprintf("source file '%s' did not exist", filename)
+		} else {
+			return false, fmt.Sprintf("could not stat source file '%s': %s", filename, statErr.Error())
+		}
+	}
+
+	if statInfo.Size() == 0 {
+		return false, fmt.Sprintf("zero-length file")
+	} else if statInfo.IsDir() {
+		return false, fmt.Sprintf("source file '%s' was actually a directory", filename)
+	}
+	return true, ""
+}
+
 /**
 we expect the following environment variables to be set:
 WRAPPER_MODE={analyse|thumbnail|transcode}
@@ -92,6 +112,20 @@ func main() {
 	switch os.Getenv("WRAPPER_MODE") {
 	case "analyse":
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/analysis/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		isOk, checkErr := checkInputFile(filename)
+		if !isOk {
+			log.Print("invalid input file: ", checkErr)
+			result := AnalysisResult{
+				Success:      false,
+				Format:       FormatAnalysis{},
+				ErrorMessage: &checkErr,
+			}
+			sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+			if sendErr != nil {
+				log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+			}
+			return
+		}
 		EnsureOutputPath(sendUrl, maxTries)
 
 		result, err := RunAnalysis(filename)
@@ -108,6 +142,19 @@ func main() {
 		break
 	case "thumbnail":
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/thumbnail/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		isOk, checkErr := checkInputFile(filename)
+		if !isOk {
+			log.Print("invalid input file: ", checkErr)
+			result := ThumbnailResult{
+				ErrorMessage: &checkErr,
+			}
+			sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+			if sendErr != nil {
+				log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+			}
+			return
+		}
+
 		EnsureOutputPath(sendUrl, maxTries)
 
 		var thumbFrame int
@@ -147,6 +194,18 @@ func main() {
 		break
 	case "transcode":
 		sendUrl := os.Getenv("WEBAPP_BASE") + "/api/transcode/result?forJob=" + os.Getenv("JOB_CONTAINER_ID") + "&stepId=" + os.Getenv("JOB_STEP_ID")
+		isOk, checkErr := checkInputFile(filename)
+		if !isOk {
+			log.Print("invalid input file: ", checkErr)
+			result := results.TranscodeResult{
+				ErrorMessage: checkErr,
+			}
+			sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
+			if sendErr != nil {
+				log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
+			}
+			return
+		}
 		EnsureOutputPath(sendUrl, maxTries)
 
 		log.Printf("Raw transcode settings: %s", os.Getenv("TRANSCODE_SETTINGS"))
