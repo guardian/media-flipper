@@ -208,10 +208,10 @@ func (j *JobRunner) clearCompletedTick() {
 		}
 
 		if len(*runners) > 1 {
-			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
+			log.Printf("WARNING clearCompletedTick Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
 		}
 		if len(*runners) == 0 {
-			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
+			log.Print("ERROR clearCompletedTick Could not get runner for ", queueEntry.StepId, ": ", runErr)
 			continue //proceed to next one, don't abort
 		}
 		runner := (*runners)[0]
@@ -224,23 +224,44 @@ func (j *JobRunner) clearCompletedTick() {
 			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
 
 			if removeErr != nil {
-				log.Printf("Could not remove jobstep from running queue: %s", removeErr)
+				log.Printf("ERROR clearCompletedTick Could not remove jobstep from running queue: %s", removeErr)
 			}
 
 			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
 			if getErr != nil {
-				log.Printf("Could not get job master data for %s: %s", queueEntry.JobId, getErr)
+				log.Printf("ERROR clearCompletedTick Could not get job master data for %s: %s", queueEntry.JobId, getErr)
 				continue //pick it up on the next iteration
 			}
-			log.Printf("External job step %s completed", queueEntry.StepId)
+			log.Printf("DEBUG clearCompletedTick External job step %s completed", queueEntry.StepId)
 			nextStep := container.CompleteStepAndMoveOn() //this updates the internal state of `container`
 
 			storErr := container.Store(j.redisClient)
 			if storErr != nil {
-				log.Printf("Could not store job container: %s", storErr)
+				log.Printf("ERROR clearCompletedTick Could not store job container: %s", storErr)
 			} else {
-				log.Printf("Job completed and saved")
+				log.Printf("DEBUG clearCompletedTick Job completed and saved")
 			}
+
+			//clean up the job and pod, and extract the log, asynchronously
+			go func() {
+				jobStep := container.FindStepById(queueEntry.StepId)
+				if jobStep == nil {
+					log.Printf("WARNING clearCompletedTick could not find jobstep with ID %s within job container with id %s", queueEntry.StepId, container.Id)
+				} else {
+					ns, getNsErr := GetMyNamespace()
+					if getNsErr != nil {
+						log.Printf("ERROR clearCompletedTick could not determine current namespace: %s", getNsErr)
+						return
+					}
+					jobclient := j.k8client.BatchV1().Jobs(ns)
+					podclient := j.k8client.CoreV1().Pods(ns)
+
+					cleanupErr := CleanUpJobStep(jobStep, jobclient, podclient, j.redisClient)
+					if cleanupErr != nil {
+						log.Printf("ERROR clearCompletedTick could not clean up jobstep %s for %s: %s", (*jobStep).StepId(), container.Id, cleanupErr)
+					}
+				}
+			}()
 
 			if nextStep != nil { //nil => this was the last jobstep, not nil => another step to queue
 				log.Printf("Job %s: Moving to next job step ", container.Id)

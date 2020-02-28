@@ -125,7 +125,7 @@ func main() {
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
 	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr)
-	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient, templateMgr, &runner)
+	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient, templateMgr, &runner, k8Client)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)

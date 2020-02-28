@@ -25,3 +25,6 @@ reaper:
 
 docker:
 	make -C docker/
+
+push:
+	make -C docker/ push

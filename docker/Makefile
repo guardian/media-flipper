@@ -1,6 +1,6 @@
 all: dockerbuild
 
-.PHONY: dockerbuild
+.PHONY: dockerbuild clean push
 
 ifndef BUILD_NUM
 	DOCKER_VER="DEV"
@@ -18,3 +18,8 @@ clean:
 	rm -f wrapper
 	rm -f reaper
 	rm -f *.tar
+
+push:
+	docker push guardianmultimedia/mediaflipper:DEV
+	docker push guardianmultimedia/mediaflipper-imagethumb:DEV
+	docker push guardianmultimedia/mediaflipper-aws:DEV

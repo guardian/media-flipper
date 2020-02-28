@@ -77,3 +77,15 @@ span.timestamp {
     max-height: 95%;
     overflow: hidden;
 }
+
+pre.logview {
+    overflow: auto;
+    height: 85%;
+    font-family: Courier,Mono;
+    color: green;
+    background-color: black;
+    margin: 10px;
+    margin-top: 20px;
+    border-radius: 5px;
+    padding: 4px;
+}

@@ -189,7 +189,7 @@ func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models2.JobRunne
 
 	rtn := make([]models2.JobRunnerDesc, len(response.Items))
 	for i, jobDesc := range response.Items {
-		log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
+		//log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
 		var statusVal models2.ContainerStatus
 		cond := jobDesc.Status.Conditions
 		if len(cond) > 0 && cond[0].Type == v1batch.JobFailed {

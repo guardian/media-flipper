@@ -21,7 +21,9 @@ class JobList extends React.Component {
             jobTemplateLookup: {},
             nextPageCursor: 0,
             showModal: false,
-            modalThumbnailId: null
+            modalThumbnailId: null,
+            showLogsFor: null,
+            currentLogContent: null
         }
     }
 
@@ -30,6 +32,23 @@ class JobList extends React.Component {
             await this.loadJobTemplateLookup();
             await this.loadJobListPage();
         });
+    }
+
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        if(prevState.showLogsFor!==this.state.showLogsFor && this.state.showLogsFor!==null) {
+          this.loadInLogsContent();
+        }
+    }
+
+    async loadInLogsContent() {
+        const response = await fetch("/api/job/logs?stepId=" + this.state.showLogsFor);
+        const content = await response.text();
+        if(response.status===200){
+            this.setState({currentLogContent: content})
+        } else {
+            const errMsg = "Could not load logs, server responded " + response.status + " " + response.statusText;
+            this.setState({currentLogContent: errMsg + "\n" + content});
+        }
     }
 
     async loadJobTemplateLookup() {
@@ -106,7 +125,10 @@ class JobList extends React.Component {
             case "analysis":
                 return <div className="job-list-container">
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
-                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">
+                        <JobStatusComponent status={step.jobStepStatus}/><br/>
+                        <a href="#" onClick={evt=>{ evt.preventDefault(); this.setState({showLogsFor: step.id})}}>Show logs...</a>
+                    </div>
                     <div className="job-list-entry-cell baseline">Format Analysis</div>
                     <div className="job-list-entry-cell baseline">{step.analysisResult && step.analysisResult!=="00000000-0000-0000-0000-000000000000" ? <MediaFileInfo jobId={step.analysisResult} initialExpanderState={true}/> : <span/>}</div>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
@@ -115,7 +137,10 @@ class JobList extends React.Component {
                 /*pad out with empty divs so that the columns align*/
                 return <div className="job-list-container">
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
-                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">
+                        <JobStatusComponent status={step.jobStepStatus}/><br/>
+                        <a href="#" onClick={evt=>{ evt.preventDefault(); this.setState({showLogsFor: step.id})}}>Show logs...</a>
+                    </div>
                     <div className="job-list-entry-cell baseline">Generate thumbnail</div>
                     <div className="job-list-entry-cell baseline"><ThumbnailPreview fileId={step.thumbnailResult} clickable={true} className="thumbnail-preview" onClick={()=>this.setState({showModal: true, modalThumbnailId: step.thumbnailResult})}/></div>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
@@ -123,7 +148,10 @@ class JobList extends React.Component {
             case "transcode":
                 return <div className="job-list-container">
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
-                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">
+                        <JobStatusComponent status={step.jobStepStatus}/><br/>
+                        <a href="#" onClick={evt=>{ evt.preventDefault(); this.setState({showLogsFor: step.id})}}>Show logs...</a>
+                    </div>
                     <div className="job-list-entry-cell baseline">Transcode</div>
                     <div className="job-list-entry-cell baseline"><MediaPreview className="thumbnail-preview" fileId={step.transcodeResult}/></div>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
@@ -131,7 +159,10 @@ class JobList extends React.Component {
             case "custom":
                 return <div className="job-list-container">
                     <div className="job-list-entry-cell baseline"><FontAwesomeIcon icon="wrench"/>  Step {idx+1}</div>
-                    <div className="job-list-entry-cell baseline"><JobStatusComponent status={step.jobStepStatus}/></div>
+                    <div className="job-list-entry-cell baseline">
+                        <JobStatusComponent status={step.jobStepStatus}/><br/>
+                        <a href="#" onClick={evt=>{ evt.preventDefault(); this.setState({showLogsFor: step.id})}}>Show logs...</a>
+                    </div>
                     <div className="job-list-entry-cell baseline">Custom ({step.templateFile})</div>
                     <div className="job-list-entry-cell baseline"/>
                     <div className="job-list-entry-cell wide">{step.errorMessage}</div>
@@ -180,6 +211,11 @@ class JobList extends React.Component {
             </ul>
             <Modal open={this.state.showModal} onClose={()=>this.setState({showModal: false})} center>
                 <ThumbnailPreview className="thumbnail-large" clickable={false} fileId={this.state.modalThumbnailId}/>
+            </Modal>
+            <Modal open={this.state.showLogsFor} onClose={()=>this.setState({showLogsFor: null, currentLogContent: null})} center>
+                {
+                    this.state.currentLogContent ? <pre className="logview">{this.state.currentLogContent}</pre> : <pre>Loading...</pre>
+                }
             </Modal>
         </div>
     }

@@ -7,7 +7,7 @@ echo ${THUMBNAIL_IMAGE}
 ls -lh "${THUMBNAIL_IMAGE}"
 
 STRIP_PATH_COUNT=`echo ${CUSTOM_ARGS}| sed -E 's/^.*stripPath=([^,]*).*$/\1/'`
-if [ "${STRIP_PATH_COUNT}" == "${CUSTOM_ARGS}"]; then
+if [ "${STRIP_PATH_COUNT}" == "${CUSTOM_ARGS}" ]; then
   STRIP_PATH_COUNT=""
 else
   echo Strip path is ${STRIP_PATH_COUNT}
