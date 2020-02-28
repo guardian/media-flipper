@@ -10,6 +10,7 @@ import TimestampFormatter from "../Common/TimestampFormatter.jsx";
 import ThumbnailPreview from "./ThumbnailPreview.jsx";
 import Modal from 'react-responsive-modal';
 import MediaPreview from "./MediaPreview.jsx";
+import JobStatusSummary from "./JobStatusSummary.jsx";
 
 class JobList extends React.Component {
     constructor(props) {
@@ -23,15 +24,22 @@ class JobList extends React.Component {
             showModal: false,
             modalThumbnailId: null,
             showLogsFor: null,
-            currentLogContent: null
-        }
+            currentLogContent: null,
+            currentStatusFilter: "",
+        };
+
+        this.setStatusFilter = this.setStatusFilter.bind(this);
     }
 
-    componentDidMount() {
+    refreshData() {
         this.setState({loading: true}, async ()=>{
             await this.loadJobTemplateLookup();
             await this.loadJobListPage();
         });
+    }
+
+    componentDidMount() {
+        this.refreshData();
     }
 
     componentDidUpdate(prevProps, prevState, snapshot) {
@@ -71,11 +79,13 @@ class JobList extends React.Component {
         if(this.props.location.search.length<2) {
             return {}
         }
-        const baseString = this.props.location.search.slice(1,-1);  //slice off the leading ?
+        const baseString = this.props.location.search.slice(1);  //slice off the leading ?
         const parts = baseString.split("&");                        //split on & character
         const result = parts.reduce((acc,elem)=>{                   //split each entry on = and add it to an object
+            console.log("elem is ", elem);
             const kv=elem.split("=");
             const newentry = {};
+            console.log("kv is ", kv);
             newentry[kv[0]] = kv[1];
             return Object.assign(newentry, acc)
         },{});
@@ -172,10 +182,18 @@ class JobList extends React.Component {
         }
     }
 
+    setStatusFilter(newValue) {
+        this.props.history.push("?state="+newValue);
+        this.setState({jobList:[]}, ()=>this.refreshData());
+    }
+
     render() {
+        const qps = this.getQueryParams();
+
         return <div>
             <MenuBanner/>
             <h1>Jobs</h1>
+            <JobStatusSummary filterClicked={this.setStatusFilter} currentFilterName={qps.state}/>
             <ul className="job-list">
                 {
                     this.state.jobList.map(entry=><li className="job-list-entry" key={entry.id}>

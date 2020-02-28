@@ -13,6 +13,7 @@ type JobsEndpoints struct {
 	ListHandler    ListJobHandler
 	ReindexHandler ReindexHandler
 	GetLogsHandler GetLogsHandler
+	StatusSummary  StatusSummaryHandler
 }
 
 func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset, jobTemplateMgr *models2.JobTemplateManager) JobsEndpoints {
@@ -22,6 +23,7 @@ func NewJobsEndpoints(redisClient *redis.Client, k8client *kubernetes.Clientset,
 		ListHandler:    ListJobHandler{redisClient},
 		ReindexHandler: ReindexHandler{redisClient},
 		GetLogsHandler: GetLogsHandler{redisClient: redisClient},
+		StatusSummary:  StatusSummaryHandler{redisClient: redisClient},
 	}
 }
 
@@ -31,4 +33,5 @@ func (e JobsEndpoints) WireUp(baseUrlPath string) {
 	http.Handle(baseUrlPath+"", e.ListHandler)
 	http.Handle(baseUrlPath+"/reindex", e.ReindexHandler)
 	http.Handle(baseUrlPath+"/logs", e.GetLogsHandler)
+	http.Handle(baseUrlPath+"/summary/status", e.StatusSummary)
 }

@@ -25,6 +25,27 @@ const (
 	JOB_NOT_QUEUED
 )
 
+var ALL_JOB_STATUS = []JobStatus{JOB_PENDING, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, JOB_ABORTED, JOB_NOT_QUEUED}
+
+func JobStatusFromString(incoming string) JobStatus {
+	switch strings.ToLower(incoming) {
+	case "pending":
+		return JOB_PENDING
+	case "active":
+		return JOB_STARTED
+	case "completed":
+		return JOB_COMPLETED
+	case "failed":
+		return JOB_FAILED
+	case "aborted":
+		return JOB_ABORTED
+	case "notqueued":
+		return JOB_NOT_QUEUED
+	default:
+		return JOB_PENDING
+	}
+}
+
 type JobSort int
 
 const (
@@ -105,9 +126,14 @@ func (c JobContainer) Store(redisClient redis.Cmdable) error {
 		log.Printf("Could not save data for job container %s: %s", c.Id, saveErr)
 		return saveErr
 	}
+	remErr := removeFromIndex(c.Id, c.AssociatedBulk, redisClient)
+	if remErr != nil {
+		log.Printf("ERROR JobContainer.Store could not remove existing index entries for job container %s: %s", c.Id, remErr)
+	}
+
 	idxErr := indexSingleEntry(&c, redisClient)
 	if idxErr != nil {
-		log.Printf("Could not store index data for job container %s: %s", c.Id, idxErr)
+		log.Printf("ERROR JobContainer.Store Could not store index data for job container %s: %s", c.Id, idxErr)
 		return idxErr
 	}
 	return nil
@@ -415,8 +441,6 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 		return &rtnList, 0, nil
 	}
 
-	log.Printf("DEBUG: ListJobContainers top container is %s", spew.Sdump((*jsonBlobs)[0]))
-
 	rtn := make([]JobContainer, len(*jsonBlobs))
 	for i, blob := range *jsonBlobs {
 		marshalErr := json.Unmarshal([]byte(blob), &rtn[i])
@@ -425,7 +449,6 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 			return nil, 0, marshalErr
 		}
 	}
-	log.Printf("DEBUG: ListJobContainers top container is %s", spew.Sdump(rtn[0]))
 	return &rtn, nextCursor, nil
 }
 
@@ -579,21 +602,24 @@ func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 	})
 
 	indexLuaConcat(ent, p) //no point checking error as we don't execute until p.Exec()
-	//if ent.AssociatedBulk != nil {
-	//	p.HSet(JOBIDX_BULKITEMASSOCIATION, ent.AssociatedBulk.Item.String(), ent.Id.String())
-	//}
 	_, err := p.Exec()
 	return err
 }
 
+/**
+remove the given entry from the ctime, status and associated item inices
+*/
 func removeFromIndex(forId uuid.UUID, bulkAssociation *BulkAssociation, client redis.Cmdable) error {
 	log.Printf("removing job %s from index", forId)
 	p := client.Pipeline()
 
 	p.ZRem(REDIDX_CTIME, forId.String())
-	p.ZRem(JOBIDX_STATUS, forId.String())
+	for _, s := range ALL_JOB_STATUS {
+		statusKey := fmt.Sprintf("%s:%d", JOBIDX_STATUS, s)
+		p.ZRem(statusKey, forId.String())
+	}
+
 	if bulkAssociation != nil {
-		//p.HDel(JOBIDX_BULKITEMASSOCIATION, bulkAssociation.Item.String())
 		indexLuaRemove(forId, bulkAssociation, client)
 	}
 	_, err := p.Exec()
@@ -680,4 +706,30 @@ func ReIndexJobContainers(redisclient *redis.Client) error {
 	timeTaken := endTime - startTime
 	log.Printf("Reindex run of %d items completed in %d seconds", processedItemsTotal, timeTaken)
 	return nil
+}
+
+func JobStatusSummary(redisclient *redis.Client) (*map[JobStatus]int64, error) {
+	p := redisclient.Pipeline()
+
+	for _, s := range ALL_JOB_STATUS {
+		dbKey := fmt.Sprintf("%s:%d", JOBIDX_STATUS, s)
+		p.ZCard(dbKey)
+	}
+
+	pipeCmdList, pipeErr := p.Exec()
+	if pipeErr != nil {
+		log.Printf("ERROR JobStatusSummary could not get data: %s", pipeErr)
+		return nil, pipeErr
+	}
+
+	rtn := make(map[JobStatus]int64, len(ALL_JOB_STATUS))
+	for i, cmd := range pipeCmdList {
+		count, err := (cmd.(*redis.IntCmd)).Result()
+		if err != nil {
+			log.Printf("WARNING JobStatusSummary could not get all data: %s", err)
+		} else {
+			rtn[ALL_JOB_STATUS[i]] = count
+		}
+	}
+	return &rtn, nil
 }

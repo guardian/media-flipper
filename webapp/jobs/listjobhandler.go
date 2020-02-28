@@ -67,6 +67,15 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var getErr error
 	specificIdString := requestUrl.Query().Get("jobId")
 	bulkIdString := requestUrl.Query().Get("bulkItem")
+	stateString := requestUrl.Query().Get("state")
+
+	var statusArg *models2.JobStatus
+	if stateString == "" {
+		statusArg = nil
+	} else {
+		statusArgContent := models2.JobStatusFromString(stateString)
+		statusArg = &statusArgContent
+	}
 
 	if specificIdString != "" {
 		specificId, idParseErr := uuid.Parse(specificIdString)
@@ -93,7 +102,7 @@ func (h ListJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		getErr = singleGetErr
 		jobs = &jobsList
 	} else {
-		jobs, nextCursor, getErr = models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME, nil)
+		jobs, nextCursor, getErr = models2.ListJobContainers(uint64(windowStart), windowEnd, h.RedisClient, models2.SORT_CTIME, statusArg)
 	}
 
 	if getErr != nil {
