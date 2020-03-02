@@ -13,3 +13,4 @@ dev: $(GOFILES)
 
 clean:
 	rm -f wrapper
+	find . -iname \*.out -delete

@@ -32,11 +32,28 @@ if [ "${STRIP_PATH_COUNT}" != "" ]; then
     echo Output path is now ${OUTPUT_PATH}
 fi
 
+FAILED=0
 echo Uploading \"${TRANSCODED_MEDIA}\" to \"${OUTPUT_PATH}\" on \"${OUTPUT_BUCKET}\"...
 aws s3 cp "${TRANSCODED_MEDIA}" "s3://${OUTPUT_BUCKET}/${OUTPUT_PATH}/`basename ${MEDIA_FILE}`"
+
+if [ "$?" == "" ]; then
+  FAILED=$?
+fi
 
 if [ "${THUMBNAIL_IMAGE}" != "" ]; then
   aws s3 cp "${THUMBNAIL_IMAGE}" "s3://${OUTPUT_BUCKET}/${OUTPUT_PATH}/`basename ${THUMBNAIL_IMAGE}`"
 fi
 
-exit $?
+if [ "$?" == "" ]; then
+  FAILED=$?
+fi
+
+if [ "$FAILED" == "0" ]; then
+  echo Removing local transcode copy...
+  rm -f "${TRANSCODED_MEDIA}"
+  if [ "${THUMBNAIL_IMAGE}" != "" ]; then
+    rm -f "${THUMBNAIL_IMAGE}"
+  fi
+fi
+
+exit $FAILED

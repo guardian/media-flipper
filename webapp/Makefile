@@ -16,3 +16,4 @@ test: $(GOFILES)
 
 clean:
 	rm -f webapp
+	find . -iname \*.out -delete
