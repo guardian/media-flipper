@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	models2 "github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/common/models"
 	"io/ioutil"
 	v1batch "k8s.io/api/batch/v1"
 	v12 "k8s.io/api/core/v1"
@@ -111,15 +111,6 @@ func GetJobClient(k8client *kubernetes.Clientset) (v1.JobInterface, error) {
 	return jobClient, nil
 }
 
-func GetServiceClient(k8client *kubernetes.Clientset) (v13.ServiceInterface, error) {
-	ns, nsErr := GetMyNamespace()
-	if nsErr != nil {
-		return nil, nsErr
-	}
-
-	return k8client.CoreV1().Services(ns), nil
-}
-
 /**
 goes through a list of ServicePort descriptions to find the one matching the given name
 returns a pointer to the port number if successful or nil if not.
@@ -173,7 +164,7 @@ func safeStartTimeString(timeval *metav1.Time) string {
 /**
 look up the Kubernetes Job associated with the given mediaflipper job ID
 */
-func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models2.JobRunnerDesc, error) {
+func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models.JobRunnerDesc, error) {
 	listOpts := metav1.ListOptions{
 		LabelSelector:  fmt.Sprintf("mediaflipper.jobStepId=%s", jobId),
 		Watch:          false,
@@ -187,26 +178,26 @@ func FindRunnerFor(jobId uuid.UUID, client v1.JobInterface) (*[]models2.JobRunne
 		return nil, err
 	}
 
-	rtn := make([]models2.JobRunnerDesc, len(response.Items))
+	rtn := make([]models.JobRunnerDesc, len(response.Items))
 	for i, jobDesc := range response.Items {
 		//log.Printf("Got job name %s in status %s with labels %s", jobDesc.Name, jobDesc.Status.String(), jobDesc.Labels)
-		var statusVal models2.ContainerStatus
+		var statusVal models.ContainerStatus
 		cond := jobDesc.Status.Conditions
 		if len(cond) > 0 && cond[0].Type == v1batch.JobFailed {
-			statusVal = models2.CONTAINER_FAILED
-		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 {
-			statusVal = models2.CONTAINER_ACTIVE
+			statusVal = models.CONTAINER_FAILED
+		} else if jobDesc.Status.Active > 0 {
+			statusVal = models.CONTAINER_ACTIVE
 		} else if jobDesc.Status.Failed > 0 && jobDesc.Status.Succeeded == 0 {
-			statusVal = models2.CONTAINER_FAILED
+			statusVal = models.CONTAINER_FAILED
 		} else if jobDesc.Status.Succeeded > 0 {
-			statusVal = models2.CONTAINER_COMPLETED
+			statusVal = models.CONTAINER_COMPLETED
 		} else if jobDesc.Status.Failed == 0 && jobDesc.Status.Succeeded == 0 && jobDesc.Status.Active == 0 { //no pods left!
-			statusVal = models2.CONTAINER_FAILED
+			statusVal = models.CONTAINER_FAILED
 		} else {
-			statusVal = models2.CONTAINER_UNKNOWN_STATE
+			statusVal = models.CONTAINER_UNKNOWN_STATE
 		}
 
-		rtn[i] = models2.JobRunnerDesc{
+		rtn[i] = models.JobRunnerDesc{
 			JobUID:         string(jobDesc.UID),
 			Status:         statusVal,
 			StartTime:      safeStartTimeString(jobDesc.Status.StartTime),

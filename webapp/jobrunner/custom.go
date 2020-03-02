@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/models"
-	"k8s.io/client-go/kubernetes"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 )
 
-func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContainer, k8client *kubernetes.Clientset, redisClient redis.Cmdable) error {
+func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContainer, jobClient v1batch.JobInterface, svcClient v13.ServiceInterface, redisClient redis.Cmdable) error {
 	var transcodedMediaPath string
 	if container.TranscodedMediaId != nil {
 		fileEntry, getErr := models.FileEntryForId(*container.TranscodedMediaId, redisClient)
@@ -52,5 +53,5 @@ func CreateCustomJob(jobDesc models.JobStepCustom, container *models.JobContaine
 
 	//jobName := fmt.Sprintf("mediaflipper-custom-%s", path.Base(jobDesc.MediaFile))
 
-	return CreateGenericJob(jobDesc.JobStepId, "flip-custom", vars, false, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-custom", vars, false, jobDesc.KubernetesTemplateFile, jobClient, svcClient)
 }

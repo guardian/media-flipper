@@ -4,11 +4,12 @@ import (
 	"errors"
 	"github.com/davecgh/go-spew/spew"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"k8s.io/client-go/kubernetes"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 )
 
-func CreateTranscodeJob(jobDesc models2.JobStepTranscode, maybeOutPath string, k8client *kubernetes.Clientset) error {
+func CreateTranscodeJob(jobDesc models2.JobStepTranscode, maybeOutPath string, jobClient v1batch.JobInterface, svcClient v13.ServiceInterface) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("ERROR: CreateTranscodeJob Can't perform transcode with no media file")
 		return errors.New("Can't perform thumbnail with no media file")
@@ -31,5 +32,5 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, maybeOutPath string, k
 		"OUTPUT_PATH":        maybeOutPath,
 	}
 
-	return CreateGenericJob(jobDesc.JobStepId, "flip-transc", vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-transc", vars, true, jobDesc.KubernetesTemplateFile, jobClient, svcClient)
 }

@@ -23,9 +23,10 @@ const (
 	JOB_FAILED
 	JOB_ABORTED
 	JOB_NOT_QUEUED
+	JOB_LOST
 )
 
-var ALL_JOB_STATUS = []JobStatus{JOB_PENDING, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, JOB_ABORTED, JOB_NOT_QUEUED}
+var ALL_JOB_STATUS = []JobStatus{JOB_PENDING, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, JOB_ABORTED, JOB_NOT_QUEUED, JOB_LOST}
 
 func JobStatusFromString(incoming string) JobStatus {
 	switch strings.ToLower(incoming) {
@@ -41,6 +42,8 @@ func JobStatusFromString(incoming string) JobStatus {
 		return JOB_ABORTED
 	case "notqueued":
 		return JOB_NOT_QUEUED
+	case "lost":
+		return JOB_LOST
 	default:
 		return JOB_PENDING
 	}

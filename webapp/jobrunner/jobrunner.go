@@ -7,6 +7,9 @@ import (
 	"github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"k8s.io/client-go/kubernetes"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 	"reflect"
 	"time"
@@ -14,12 +17,16 @@ import (
 
 type JobRunnerIF interface {
 	AddJob(container *models.JobContainer) error
-	EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
+	//EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
+	clearCompletedTick()
 }
 
 type JobRunner struct {
-	redisClient     *redis.Client
-	k8client        *kubernetes.Clientset
+	redisClient *redis.Client
+	//k8client        *kubernetes.Clientset
+	jobClient       v1batch.JobInterface
+	podClient       v1.PodInterface
+	serviceClient   v13.ServiceInterface
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
 	templateMgr     *models.JobTemplateManager
@@ -34,9 +41,22 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
+	ns, getNsErr := GetMyNamespace()
+	jobClient := k8client.BatchV1().Jobs(ns)
+	serviceClient := k8client.CoreV1().Services(ns)
+	podClient := k8client.CoreV1().Pods(ns)
+
+	if getNsErr != nil {
+		log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
+		panic("could not determine namespace")
+	}
+
 	runner := JobRunner{
-		redisClient:     redisClient,
-		k8client:        k8client,
+		redisClient: redisClient,
+		//k8client:        k8client,
+		jobClient:       jobClient,
+		serviceClient:   serviceClient,
+		podClient:       podClient,
 		shutdownChan:    shutdownChan,
 		queuePollTicker: queuePollTicker,
 		templateMgr:     templateManager,
@@ -98,7 +118,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 	var newQueueEntry *models.JobQueueEntry
 
 	if isAnalysis {
-		err := CreateAnalysisJob(*analysisJob, container.OutputPath, j.k8client)
+		err := CreateAnalysisJob(*analysisJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
@@ -113,7 +133,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 
 	thumbJob, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
-		err := CreateThumbnailJob(*thumbJob, container.OutputPath, j.k8client)
+		err := CreateThumbnailJob(*thumbJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create thumbnail job! ", err)
 			return err
@@ -128,7 +148,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 
 	tcJob, isTc := step.(*models.JobStepTranscode)
 	if isTc {
-		err := CreateTranscodeJob(*tcJob, container.OutputPath, j.k8client)
+		err := CreateTranscodeJob(*tcJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create transcode job! ", err)
 			return err
@@ -143,7 +163,7 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 
 	custJob, isCust := step.(*models.JobStepCustom)
 	if isCust {
-		err := CreateCustomJob(*custJob, container, j.k8client, j.redisClient)
+		err := CreateCustomJob(*custJob, container, j.jobClient, j.serviceClient, j.redisClient)
 		if err != nil {
 			log.Print("Could not create custom job! ", err)
 			return err
@@ -169,12 +189,6 @@ func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContain
 }
 
 func (j *JobRunner) clearCompletedTick() {
-	jobClient, clientGetErr := GetJobClient(j.k8client)
-	if clientGetErr != nil {
-		log.Printf("Can't clear jobs as not able to access cluster")
-		return
-	}
-
 	set, checkErr := models.CheckQueueLock(j.redisClient, models.RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
@@ -197,8 +211,8 @@ func (j *JobRunner) clearCompletedTick() {
 	defer models.ReleaseQueueLock(j.redisClient, models.RUNNING_QUEUE) //ensure that the lock is always release!
 
 	for _, queueEntry := range queueSnapshot {
-		runners, runErr := FindRunnerFor(queueEntry.StepId, jobClient)
-		if runErr != nil {
+		runners, runErr := FindRunnerFor(queueEntry.StepId, j.jobClient)
+		if runErr != nil { //could not retrieve a runner from k8. Assume that this is a transient error, don't dump it from the queue
 			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
 			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
 			if removeErr != nil {
@@ -210,8 +224,33 @@ func (j *JobRunner) clearCompletedTick() {
 		if len(*runners) > 1 {
 			log.Printf("WARNING clearCompletedTick Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
 		}
-		if len(*runners) == 0 {
-			log.Print("ERROR clearCompletedTick Could not get runner for ", queueEntry.StepId, ": ", runErr)
+		if len(*runners) == 0 { //no runner was found. This shouldn't happen but does sometimes; handle it by assuming the job is lost and rescheduling
+			log.Print("ERROR clearCompletedTick no k8 runner was found for ", queueEntry.StepId)
+			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
+			if getErr != nil {
+				log.Printf("ERROR clearCompletedTick could not get job master data for %s: %s", queueEntry.JobId, getErr)
+				continue //pick it up on the next iteration
+			}
+			jobStep := container.FindStepById(queueEntry.StepId)
+			if jobStep == nil {
+				log.Printf("ERROR clearCompletedTick job entry %s does not have a step with id %s so can't mark as lost", queueEntry.JobId, queueEntry.StepId)
+			} else {
+				errMsg := fmt.Sprintf("could not get any runners for step id %s", queueEntry.StepId)
+				updatedStep := (*jobStep).WithNewStatus(models.JOB_LOST, &errMsg)
+				updateErr := container.UpdateStepById(updatedStep.StepId(), updatedStep)
+				if updateErr != nil {
+					log.Printf("ERROR clearCompletedTick could not save updated job step: %s", updateErr)
+				}
+				container.Status = models.JOB_LOST
+				storErr := container.Store(j.redisClient)
+				if storErr != nil {
+					log.Printf("ERROR clearcompletedTick could not store updated job: %s", storErr)
+				}
+			}
+			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
+			if removeErr != nil {
+				log.Printf("WARNING clearCompletedTick could not remove inaccurate record from running queue")
+			}
 			continue //proceed to next one, don't abort
 		}
 		runner := (*runners)[0]
@@ -242,21 +281,13 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("DEBUG clearCompletedTick Job completed and saved")
 			}
 
-			//clean up the job and pod, and extract the log, asynchronously
+			//clean up the job and pod and extract the log, asynchronously
 			go func() {
 				jobStep := container.FindStepById(queueEntry.StepId)
 				if jobStep == nil {
 					log.Printf("WARNING clearCompletedTick could not find jobstep with ID %s within job container with id %s", queueEntry.StepId, container.Id)
 				} else {
-					ns, getNsErr := GetMyNamespace()
-					if getNsErr != nil {
-						log.Printf("ERROR clearCompletedTick could not determine current namespace: %s", getNsErr)
-						return
-					}
-					jobclient := j.k8client.BatchV1().Jobs(ns)
-					podclient := j.k8client.CoreV1().Pods(ns)
-
-					cleanupErr := CleanUpJobStep(jobStep, jobclient, podclient, j.redisClient)
+					cleanupErr := CleanUpJobStep(jobStep, j.jobClient, j.podClient, j.redisClient)
 					if cleanupErr != nil {
 						log.Printf("ERROR clearCompletedTick could not clean up jobstep %s for %s: %s", (*jobStep).StepId(), container.Id, cleanupErr)
 					}

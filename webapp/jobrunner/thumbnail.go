@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 )
 
-func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, maybeOutPath string, k8client *kubernetes.Clientset) error {
+func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, maybeOutPath string, jobClient v1.JobInterface, svcClient v13.ServiceInterface) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform thumbnail with no media file")
 		return errors.New("can't perform thumbnail with no media file")
@@ -40,5 +41,5 @@ func CreateThumbnailJob(jobDesc models2.JobStepThumbnail, maybeOutPath string, k
 	}
 
 	//jobName := fmt.Sprintf("mediaflipper-thumbnail-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, "flip-thumb", vars, true, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-thumb", vars, true, jobDesc.KubernetesTemplateFile, jobClient, svcClient)
 }

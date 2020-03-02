@@ -64,6 +64,10 @@ func (m *JobRunnerMockRealEnqueue) EnqueueContentsAsync(redisClient redis.Cmdabl
 	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, testRunner)
 }
 
+func (m *JobRunnerMockRealEnqueue) clearCompletedTick() {
+
+}
+
 /**
 EnqueueContentsAsync should:
  - create a job from template for each item of the bulk
@@ -113,7 +117,19 @@ func TestJobRunner_EnqueueContentsAsync(t *testing.T) {
 		TemplateDefinitions:               nil,
 	}
 
-	realRunner := NewJobRunner(testClient, nil, nil, 1, false)
+	//realRunner := NewJobRunner(testClient, nil, nil, 1, false)
+	realRunner := JobRunner{
+		redisClient:     testClient,
+		jobClient:       nil,
+		serviceClient:   nil,
+		podClient:       nil,
+		shutdownChan:    nil,
+		queuePollTicker: nil,
+		templateMgr:     nil,
+		maxJobs:         1,
+		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+	}
+
 	runner := &JobRunnerMockRealEnqueue{
 		Test:                    t,
 		AddJobExpectedContainer: *mockedJobContainer,

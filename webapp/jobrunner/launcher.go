@@ -3,29 +3,17 @@ package jobrunner
 import (
 	"github.com/google/uuid"
 	v12 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 )
 
-func CreateGenericJob(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, k8client *kubernetes.Clientset) error {
-	svcClient, svcClientErr := GetServiceClient(k8client)
-	if svcClientErr != nil {
-		log.Printf("ERROR: Could not get k8s service client: %s", svcClientErr)
-		return svcClientErr
-	}
-
+func CreateGenericJob(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, jobClient v1.JobInterface, svcClient v13.ServiceInterface) error {
 	svcUrlPtr, svcUrlErr := FindServiceUrl(svcClient)
 	if svcUrlErr != nil {
 		log.Print("Could not determine return url from k8 service: ", svcUrlErr)
 		return svcUrlErr
 	} else {
-		jobClient, cliErr := GetJobClient(k8client)
-		if cliErr != nil {
-			log.Printf("Could not create analysis job: %s", cliErr)
-			return cliErr
-		}
-
 		envVars["WEBAPP_BASE"] = *svcUrlPtr
 		return createGenericJobInternal(jobStepID, jobNameBase, envVars, overwriteExistingVars, kubernetesTemplateFile, jobClient)
 	}
