@@ -73,8 +73,11 @@ func DeleteK8Job(forId uuid.UUID, jobClient v1.JobInterface, dryRun bool) error 
 		if k8job.Status == models.CONTAINER_ACTIVE {
 			log.Printf("%s seems to still be active, not removing it.", k8job.Name)
 		} else {
+			propagationPolicy := metav1.DeletePropagationForeground
+			log.Printf("dryRunValue is %s", dryRunValue)
 			err := jobClient.Delete(k8job.Name, &metav1.DeleteOptions{
-				DryRun: dryRunValue,
+				DryRun:            dryRunValue,
+				PropagationPolicy: &propagationPolicy,
 			})
 			if err != nil {
 				log.Printf("ERROR: Could not delete k8 job %s for mediaflipper job %s: %s", k8job.Name, forId.String(), err)
@@ -182,7 +185,7 @@ func main() {
 
 	var cursor uint64 = 0
 	for {
-		jobs, nextCursor, err := models.ListJobContainers(cursor, *pageSize, redisClient, models.SORT_CTIME_OLDEST)
+		jobs, nextCursor, err := models.ListJobContainers(cursor, *pageSize, redisClient, models.SORT_CTIME_OLDEST, nil)
 
 		if err != nil {
 			log.Fatalf("ERROR: Could not retrieve page of jobs: %s", err)

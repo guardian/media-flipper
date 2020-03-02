@@ -78,6 +78,13 @@ class QuickTranscode extends React.Component {
         this.loadTemplatesList();
     }
 
+    componentWillUnmount() {
+        if(this.state.jobTimer) {
+            window.clearTimeout(this.state.jobTimer);
+            this.setState({jobTimer: null});
+        }
+    }
+
     async componentDidUpdate(prevProps, prevState, snapshot) {
         if(prevState.phase !== this.state.phase && this.state.phase===2){
             await this.setStatePromise({analysisCompleted: false})

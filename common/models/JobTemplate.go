@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -12,18 +13,26 @@ import (
 )
 
 type JobStepTemplateDefinition struct {
-	Id                     uuid.UUID `yaml:"Id"`
-	PredeterminedType      string    `yaml:"PredeterminedType"`
-	KubernetesTemplateFile string    `yaml:"KubernetesTemplateFile"`
-	InProgressLabel        string    `yaml:"InProgressLabel"`
-	TranscodeSettingsId    string    `yaml:"TranscodeSettingsId"`
-	ThumbnailFrameSeconds  float64   `yaml:"ThumbnailFrameSeconds"`
+	Id                     uuid.UUID         `yaml:"Id"`
+	PredeterminedType      string            `yaml:"PredeterminedType"`
+	KubernetesTemplateFile string            `yaml:"KubernetesTemplateFile"`
+	InProgressLabel        string            `yaml:"InProgressLabel"`
+	TranscodeSettingsId    string            `yaml:"TranscodeSettingsId"`
+	ThumbnailFrameSeconds  float64           `yaml:"ThumbnailFrameSeconds"`
+	CustomArguments        map[string]string `yaml:"CustomArguments"`
 }
 
 type JobTemplateDefinition struct {
 	Id          uuid.UUID                   `yaml:"Id"`
 	JobTypeName string                      `yaml:"Name"`
 	Steps       []JobStepTemplateDefinition `yaml:"Steps"`
+	OutputPath  string                      `yaml:"OutputPath"`
+}
+
+type TemplateManagerIF interface {
+	NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*JobContainer, error)
+	ListTemplates() []JobTemplateDefinition
+	GetJob(jobId uuid.UUID) (JobTemplateDefinition, bool)
 }
 
 type JobTemplateManager struct {
@@ -60,7 +69,29 @@ func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeS
 	return &mgr, nil
 }
 
-func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContainer, error) {
+func (mgr JobTemplateManager) getTranscodeSettings(transcodeSettingsId string) (TranscodeTypeSettings, error) {
+	var s TranscodeTypeSettings
+	//spew.Dump(stepTemplate)
+	if transcodeSettingsId != "" {
+		id, uuidErr := uuid.Parse(transcodeSettingsId)
+		if uuidErr != nil {
+			errMsg := fmt.Sprintf("template step had an invalid transcode settings id, %s", transcodeSettingsId)
+			return nil, errors.New(errMsg)
+		} else {
+			s = mgr.transcodeSettingsMgr.GetSetting(id)
+			if s == nil {
+				errMsg := fmt.Sprintf("template step has an invalid transcode settings id %s, nothing found that matches it", transcodeSettingsId)
+				return nil, errors.New(errMsg)
+			} else {
+				return s, nil
+			}
+		}
+	} else {
+		return nil, errors.New("template step was missing transcode settings id!")
+	}
+}
+
+func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID, itemType helpers.BulkItemType) (*JobContainer, error) {
 	tplEntry, tplExists := mgr.loadedTemplates[templateId]
 	if !tplExists {
 		return nil, errors.New(fmt.Sprintf("Request for non-existent template with id %s", templateId))
@@ -80,10 +111,16 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				StatusValue:            JOB_PENDING,
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "thumbnail":
+			s, settingsErr := mgr.getTranscodeSettings(stepTemplate.TranscodeSettingsId)
+			if settingsErr != nil {
+				log.Printf("WARNING: Could not get transocde settings for %s: %s", spew.Sdump(stepTemplate), settingsErr)
+				s = nil
+			}
+
 			newStep := JobStepThumbnail{
 				JobStepType:            "thumbnail",
 				JobStepId:              uuid.New(),
@@ -95,25 +132,15 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				TimeTakenValue:         0,
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				TranscodeSettings:      s,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "transcode":
-			var s *JobSettings
-			spew.Dump(stepTemplate)
-			if stepTemplate.TranscodeSettingsId != "" {
-				uuid, uuidErr := uuid.Parse(stepTemplate.TranscodeSettingsId)
-				if uuidErr != nil {
-					log.Printf("template step had an invalid transcode settings id, %s", stepTemplate.TranscodeSettingsId)
-					s = nil
-				} else {
-					s = mgr.transcodeSettingsMgr.GetSetting(uuid)
-					if s == nil {
-						log.Printf("template step has an invalid transcode settings id %s, nothing found that matches it", stepTemplate.TranscodeSettingsId)
-					}
-				}
-			} else {
-				log.Printf("template step was missing transcode settings id!")
+			s, settingsErr := mgr.getTranscodeSettings(stepTemplate.TranscodeSettingsId)
+			if settingsErr != nil {
+				log.Printf("WARNING: Could not get transocde settings for %s: %s", spew.Sdump(stepTemplate), settingsErr)
+				s = nil
 			}
 
 			newStep := JobStepTranscode{
@@ -127,12 +154,24 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 				MediaFile:              "",
 				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
 				TranscodeSettings:      s,
+				ItemType:               itemType,
 			}
 			steps[idx] = newStep
-			break
 		case "custom":
-			log.Printf("custom type not implemented yet")
-			break
+			newStep := JobStepCustom{
+				JobStepType:            "custom",
+				JobStepId:              uuid.New(),
+				JobContainerId:         newContainerId,
+				StatusValue:            JOB_PENDING,
+				LastError:              "",
+				StartTime:              nil,
+				EndTime:                nil,
+				MediaFile:              "",
+				KubernetesTemplateFile: stepTemplate.KubernetesTemplateFile,
+				ItemType:               itemType,
+				CustomArguments:        stepTemplate.CustomArguments,
+			}
+			steps[idx] = newStep
 		default:
 			log.Printf("ERROR: Unrecognised predetermined type: %s", stepTemplate.PredeterminedType)
 		}
@@ -146,6 +185,7 @@ func (mgr JobTemplateManager) NewJobContainer(templateId uuid.UUID) (*JobContain
 		CompletedSteps: 0,
 		Status:         JOB_PENDING,
 		StartTime:      &startTime,
+		OutputPath:     tplEntry.OutputPath,
 	}, nil
 }
 

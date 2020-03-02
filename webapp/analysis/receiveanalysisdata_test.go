@@ -55,11 +55,15 @@ func TestReceiveData_ServeHTTP(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	defer s.Close()
 
 	testClient := redis.NewClient(&redis.Options{
 		Addr: s.Addr(),
 	})
+
+	defer func() {
+		testClient.Close()
+		s.Close()
+	}()
 
 	fakeJobContainer.Store(testClient)
 
@@ -176,11 +180,14 @@ func TestReceiveData_ServeHTTP_NoCorrectSteps(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	defer s.Close()
 
 	testClient := redis.NewClient(&redis.Options{
 		Addr: s.Addr(),
 	})
+	defer func() {
+		testClient.Close()
+		s.Close()
+	}()
 
 	fakeJobContainer.Store(testClient)
 

@@ -2,18 +2,16 @@ package jobrunner
 
 import (
 	"errors"
-	"fmt"
-	models2 "github.com/guardian/mediaflipper/common/models"
-	"k8s.io/client-go/kubernetes"
+	"github.com/guardian/mediaflipper/common/models"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
-	"path"
 )
 
 /**
 create an analysis job based on the provided template
 */
-func CreateAnalysisJob(jobDesc models2.JobStepAnalysis, k8client *kubernetes.Clientset) error {
-	log.Printf("In CreateAnalysisJob")
+func CreateAnalysisJob(jobDesc models.JobStepAnalysis, maybeOutPath string, jobClient v1batch.JobInterface, svcClient v13.ServiceInterface) error {
 	if jobDesc.MediaFile == "" {
 		log.Printf("Can't perform analysis with no media file")
 		return errors.New("Can't perform analysis with no media file")
@@ -25,9 +23,9 @@ func CreateAnalysisJob(jobDesc models2.JobStepAnalysis, k8client *kubernetes.Cli
 		"JOB_STEP_ID":      jobDesc.JobStepId.String(),
 		"FILE_NAME":        jobDesc.MediaFile,
 		"MAX_RETRIES":      "10",
+		"MEDIA_TYPE":       string(jobDesc.ItemType),
+		"OUTPUT_PATH":      maybeOutPath,
 	}
 
-	jobName := fmt.Sprintf("mediaflipper-analysis-%s", path.Base(jobDesc.MediaFile))
-
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-analysis", vars, true, jobDesc.KubernetesTemplateFile, jobClient, svcClient)
 }

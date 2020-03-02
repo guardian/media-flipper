@@ -1,0 +1,4 @@
+/path/to/file1.mp4
+/path/to/file2.wav
+
+/path/to/file3.cr2

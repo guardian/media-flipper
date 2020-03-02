@@ -3,5 +3,6 @@ package jobs
 import "github.com/google/uuid"
 
 type JobRequest struct {
-	JobTemplateId uuid.UUID `json:"jobTemplateId"`
+	JobTemplateId    uuid.UUID `json:"jobTemplateId"`
+	OriginalFilename string    `json:"originalFilename"`
 }

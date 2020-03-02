@@ -18,6 +18,8 @@ const (
 	RUNNING_QUEUE QueueName = "jobrunningqueue"
 )
 
+var ALL_QUEUES = []QueueName{REQUEST_QUEUE, RUNNING_QUEUE}
+
 /** -----------------
 queue entry data
 ----------------
@@ -70,6 +72,50 @@ func GetQueueLength(client redis.Cmdable, queueName QueueName) (int64, error) {
 		log.Printf("Could not retrieve queue length for %s: %s", queueName, err)
 	}
 	return count, err
+}
+
+func AllQueuesLength(client redis.Cmdable) (map[QueueName]int64, error) {
+	pipe := client.Pipeline()
+	defer pipe.Close()
+
+	for _, qName := range ALL_QUEUES {
+		dbKey := fmt.Sprintf("mediaflipper:%s", qName)
+		pipe.LLen(dbKey)
+	}
+
+	results, _ := pipe.Exec()
+
+	rtn := make(map[QueueName]int64, len(ALL_QUEUES))
+	failed := 0
+	for i, r := range results {
+		cmd := r.(*redis.IntCmd)
+		count, err := cmd.Result()
+		if err != nil {
+			log.Printf("ERROR: could not get data for queue %s: %s", ALL_QUEUES[i], err)
+			failed += 1
+		} else {
+			rtn[ALL_QUEUES[i]] = count
+		}
+	}
+	if failed == len(ALL_QUEUES) {
+		return nil, errors.New("could not get data for any queue, see logs")
+	}
+	return rtn, nil
+}
+
+func PurgeQueue(client redis.Cmdable, queueName QueueName) error {
+	dbKey := fmt.Sprintf("mediaflipper:%s", queueName)
+
+	count, err := client.Del(dbKey).Result()
+	if err != nil {
+		return err
+	} else {
+		if count == 0 {
+			return errors.New("queue did not exist")
+		} else {
+			return nil
+		}
+	}
 }
 
 /**

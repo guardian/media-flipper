@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/models"
@@ -16,15 +17,21 @@ import (
 /**
 retrieve an object based on the settings passed
 */
-func ParseSettings(rawString string) (*models.JobSettings, error) {
-	var s models.JobSettings
-	marshalErr := json.Unmarshal([]byte(rawString), &s)
-	if marshalErr != nil {
-		log.Printf("Could not understand passed settings: %s. Offending data was: %s", marshalErr, rawString)
-		return nil, marshalErr
+func ParseSettings(rawString string) (models.TranscodeTypeSettings, error) {
+	var avSettings models.JobSettings
+	marshalErr := json.Unmarshal([]byte(rawString), &avSettings)
+
+	if marshalErr == nil && avSettings.IsValid() {
+		return avSettings, nil
 	}
 
-	return &s, nil
+	var imgSettings models.TranscodeImageSettings
+	imgMarshalErr := json.Unmarshal([]byte(rawString), &imgSettings)
+	if imgMarshalErr == nil && imgSettings.IsValid() {
+		return imgSettings, nil
+	}
+
+	return nil, errors.New(fmt.Sprintf("could not translate settings: %s and %s", marshalErr, imgMarshalErr))
 }
 
 /**
@@ -61,9 +68,10 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 	}
 }
 
-func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
-	outFileName := RemoveExtension(fileName) + "_transcoded"
+func RunTranscode(fileName string, maybeOutPath string, settings models.TranscodeTypeSettings, jobContainerId uuid.UUID, jobStepId uuid.UUID) results.TranscodeResult {
+	outFileName := GetOutputFileTransc(maybeOutPath, fileName, settings.GetLikelyExtension())
 
+	log.Printf("INFO: RunTranscode output file is %s", outFileName)
 	commandArgs := []string{"-i", fileName}
 	commandArgs = append(commandArgs, settings.MarshalToArray()...)
 	commandArgs = append(commandArgs, "-y", outFileName)
@@ -113,6 +121,10 @@ func RunTranscode(fileName string, settings *models.JobSettings, jobContainerId 
 		}
 	}
 
+	modErr := os.Chmod(outFileName, 0777)
+	if modErr != nil {
+		log.Printf("WARNING: Could not change permissions on output file: %s", modErr)
+	}
 	return results.TranscodeResult{
 		OutFile:      outFileName,
 		TimeTaken:    float64(duration) / 1e9,

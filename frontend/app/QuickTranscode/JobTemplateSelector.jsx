@@ -5,7 +5,8 @@ class JobTemplateSelector extends React.Component {
     static propTypes = {
         jobTemplateList: PropTypes.array.isRequired,
         onChange: PropTypes.func.isRequired,
-        value: PropTypes.string.isRequired
+        value: PropTypes.string.isRequired,
+        className: PropTypes.string
     };
 
     constructor(props) {
@@ -34,6 +35,7 @@ class JobTemplateSelector extends React.Component {
     render(){
         return <div className="job-template-selector" >
             <select value={this.props.value} onChange={this.props.onChange} id="job-template-selector">
+                <option key={-1} value="00000000-0000-0000-0000-000000000000">(none)</option>
                 {
                     this.state.templateEntries.map((ent,idx)=><option key={idx} value={ent.value}>{ent.key}</option>)
                 }

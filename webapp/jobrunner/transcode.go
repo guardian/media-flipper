@@ -1,26 +1,24 @@
 package jobrunner
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	models2 "github.com/guardian/mediaflipper/common/models"
-	"k8s.io/client-go/kubernetes"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
-	"path"
 )
 
-func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.Clientset) error {
+func CreateTranscodeJob(jobDesc models2.JobStepTranscode, maybeOutPath string, jobClient v1batch.JobInterface, svcClient v13.ServiceInterface) error {
 	if jobDesc.MediaFile == "" {
-		log.Printf("Can't perform thumbnail with no media file")
+		log.Printf("ERROR: CreateTranscodeJob Can't perform transcode with no media file")
 		return errors.New("Can't perform thumbnail with no media file")
 	}
 
-	jsonTranscodeSettings, marshalErr := json.Marshal(jobDesc.TranscodeSettings)
+	jsonTranscodeSettings, marshalErr := jobDesc.TranscodeSettings.InternalMarshalJSON()
 	if marshalErr != nil {
-		log.Printf("Could not convert settings into json: %s", marshalErr)
-		log.Printf("Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))
+		log.Printf("ERROR: CreateTranscodeJob Could not convert settings into json: %s", marshalErr)
+		log.Printf("ERROR: CreateTranscodeJob Offending data was %s", spew.Sdump(jobDesc.TranscodeSettings))
 		return marshalErr
 	}
 	vars := map[string]string{
@@ -30,8 +28,9 @@ func CreateTranscodeJob(jobDesc models2.JobStepTranscode, k8client *kubernetes.C
 		"FILE_NAME":          jobDesc.MediaFile,
 		"TRANSCODE_SETTINGS": string(jsonTranscodeSettings),
 		"MAX_RETRIES":        "10",
+		"MEDIA_TYPE":         string(jobDesc.ItemType),
+		"OUTPUT_PATH":        maybeOutPath,
 	}
 
-	jobName := fmt.Sprintf("mediaflipper-transcode-%s", path.Base(jobDesc.MediaFile))
-	return CreateGenericJob(jobDesc.JobStepId, jobName, vars, jobDesc.KubernetesTemplateFile, k8client)
+	return CreateGenericJob(jobDesc.JobStepId, "flip-transc", vars, true, jobDesc.KubernetesTemplateFile, jobClient, svcClient)
 }

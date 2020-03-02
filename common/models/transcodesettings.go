@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"log"
@@ -11,6 +12,11 @@ import (
 type TranscodeTypeSettings interface {
 	MarshalToString() string
 	MarshalToArray() []string
+	GetId() uuid.UUID
+	Summarise() JobSettingsSummary
+	InternalMarshalJSON() ([]byte, error)
+	IsValid() bool
+	GetLikelyExtension() string
 }
 
 type ScaleSettings struct {
@@ -39,18 +45,22 @@ type WrapperSettings struct {
 }
 
 type JobSettings struct {
-	SettingsId  uuid.UUID       `json:"settingsid" yaml:"settingsid"`
-	Name        string          `json:"name" yaml:"name"`
-	Description string          `json:"description" yaml:"description"`
-	Video       VideoSettings   `json:"video" yaml:"video"`
-	Audio       AudioSettings   `json:"audio" yaml:"audio"`
-	Wrapper     WrapperSettings `json:"wrapper" yaml:"wrapper"`
+	SettingsId  uuid.UUID       `json:"settingsid" yaml:"settingsid" mapstructure:"settingsid"`
+	Name        string          `json:"name" yaml:"name" mapstructure:"name"`
+	Description string          `json:"description" yaml:"description" mapstructure:"description"`
+	Video       VideoSettings   `json:"video" yaml:"video" mapstructure:"video"`
+	Audio       AudioSettings   `json:"audio" yaml:"audio" mapstructure:"audio"`
+	Wrapper     WrapperSettings `json:"wrapper" yaml:"wrapper" mapstructure:"wrapper"`
 }
 
 type JobSettingsSummary struct {
 	SettingsId  uuid.UUID `json:"settingsid" yaml:"settingsid"`
 	Name        string    `json:"name" yaml:"name"`
 	Description string    `json:"description" yaml:"description"`
+}
+
+func (s JobSettings) GetLikelyExtension() string {
+	return s.Wrapper.Format
 }
 
 func (s ScaleSettings) MarshalToString() string {
@@ -141,4 +151,16 @@ func (s JobSettings) Summarise() JobSettingsSummary {
 		Name:        s.Name,
 		Description: s.Description,
 	}
+}
+
+func (s JobSettings) GetId() uuid.UUID {
+	return s.SettingsId
+}
+
+func (s JobSettings) InternalMarshalJSON() ([]byte, error) {
+	return json.Marshal(s)
+}
+
+func (s JobSettings) IsValid() bool {
+	return s.Wrapper.Format != "" //so long as we have a wrapper format the settings can be used
 }

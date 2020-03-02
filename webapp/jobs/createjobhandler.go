@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/helpers"
-	models2 "github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/common/models"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
 	"log"
@@ -14,7 +14,7 @@ import (
 type CreateJobHandler struct {
 	RedisClient *redis.Client
 	K8Client    *kubernetes.Clientset
-	TemplateMgr *models2.JobTemplateManager
+	TemplateMgr *models.JobTemplateManager
 }
 
 func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +37,8 @@ func (h CreateJobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.JobTemplateId)
+	itemType := helpers.ItemTypeForFilepath(rq.OriginalFilename)
+	newEntry, createErr := h.TemplateMgr.NewJobContainer(rq.JobTemplateId, itemType)
 	if createErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"server_error", createErr.Error()}, w, 500)
 		return

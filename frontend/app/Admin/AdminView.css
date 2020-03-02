@@ -1,0 +1,33 @@
+div.danger-area {
+    background-color: #AA101088;
+    border: 2px solid black;
+    display: block;
+    margin-left: auto;
+    margin-right:auto;
+    width:50%;
+    overflow: hidden;
+    border-radius: 10px;
+    justify-content: center;
+}
+
+h2.danger-header {
+    margin-top: 0;
+    margin-bottom: 0.4em;
+    color: whitesmoke;
+    background-color: #AA1010EE;
+    padding-left: 0.4em;
+}
+
+div.button-container {
+    display: flex;
+    justify-content: center;
+}
+
+.button-container-entry {
+    flex: 1;
+    margin-left: 0.2em;
+    margin-right: 0.2em;
+    max-width: 200px;
+    display: block;
+    text-align: center;
+}

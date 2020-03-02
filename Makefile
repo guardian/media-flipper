@@ -9,6 +9,7 @@ clean:
 	make -C docker/ clean
 
 test:
+	make -C common/ test
 	make -C webapp/ test
 	make -C wrapper/ test
 	make -C reaper/ test
@@ -24,3 +25,6 @@ reaper:
 
 docker:
 	make -C docker/
+
+push:
+	make -C docker/ push

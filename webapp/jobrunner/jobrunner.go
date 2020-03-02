@@ -5,35 +5,63 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"github.com/guardian/mediaflipper/common/models"
+	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"k8s.io/client-go/kubernetes"
+	v1batch "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 	"reflect"
 	"time"
 )
 
+type JobRunnerIF interface {
+	AddJob(container *models.JobContainer) error
+	//EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
+	clearCompletedTick()
+}
+
 type JobRunner struct {
-	redisClient     *redis.Client
-	k8client        *kubernetes.Clientset
+	redisClient *redis.Client
+	//k8client        *kubernetes.Clientset
+	jobClient       v1batch.JobInterface
+	podClient       v1.PodInterface
+	serviceClient   v13.ServiceInterface
 	shutdownChan    chan bool
 	queuePollTicker *time.Ticker
 	templateMgr     *models.JobTemplateManager
 	maxJobs         int32
+	bulkListDAO     bulkprocessor.BulkListDAO
 }
 
 /**
 create a new JobRunner object
 */
-func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, channelBuffer int, maxJobs int32, runProcessor bool) JobRunner {
+func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, templateManager *models.JobTemplateManager, maxJobs int32, runProcessor bool) JobRunner {
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
+	ns, getNsErr := GetMyNamespace()
+	jobClient := k8client.BatchV1().Jobs(ns)
+	serviceClient := k8client.CoreV1().Services(ns)
+	podClient := k8client.CoreV1().Pods(ns)
+
+	if getNsErr != nil {
+		log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
+		panic("could not determine namespace")
+	}
+
 	runner := JobRunner{
-		redisClient:     redisClient,
-		k8client:        k8client,
+		redisClient: redisClient,
+		//k8client:        k8client,
+		jobClient:       jobClient,
+		serviceClient:   serviceClient,
+		podClient:       podClient,
 		shutdownChan:    shutdownChan,
 		queuePollTicker: queuePollTicker,
 		templateMgr:     templateManager,
 		maxJobs:         maxJobs,
+		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
 	}
 	if runProcessor {
 		go runner.requestProcessor()
@@ -69,21 +97,28 @@ func (j *JobRunner) requestProcessor() {
 trigger the action for a given item and put it onto the running queue if successful
 */
 func (j *JobRunner) actionRequest(container *models.JobContainer) error {
+	association := container.AssociatedBulk
+	if association != nil {
+		updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_ACTIVE, j.redisClient)
+		if updateErr != nil {
+			log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
+		}
+	}
 	initialStep := container.InitialStep()
 	if initialStep == nil {
 		log.Printf("WARNING: Job %s from template %s had no steps!", container.Id.String(), container.JobTemplateId.String())
 		return errors.New("job had no steps!")
 	} else {
-		return j.actionStep(initialStep)
+		return j.actionStep(initialStep, container)
 	}
 }
 
-func (j *JobRunner) actionStep(step models.JobStep) error {
+func (j *JobRunner) actionStep(step models.JobStep, container *models.JobContainer) error {
 	analysisJob, isAnalysis := step.(*models.JobStepAnalysis)
 	var newQueueEntry *models.JobQueueEntry
 
 	if isAnalysis {
-		err := CreateAnalysisJob(*analysisJob, j.k8client)
+		err := CreateAnalysisJob(*analysisJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create analysis job! ", err)
 			return err
@@ -98,7 +133,7 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 
 	thumbJob, isThumb := step.(*models.JobStepThumbnail)
 	if isThumb {
-		err := CreateThumbnailJob(*thumbJob, j.k8client)
+		err := CreateThumbnailJob(*thumbJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create thumbnail job! ", err)
 			return err
@@ -113,12 +148,27 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 
 	tcJob, isTc := step.(*models.JobStepTranscode)
 	if isTc {
-		err := CreateTranscodeJob(*tcJob, j.k8client)
+		err := CreateTranscodeJob(*tcJob, container.OutputPath, j.jobClient, j.serviceClient)
 		if err != nil {
 			log.Print("Could not create transcode job! ", err)
 			return err
 		}
 		log.Printf("External job created for %s with type transcode", tcJob.JobStepId)
+		newQueueEntry = &models.JobQueueEntry{
+			JobId:  step.ContainerId(),
+			StepId: step.StepId(),
+			Status: models.JOB_PENDING,
+		}
+	}
+
+	custJob, isCust := step.(*models.JobStepCustom)
+	if isCust {
+		err := CreateCustomJob(*custJob, container, j.jobClient, j.serviceClient, j.redisClient)
+		if err != nil {
+			log.Print("Could not create custom job! ", err)
+			return err
+		}
+		log.Printf("External job created for %s with type custom", custJob.JobStepId)
 		newQueueEntry = &models.JobQueueEntry{
 			JobId:  step.ContainerId(),
 			StepId: step.StepId(),
@@ -139,12 +189,6 @@ func (j *JobRunner) actionStep(step models.JobStep) error {
 }
 
 func (j *JobRunner) clearCompletedTick() {
-	jobClient, clientGetErr := GetJobClient(j.k8client)
-	if clientGetErr != nil {
-		log.Printf("Can't clear jobs as not able to access cluster")
-		return
-	}
-
 	set, checkErr := models.CheckQueueLock(j.redisClient, models.RUNNING_QUEUE)
 	if checkErr != nil {
 		log.Printf("Could not check running queue lock: %s", checkErr)
@@ -167,17 +211,46 @@ func (j *JobRunner) clearCompletedTick() {
 	defer models.ReleaseQueueLock(j.redisClient, models.RUNNING_QUEUE) //ensure that the lock is always release!
 
 	for _, queueEntry := range queueSnapshot {
-		runners, runErr := FindRunnerFor(queueEntry.StepId, jobClient)
-		if runErr != nil {
+		runners, runErr := FindRunnerFor(queueEntry.StepId, j.jobClient)
+		if runErr != nil { //could not retrieve a runner from k8. Assume that this is a transient error, don't dump it from the queue
 			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
+			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
+			if removeErr != nil {
+				log.Printf("WARNING: Could not remove inaccurate record from running queue")
+			}
 			continue //proceed to next one, don't abort
 		}
 
 		if len(*runners) > 1 {
-			log.Printf("WARNING: Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
+			log.Printf("WARNING clearCompletedTick Got %d runners for jobstep ID %s, should only have one. Using the first with container id: %s", len(*runners), queueEntry.StepId, (*runners)[0].JobUID)
 		}
-		if len(*runners) == 0 {
-			log.Print("Could not get runner for ", queueEntry.StepId, ": ", runErr)
+		if len(*runners) == 0 { //no runner was found. This shouldn't happen but does sometimes; handle it by assuming the job is lost and rescheduling
+			log.Print("ERROR clearCompletedTick no k8 runner was found for ", queueEntry.StepId)
+			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
+			if getErr != nil {
+				log.Printf("ERROR clearCompletedTick could not get job master data for %s: %s", queueEntry.JobId, getErr)
+				continue //pick it up on the next iteration
+			}
+			jobStep := container.FindStepById(queueEntry.StepId)
+			if jobStep == nil {
+				log.Printf("ERROR clearCompletedTick job entry %s does not have a step with id %s so can't mark as lost", queueEntry.JobId, queueEntry.StepId)
+			} else {
+				errMsg := fmt.Sprintf("could not get any runners for step id %s", queueEntry.StepId)
+				updatedStep := (*jobStep).WithNewStatus(models.JOB_LOST, &errMsg)
+				updateErr := container.UpdateStepById(updatedStep.StepId(), updatedStep)
+				if updateErr != nil {
+					log.Printf("ERROR clearCompletedTick could not save updated job step: %s", updateErr)
+				}
+				container.Status = models.JOB_LOST
+				storErr := container.Store(j.redisClient)
+				if storErr != nil {
+					log.Printf("ERROR clearcompletedTick could not store updated job: %s", storErr)
+				}
+			}
+			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
+			if removeErr != nil {
+				log.Printf("WARNING clearCompletedTick could not remove inaccurate record from running queue")
+			}
 			continue //proceed to next one, don't abort
 		}
 		runner := (*runners)[0]
@@ -190,27 +263,40 @@ func (j *JobRunner) clearCompletedTick() {
 			removeErr := models.RemoveFromQueue(j.redisClient, models.RUNNING_QUEUE, queueEntry)
 
 			if removeErr != nil {
-				log.Printf("Could not remove jobstep from running queue: %s", removeErr)
+				log.Printf("ERROR clearCompletedTick Could not remove jobstep from running queue: %s", removeErr)
 			}
 
 			container, getErr := models.JobContainerForId(queueEntry.JobId, j.redisClient)
 			if getErr != nil {
-				log.Printf("Could not get job master data for %s: %s", queueEntry.JobId, getErr)
+				log.Printf("ERROR clearCompletedTick Could not get job master data for %s: %s", queueEntry.JobId, getErr)
 				continue //pick it up on the next iteration
 			}
-			log.Printf("External job step %s completed", queueEntry.StepId)
+			log.Printf("DEBUG clearCompletedTick External job step %s completed", queueEntry.StepId)
 			nextStep := container.CompleteStepAndMoveOn() //this updates the internal state of `container`
 
 			storErr := container.Store(j.redisClient)
 			if storErr != nil {
-				log.Printf("Could not store job container: %s", storErr)
+				log.Printf("ERROR clearCompletedTick Could not store job container: %s", storErr)
 			} else {
-				log.Printf("Job completed and saved")
+				log.Printf("DEBUG clearCompletedTick Job completed and saved")
 			}
+
+			//clean up the job and pod and extract the log, asynchronously
+			go func() {
+				jobStep := container.FindStepById(queueEntry.StepId)
+				if jobStep == nil {
+					log.Printf("WARNING clearCompletedTick could not find jobstep with ID %s within job container with id %s", queueEntry.StepId, container.Id)
+				} else {
+					cleanupErr := CleanUpJobStep(jobStep, j.jobClient, j.podClient, j.redisClient)
+					if cleanupErr != nil {
+						log.Printf("ERROR clearCompletedTick could not clean up jobstep %s for %s: %s", (*jobStep).StepId(), container.Id, cleanupErr)
+					}
+				}
+			}()
 
 			if nextStep != nil { //nil => this was the last jobstep, not nil => another step to queue
 				log.Printf("Job %s: Moving to next job step ", container.Id)
-				runErr := j.actionStep(nextStep)
+				runErr := j.actionStep(nextStep, container)
 				if runErr != nil {
 					log.Print("Could not action next step: ", runErr)
 					container.Status = models.JOB_FAILED
@@ -220,6 +306,15 @@ func (j *JobRunner) clearCompletedTick() {
 					storErr = container.Store(j.redisClient)
 					if storErr != nil {
 						log.Printf("Could not store updated job container: %s", storErr)
+					}
+				}
+			} else {
+				association := container.AssociatedBulk
+				if association != nil {
+					log.Printf("DEBUG clearCompletedTick: updating bulk item %s in list %s to completed", association.Item, association.List)
+					updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_COMPLETED, j.redisClient)
+					if updateErr != nil {
+						log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
 					}
 				}
 			}
@@ -242,6 +337,17 @@ func (j *JobRunner) clearCompletedTick() {
 				log.Printf("Could not store job container: %s", storErr)
 			} else {
 				log.Printf("Job failed and saved")
+			}
+
+			association := container.AssociatedBulk
+			if association != nil {
+				log.Printf("DEBUG clearCompletedTick: updating bulk item %s in list %s to failed", association.Item, association.List)
+				updateErr := j.bulkListDAO.UpdateById(association.List, association.Item, bulkprocessor.ITEM_STATE_FAILED, j.redisClient)
+				if updateErr != nil {
+					log.Printf("ERROR: actionRequest could not update bulk state for %s: %s", association.List, updateErr)
+				}
+			} else {
+				log.Printf("DEBUG clearCompletedTick: job %s has no associated bulk item", container.Id)
 			}
 
 		case models.CONTAINER_ACTIVE:

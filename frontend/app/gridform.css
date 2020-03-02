@@ -1,0 +1,35 @@
+div.grid-form {
+    display: grid;
+    grid-template-rows: auto;
+    grid-template-columns: [icon-margin] 5px [label-zone] 20% [control-zone] 28% [indicator-zone] 20% [end];
+}
+
+div.narrow {
+    max-width: 300px;
+}
+
+.grid-form-icon {
+    grid-column-start: icon-margin;
+    grid-column-end: label-zone;
+}
+
+.grid-form-label {
+    grid-column-start: label-zone;
+    grid-column-end: control-zone;
+    align-self: center;
+}
+
+.grid-form-control {
+    grid-column-start: control-zone;
+    grid-column-end: indicator-zone;
+}
+
+.grid-form-control-stretch {
+    grid-column-start: control-zone;
+    grid-column-end: span end;
+}
+
+.grid-form-indicator {
+    grid-column-start: indicator-zone;
+    grid-column-end: end;
+}

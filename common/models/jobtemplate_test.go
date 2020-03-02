@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/helpers"
 	"testing"
 )
 
@@ -14,8 +15,8 @@ func TestNewJobTemplateManager(t *testing.T) {
 	}
 
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	if len(mgr.loadedTemplates) != 2 {
-		t.Errorf("Got %d templates, expected 2", len(mgr.loadedTemplates))
+	if len(mgr.loadedTemplates) != 3 {
+		t.Errorf("Got %d templates, expected 3", len(mgr.loadedTemplates))
 	}
 
 	if mgr.loadedTemplates[expectedUuid].JobTypeName != "Standard thumbnail-and-transcode" {
@@ -48,7 +49,7 @@ func TestNewJobContainer(t *testing.T) {
 	}
 
 	expectedUuid := uuid.MustParse("846F823E-C0D3-4AF0-AD51-0F9573379057")
-	result, err := mgr.NewJobContainer(expectedUuid)
+	result, err := mgr.NewJobContainer(expectedUuid, helpers.ITEM_TYPE_VIDEO)
 	if err != nil {
 		t.Error("NewJobContainer unexpectedly failed: ", err)
 	} else {

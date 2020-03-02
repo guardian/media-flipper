@@ -3,35 +3,23 @@ package jobrunner
 import (
 	"github.com/google/uuid"
 	v12 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v13 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"log"
 )
 
-func CreateGenericJob(jobStepID uuid.UUID, jobName string, envVars map[string]string, kubernetesTemplateFile string, k8client *kubernetes.Clientset) error {
-	svcClient, svcClientErr := GetServiceClient(k8client)
-	if svcClientErr != nil {
-		log.Printf("ERROR: Could not get k8s service client: %s", svcClientErr)
-		return svcClientErr
-	}
-
+func CreateGenericJob(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, jobClient v1.JobInterface, svcClient v13.ServiceInterface) error {
 	svcUrlPtr, svcUrlErr := FindServiceUrl(svcClient)
 	if svcUrlErr != nil {
 		log.Print("Could not determine return url from k8 service: ", svcUrlErr)
 		return svcUrlErr
 	} else {
-		jobClient, cliErr := GetJobClient(k8client)
-		if cliErr != nil {
-			log.Printf("Could not create analysis job: %s", cliErr)
-			return cliErr
-		}
-
 		envVars["WEBAPP_BASE"] = *svcUrlPtr
-		return createGenericJobInternal(jobStepID, jobName, envVars, kubernetesTemplateFile, jobClient)
+		return createGenericJobInternal(jobStepID, jobNameBase, envVars, overwriteExistingVars, kubernetesTemplateFile, jobClient)
 	}
 }
 
-func createGenericJobInternal(jobStepID uuid.UUID, jobName string, envVars map[string]string, kubernetesTemplateFile string, jobClient v1.JobInterface) error {
+func createGenericJobInternal(jobStepID uuid.UUID, jobNameBase string, envVars map[string]string, overwriteExistingVars bool, kubernetesTemplateFile string, jobClient v1.JobInterface) error {
 	jobPtr, loadErr := LoadFromTemplate(kubernetesTemplateFile)
 
 	if loadErr != nil {
@@ -52,9 +40,20 @@ func createGenericJobInternal(jobStepID uuid.UUID, jobName string, envVars map[s
 		vars[i] = v12.EnvVar{Name: k, Value: v}
 		i += 1
 	}
+
+	if !overwriteExistingVars {
+		for _, v := range jobPtr.Spec.Template.Spec.Containers[0].Env {
+			_, haveOverwrite := envVars[v.Name]
+			if !haveOverwrite { //only re-add to the vars list if there is not one there already
+				vars = append(vars, v)
+			}
+		}
+	}
+
 	jobPtr.Spec.Template.Spec.Containers[0].Env = vars
 
-	jobPtr.ObjectMeta.Name = jobName
+	jobPtr.ObjectMeta.Name = ""
+	jobPtr.ObjectMeta.GenerateName = jobNameBase
 
 	_, err := jobClient.Create(jobPtr)
 	if err != nil {

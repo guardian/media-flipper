@@ -14,7 +14,7 @@ func TestCreateGenericJobInternal(t *testing.T) {
 		"VAR_ONE": "value 1",
 		"VAR_TWO": "value 2",
 	}
-	result := createGenericJobInternal(stepId, "test-fake-job", envVars, "../config/AnalysisJobTemplate.yaml", mockClient)
+	result := createGenericJobInternal(stepId, "test-fake-job", envVars, true, "../config/AnalysisJobTemplate.yaml", mockClient)
 
 	if result != nil {
 		t.Errorf("createGenericJobInternal raised unexpected error: %s", result)
@@ -24,9 +24,6 @@ func TestCreateGenericJobInternal(t *testing.T) {
 		}
 		if len(mockClient.JobsCreated) > 0 {
 			j := *mockClient.JobsCreated[0]
-			if j.ObjectMeta.Name != "test-fake-job" {
-				t.Errorf("Name was set incorrectly, expected %s got %s", "test-fake-job", j.ObjectMeta.Name)
-			}
 			if len(j.Spec.Template.Spec.Containers) == 0 {
 				t.Errorf("Created job had no containers, this is not right")
 			} else {
@@ -63,12 +60,12 @@ func TestCreateGenericJobInternal(t *testing.T) {
 		ErrorResponse: testError,
 	}
 
-	failedResult := createGenericJobInternal(stepId, "test-failing-job", envVars, "../config/AnalysisJobTemplate.yaml", mockFailingClient)
+	failedResult := createGenericJobInternal(stepId, "test-failing-job", envVars, true, "../config/AnalysisJobTemplate.yaml", mockFailingClient)
 	if failedResult == nil {
 		t.Errorf("expected createGenericJobInternal to fail if create operation fails, but it returned no error")
 	}
 
-	noTemplateResult := createGenericJobInternal(stepId, "test-failing-job", envVars, "fsfsjkhdfjsdfs", mockClient)
+	noTemplateResult := createGenericJobInternal(stepId, "test-failing-job", envVars, true, "fsfsjkhdfjsdfs", mockClient)
 	if noTemplateResult == nil {
 		t.Errorf("expected createGenericJobInternal to fail if the template could not be found, but it returned no error")
 	}

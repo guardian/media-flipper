@@ -13,8 +13,8 @@ func TestNewTranscodeSettingsManager(t *testing.T) {
 		t.FailNow()
 	}
 
-	if len(mgr.knownSettings) != 2 {
-		t.Errorf("Wrong number of loaded settings, expected 2 got %d", len(mgr.knownSettings))
+	if len(mgr.knownSettings) != 3 {
+		t.Errorf("Wrong number of loaded settings, expected 3 got %d", len(mgr.knownSettings))
 	}
 
 	allSettings := mgr.ListSettings()
@@ -23,9 +23,9 @@ func TestNewTranscodeSettingsManager(t *testing.T) {
 	}
 
 	for _, s := range *allSettings {
-		verifyData, isPresent := mgr.knownSettings[s.SettingsId]
+		verifyData, isPresent := mgr.knownSettings[s.GetId()]
 		if !isPresent {
-			t.Errorf("setting with id %s was returned from ListSettings but is not present?!", s.SettingsId)
+			t.Errorf("setting with id %s was returned from ListSettings but is not present?!", s.GetId())
 		} else {
 			if verifyData != s {
 				t.Errorf("mismatched setting returned from ListSettings, expected %s got %s", spew.Sprint(verifyData), spew.Sprint(s))
@@ -33,10 +33,11 @@ func TestNewTranscodeSettingsManager(t *testing.T) {
 		}
 	}
 
-	mp4Setting := mgr.GetSetting(uuid.MustParse("7FEC2963-6A1D-46A2-8DE1-62DF939F6755"))
-	if mp4Setting == nil {
+	mp4SettingGeneric := mgr.GetSetting(uuid.MustParse("7FEC2963-6A1D-46A2-8DE1-62DF939F6755"))
+	if mp4SettingGeneric == nil {
 		t.Errorf("GetSetting returned nil but expected record")
 	} else {
+		mp4Setting := mp4SettingGeneric.(JobSettings)
 		if mp4Setting.Video.Scale.ScaleY != -1 {
 			t.Errorf("Wrong value for scaleY, expected -1 got %d", mp4Setting.Video.Scale.ScaleY)
 		}

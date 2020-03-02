@@ -104,6 +104,7 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			thumbStep.ResultId = &fileEntry.Id
+			jobContainerInfo.ThumbnailId = &fileEntry.Id
 		}
 
 		var updatedStep models2.JobStep
@@ -122,7 +123,6 @@ func (h ReceiveData) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Storing updated container...")
-		spew.Dump(jobContainerInfo)
 
 		storErr := jobContainerInfo.Store(h.redisClient)
 		if storErr != nil {

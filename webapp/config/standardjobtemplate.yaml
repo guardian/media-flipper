@@ -28,3 +28,11 @@
       InProgressLabel: Transcoding...
       KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
       TranscodeSettingsId: 7B37FEBC-18C1-4626-8941-10A8AFE1B51C
+- Id: 1EBE8AAF-2BC1-45D6-B7AA-D69A64ACEA2F
+  Name: Thumbnail image
+  Steps:
+    - Id: 6FF216B6-A395-4237-A9F2-2FEB3F24823E
+      PredeterminedType: transcode
+      InProgressLabel: Thumbnailing...
+      KubernetesTemplateFile: config/AnalysisJobTemplate.yaml
+      TranscodeSettingsId: E1C3F18C-C325-457C-A701-D8B2730D0981

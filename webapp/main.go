@@ -6,6 +6,7 @@ import (
 	"github.com/guardian/mediaflipper/common/helpers"
 	models2 "github.com/guardian/mediaflipper/common/models"
 	"github.com/guardian/mediaflipper/webapp/analysis"
+	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"github.com/guardian/mediaflipper/webapp/files"
 	"github.com/guardian/mediaflipper/webapp/initiator"
 	"github.com/guardian/mediaflipper/webapp/jobrunner"
@@ -31,6 +32,8 @@ type MyHttpApp struct {
 	files       files.FilesEndpoints
 	tsettings   transcodesettings.TranscodeSettingsEndpoints
 	transcode   transcode2.TranscodeEndpoints
+	bulk        bulkprocessor.BulkEndpoints
+	runner      jobrunner.JobRunnerEndpoints
 }
 
 func SetupRedis(config *helpers.Config) (*redis.Client, error) {
@@ -106,7 +109,7 @@ func main() {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
 	}
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, 10, !(*noProcessor))
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, !(*noProcessor))
 
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"
@@ -121,6 +124,8 @@ func main() {
 	app.files = files.NewFilesEndpoints(redisClient)
 	app.tsettings = transcodesettings.NewTranscodeSettingsEndpoints(settingsMgr)
 	app.transcode = transcode2.NewTranscodeEndpoints(redisClient)
+	app.bulk = bulkprocessor.NewBulkEndpoints(redisClient, templateMgr)
+	app.runner = jobrunner.NewJobRunnerEndpoints(redisClient, templateMgr, &runner, k8Client)
 
 	http.Handle("/", app.index)
 	http.Handle("/healthcheck", app.healthcheck)
@@ -134,6 +139,8 @@ func main() {
 	app.files.WireUp("/api/file")
 	app.tsettings.WireUp("/api/transcodesettings")
 	app.transcode.WireUp("/api/transcode")
+	app.bulk.WireUp("/api/bulk")
+	app.runner.WireUp("/api/jobrunner")
 
 	log.Printf("Starting server on port 9000")
 	startServerErr := http.ListenAndServe(":9000", nil)
