@@ -187,6 +187,12 @@ func main() {
 
 		log.Print("Got thumbnail result: ", result)
 
+		if result != nil && result.OutPath != nil {
+			chmodErr := os.Chmod(*result.OutPath, 0777)
+			if chmodErr != nil {
+				log.Printf("ERROR: could not open permissions on %s: %s", *result.OutPath, chmodErr)
+			}
+		}
 		sendErr := SendToWebapp(sendUrl, result, 0, maxTries)
 		if sendErr != nil {
 			log.Fatalf("Could not send results to %s: %s", sendUrl, sendErr)
@@ -233,6 +239,13 @@ func main() {
 				OutFile:      "",
 				TimeTaken:    0,
 				ErrorMessage: "could not recognise settings as valid for a transcode operation. Maybe you meant thumbnail?",
+			}
+		}
+
+		if result.OutFile != "" {
+			chmodErr := os.Chmod(result.OutFile, 0777)
+			if chmodErr != nil {
+				log.Printf("ERROR: could not open permissions on %s: %s", result.OutFile, chmodErr)
 			}
 		}
 
