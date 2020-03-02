@@ -12,6 +12,8 @@
   video:
     codec: h264
     bitrate: 1048576  #1mbit/s
+    pixfmt: yuv420p
+    preset: fast
     scale:
       scalex: 1280
       scaley: -1

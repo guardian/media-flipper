@@ -25,6 +25,7 @@ func TestTranscodeSettingsLoad(t *testing.T) {
     samplerate: 48000
   video:
     codec: h264
+    pixfmt: yuv420p
     bitrate: 1048576  #1mbit/s
     scale:
       scalex: 1280
@@ -80,6 +81,9 @@ func TestTranscodeSettingsLoad(t *testing.T) {
 		if settings[0].Video.Scale.ScaleX != 1280 {
 			t.Errorf("Expected scale.scaleX to be 1280, got %d", settings[0].Video.Scale.ScaleX)
 		}
+		if settings[0].Video.PixFmt != "yuv420p" {
+			t.Errorf("Expected video.pix_fmt to be yuv420p, got %s", settings[0].Video.PixFmt)
+		}
 	}
 }
 
@@ -94,6 +98,7 @@ func TestTranscodeSettingsMarshal(t *testing.T) {
 			CRF:    19,
 			Preset: "fast",
 			Scale:  nil,
+			PixFmt: "yuv420p",
 		},
 		Audio:   AudioSettings{},
 		Wrapper: WrapperSettings{},
@@ -110,6 +115,9 @@ func TestTranscodeSettingsMarshal(t *testing.T) {
 		}
 		if !strings.Contains(strContent, "\"name\":\"avtest\"") {
 			t.Error("returned content did not contain the right name!")
+		}
+		if !strings.Contains(strContent, "\"pixfmt\":\"yuv420p\"") {
+			t.Error("returned content did not contain pix_fmt")
 		}
 	}
 }

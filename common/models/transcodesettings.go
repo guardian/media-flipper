@@ -31,7 +31,7 @@ type VideoSettings struct {
 	CRF     int8           `json:"crf" yaml:"crf"`         //A lower value generally leads to higher quality, and a subjectively sane range is 17–28. Consider 17 or 18 to be visually lossless or nearly so
 	Preset  string         `json:"preset" yaml:"preset"`   //see https://trac.ffmpeg.org/wiki/Encode/H.264
 	Scale   *ScaleSettings `json:"scale" yaml:"scale"`
-	PixFmt  string         `json:"pix_fmt" yaml:"pix_fmt"`
+	PixFmt  string         `json:"pixfmt" yaml:"pixfmt"`
 }
 
 type AudioSettings struct {
