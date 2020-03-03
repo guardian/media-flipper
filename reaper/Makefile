@@ -12,3 +12,4 @@ dev: $(GOFILES)
 
 clean:
 	rm -f reaper
+	find . -iname \*.out -delete

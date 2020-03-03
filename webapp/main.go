@@ -109,7 +109,12 @@ func main() {
 		log.Printf("Could not initialise template manager: %s", mgrLoadErr)
 	}
 
-	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, 10, !(*noProcessor))
+	if config.MaxJobs == 0 {
+		config.MaxJobs = 10
+	}
+
+	log.Printf("INFO: MaxJobs is set to %d", config.MaxJobs)
+	runner := jobrunner.NewJobRunner(redisClient, k8Client, templateMgr, int32(config.MaxJobs), !(*noProcessor))
 
 	app.index.filePath = "static/index.html"
 	app.index.contentType = "text/html"

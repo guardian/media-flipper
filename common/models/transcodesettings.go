@@ -31,6 +31,7 @@ type VideoSettings struct {
 	CRF     int8           `json:"crf" yaml:"crf"`         //A lower value generally leads to higher quality, and a subjectively sane range is 17–28. Consider 17 or 18 to be visually lossless or nearly so
 	Preset  string         `json:"preset" yaml:"preset"`   //see https://trac.ffmpeg.org/wiki/Encode/H.264
 	Scale   *ScaleSettings `json:"scale" yaml:"scale"`
+	PixFmt  string         `json:"pixfmt" yaml:"pixfmt"`
 }
 
 type AudioSettings struct {
@@ -79,7 +80,6 @@ func (v VideoSettings) MarshalToArray() []string {
 	out := []string{
 		"-vcodec",
 		v.Codec,
-		//"-pix_fmt yuv420p",
 	}
 	if v.CRF > 0 {
 		if v.CRF < 17 || v.CRF > 28 {
@@ -94,6 +94,9 @@ func (v VideoSettings) MarshalToArray() []string {
 	}
 	if v.Scale != nil {
 		out = append(out, "-vf", v.Scale.MarshalToString())
+	}
+	if v.PixFmt != "" {
+		out = append(out, "-pix_fmt", v.PixFmt)
 	}
 	return out
 }

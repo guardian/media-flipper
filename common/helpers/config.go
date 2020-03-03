@@ -20,6 +20,7 @@ type Config struct {
 	Redis        RedisConfig    `yaml:"redis"`
 	Scratch      ScratchStorage `yaml:"scratch"`
 	SettingsPath string         `yaml:"settingspath"`
+	MaxJobs      int            `yaml:"maxjobs"`
 }
 
 func ReadConfig(configFile string) (*Config, error) {
