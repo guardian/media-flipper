@@ -30,9 +30,17 @@ func (h FailPendingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//FIXME: is this safe? i.e. will it leave the error channel open? how to wait for possibly both or not?
-	bulkItemStream, _ := bulkList.FilterRecordsByStateAsync(bulkprocessor.ITEM_STATE_PENDING, h.redisClient)
+	bulkItemStream, filterErrStream := bulkList.FilterRecordsByStateAsync(bulkprocessor.ITEM_STATE_PENDING, h.redisClient)
 	updateErrStream := asyncUpdateItemStatus(bulkItemStream, bulkprocessor.ITEM_STATE_FAILED, bulkList, 100, h.redisClient)
+
+	go func() {
+		filterErr := <-filterErrStream
+		if filterErr != nil {
+			log.Printf("ERROR FailPendingHandler got an error from the filter operation: %s", filterErr)
+		} else {
+			log.Printf("DEBUG FailPendingHandler got end of filter stream")
+		}
+	}()
 
 	updateErr := <-updateErrStream
 	if updateErr != nil {

@@ -374,7 +374,8 @@ func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisCl
 		fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
 		if fetchErr != nil {
 			errorChan <- fetchErr
-			return
+		} else {
+			errorChan <- nil
 		}
 		outputChan <- nil
 	}()
