@@ -170,8 +170,10 @@ func asyncReceiver(itemsChan chan BulkItem, errorChan chan error) ([]BulkItem, e
 				rtn = append(rtn, newItem)
 			}
 		case scanErr := <-errorChan:
-			log.Printf("Receved async error: %s", scanErr)
-			return nil, scanErr
+			if scanErr != nil {
+				log.Printf("Receved async error: %s", scanErr)
+				return nil, scanErr
+			}
 		}
 	}
 }

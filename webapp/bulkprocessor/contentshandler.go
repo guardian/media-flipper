@@ -51,6 +51,7 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		recordsChan, errChan = bulkList.FilterRecordsByNameAndStateAsync(byNameReqest, s, h.redisClient)
 	}
 
+	//stream out the content as NDJSON.  We write the header here and then marshal and write each record as we receive it
 	w.Header().Add("Content-Type", "application/x-ndjson")
 	w.WriteHeader(200)
 
@@ -72,8 +73,10 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					w.Write([]byte("\n")) //newline delimited!!
 				}
 			case err := <-errChan:
-				log.Printf("ERROR: content retrieval failed, returned content will be short: %s", err)
-				return
+				if err != nil {
+					log.Printf("ERROR: content retrieval failed, returned content will be short: %s", err)
+					return
+				}
 			}
 		}
 	}()

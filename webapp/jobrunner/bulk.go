@@ -2,7 +2,6 @@ package jobrunner
 
 import (
 	"errors"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
 	"github.com/guardian/mediaflipper/common/helpers"
@@ -143,7 +142,6 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 						Item: rec.GetId(),
 						List: l.GetId(),
 					}
-					log.Printf("EnqueueContentsAsync: job before writing is %s", spew.Sdump(job))
 					storErr := job.Store(redisClient)
 					if storErr != nil {
 						log.Printf("ERROR: Could not store new job %s for bulk item %s: %s", job.Id, rec.GetId(), storErr)
@@ -163,10 +161,12 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 					log.Printf("ERROR: could not build job for %s %s: %s", rec.GetItemType(), rec.GetSourcePath(), buildErr)
 				}
 			case err := <-errChan:
-				l.ClearActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
-				l.Store(redisClient)
-				rtnChan <- err
-				return
+				if err != nil {
+					l.ClearActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
+					l.Store(redisClient)
+					rtnChan <- err
+					return
+				}
 			}
 		}
 	}()
