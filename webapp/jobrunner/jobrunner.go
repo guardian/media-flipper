@@ -41,32 +41,45 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
-	ns, getNsErr := GetMyNamespace()
-	jobClient := k8client.BatchV1().Jobs(ns)
-	serviceClient := k8client.CoreV1().Services(ns)
-	podClient := k8client.CoreV1().Pods(ns)
-
-	if getNsErr != nil {
-		log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
-		panic("could not determine namespace")
-	}
-
-	runner := JobRunner{
-		redisClient: redisClient,
-		//k8client:        k8client,
-		jobClient:       jobClient,
-		serviceClient:   serviceClient,
-		podClient:       podClient,
-		shutdownChan:    shutdownChan,
-		queuePollTicker: queuePollTicker,
-		templateMgr:     templateManager,
-		maxJobs:         maxJobs,
-		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
-	}
 	if runProcessor {
+		ns, getNsErr := GetMyNamespace()
+		jobClient := k8client.BatchV1().Jobs(ns)
+		serviceClient := k8client.CoreV1().Services(ns)
+		podClient := k8client.CoreV1().Pods(ns)
+
+		if getNsErr != nil {
+			log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
+			panic("could not determine namespace")
+		}
+
+		runner := JobRunner{
+			redisClient:     redisClient,
+			jobClient:       jobClient,
+			serviceClient:   serviceClient,
+			podClient:       podClient,
+			shutdownChan:    shutdownChan,
+			queuePollTicker: queuePollTicker,
+			templateMgr:     templateManager,
+			maxJobs:         maxJobs,
+			bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		}
+
 		go runner.requestProcessor()
+		return runner
+	} else {
+		runner := JobRunner{
+			redisClient:     redisClient,
+			jobClient:       nil,
+			serviceClient:   nil,
+			podClient:       nil,
+			shutdownChan:    shutdownChan,
+			queuePollTicker: queuePollTicker,
+			templateMgr:     templateManager,
+			maxJobs:         maxJobs,
+			bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		}
+		return runner
 	}
-	return runner
 }
 
 /**

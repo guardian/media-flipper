@@ -61,7 +61,7 @@ func (m *JobRunnerMockRealEnqueue) AddJob(container *models.JobContainer) error 
 }
 
 func (m *JobRunnerMockRealEnqueue) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error {
-	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, testRunner)
+	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, bulkprocessor.ITEM_STATE_NOT_QUEUED, testRunner)
 }
 
 func (m *JobRunnerMockRealEnqueue) clearCompletedTick() {
@@ -152,7 +152,7 @@ func TestJobRunner_EnqueueContentsAsync(t *testing.T) {
 		BulkListId: bulkId,
 		SourcePath: "path/to/videofile",
 		Priority:   0,
-		State:      bulkprocessor.ITEM_STATE_PENDING,
+		State:      bulkprocessor.ITEM_STATE_NOT_QUEUED,
 		Type:       helpers.ITEM_TYPE_VIDEO,
 	}
 	addErr := bulk.AddRecord(&testRecord, testClient)

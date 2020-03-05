@@ -357,7 +357,6 @@ func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisCl
 		for {
 			select {
 			case recordId := <-idListChan:
-				log.Printf("received %s", spew.Sdump(recordId))
 				if recordId == nil {
 					terminate = true
 					break

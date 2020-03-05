@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+/**
+set up an asynchronous update of the status of a bunch of items.
+pass in a channel that yields instances of BulkItem, and their status will be updated to the requested value and they will
+be written back to the datastore layer in bulks of `commitEvery` records
+pass a nil to the `records` channel to signal termination; any outstanding records will be written and the writer will terminate.
+*/
 func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkprocessor.BulkItemState, l bulkprocessor.BulkList, commitEvery int, client redis.Cmdable) chan error {
 	errorChan := make(chan error)
 
@@ -66,8 +72,16 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 /**
 put every item onto the waiting queue asynchronously
 returns a channel that yields either an error if the operation fails or nil if it is successful
+arguments:
+- redisClient     - instance of redis.Cmdable (normally a *redis.Client, should not be a pipeline)
+- templateManager - instance of a TemplateManagerInterface, used for building the jobs
+- l               - the bulk list to work from
+- maybeSpecificID - allows retrying of a single item, pass a pointer to the items UUID and only this one will be actioned. Otherwise pass nil.
+- byState         - the item state that should be enqueued
+- testRunner      - pass in an alternative JobRunner, used for testing
 */
-func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, maybeSpecificID *uuid.UUID, testRunner JobRunnerIF) chan error {
+func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF,
+	l *bulkprocessor.BulkListImpl, maybeSpecificID *uuid.UUID, byState bulkprocessor.BulkItemState, testRunner JobRunnerIF) chan error {
 	rtnChan := make(chan error, 10)
 
 	l.SetActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
@@ -77,7 +91,7 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 	var errChan chan error
 
 	if maybeSpecificID == nil {
-		resultsChan, errChan = l.GetAllRecordsAsync(redisClient)
+		resultsChan, errChan = l.FilterRecordsByStateAsync(byState, redisClient)
 	} else {
 		resultsChan, errChan = l.GetSpecificRecordAsync(*maybeSpecificID, redisClient)
 	}
