@@ -90,6 +90,9 @@ class JobStatusSummary extends React.Component {
             <li className={"status-summary-entry clickable" + (this.props.currentFilterName==="aborted" ? " selected" : "")} onClick={()=>this.props.filterClicked("aborted")}>
                 <FontAwesomeIcon icon="eject" className="inline-icon" style={{color: "darkred"}}/>{this.state.jobStatus.aborted} items purged before running
             </li>
+            <li className={"status-summary-entry clickable" + (this.props.currentFilterName==="lost" ? " selected" : "")} onClick={()=>this.props.filterClicked("lost")}>
+                <FontAwesomeIcon icon="frown" className="inline-icon" style={{color:"darkred"}}/>{this.state.jobStatus.aborted} items lost
+            </li>
         </ul>
     }
 }
