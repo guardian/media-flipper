@@ -164,14 +164,14 @@ func asyncReceiver(itemsChan chan BulkItem, errorChan chan error) ([]BulkItem, e
 		select {
 		case newItem := <-itemsChan:
 			if newItem == nil {
-				log.Printf("Received all items")
+				log.Printf("DEBUG bulklist/asyncReceiver Received all items")
 				return rtn, nil
 			} else {
 				rtn = append(rtn, newItem)
 			}
 		case scanErr := <-errorChan:
 			if scanErr != nil {
-				log.Printf("Receved async error: %s", scanErr)
+				log.Printf("ERROR bulklist/asyncReceiverReceved async error: %s", scanErr)
 				return nil, scanErr
 			}
 		}
@@ -193,7 +193,7 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 	results, contentErr := pipe.Exec()
 	defer pipe.Close()
 	if contentErr != nil && !strings.Contains(contentErr.Error(), "redis: nil") {
-		log.Printf("Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
+		log.Printf("ERROR BatchFetchRecords Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
 		return contentErr
 	}
 

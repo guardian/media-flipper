@@ -20,7 +20,7 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	parsedUri, bulkListId, err := helpers.GetForId(r.RequestURI)
 	if err != nil {
-		log.Printf("Could not parse out url: %s", err)
+		log.Printf("ERROR ContentsHandler Could not parse out url: %s", err)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"error", "could not parse/extract url"}, w, 400)
 		return
 	}
@@ -30,7 +30,7 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	bulkList, bulkListErr := BulkListForId(*bulkListId, h.redisClient)
 	if bulkListErr != nil {
-		log.Printf("Could not retrieve bulk list from datastore: %s", bulkListErr)
+		log.Printf("ERROR ContentsHandler Could not retrieve bulk list from datastore: %s", bulkListErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not retrieve bulk list"}, w, 500)
 		return
 	}
@@ -64,17 +64,17 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				content, marshalErr := json.Marshal(record)
 				if marshalErr != nil {
-					log.Printf("ERROR: Could not format data: %s. Offending data was %s", marshalErr, spew.Sdump(record))
+					log.Printf("ERROR ContentsHandler could not format data: %s. Offending data was %s", marshalErr, spew.Sdump(record))
 				} else {
 					_, writeErr := w.Write(content)
 					if writeErr != nil {
-						log.Printf("Could write outgoing data, continuing to next record: %s", writeErr)
+						log.Printf("ERROR ContentsHandler could write outgoing data, continuing to next record: %s", writeErr)
 					}
 					w.Write([]byte("\n")) //newline delimited!!
 				}
 			case err := <-errChan:
 				if err != nil {
-					log.Printf("ERROR: content retrieval failed, returned content will be short: %s", err)
+					log.Printf("ERROR ContentsHandler content retrieval failed, returned content will be short: %s", err)
 					return
 				}
 			}

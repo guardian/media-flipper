@@ -103,7 +103,6 @@ class BatchEdit extends React.Component {
     }
 
     async triggerEnqueueItems(triggeredBy, forState) {
-        console.log("enqueueItems triggered by ", triggeredBy.className);
         if(triggeredBy.className != null && triggeredBy.className.includes("disabled")) {
             console.log("trigger is disabled");
             return;
