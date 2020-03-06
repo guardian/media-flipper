@@ -17,7 +17,7 @@ import (
 
 type JobRunnerIF interface {
 	AddJob(container *models.JobContainer) error
-	//EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
+	RemoveJob(container *models.JobContainer) error
 	clearCompletedTick()
 }
 
@@ -41,32 +41,45 @@ func NewJobRunner(redisClient *redis.Client, k8client *kubernetes.Clientset, tem
 	shutdownChan := make(chan bool)
 	queuePollTicker := time.NewTicker(1 * time.Second)
 
-	ns, getNsErr := GetMyNamespace()
-	jobClient := k8client.BatchV1().Jobs(ns)
-	serviceClient := k8client.CoreV1().Services(ns)
-	podClient := k8client.CoreV1().Pods(ns)
-
-	if getNsErr != nil {
-		log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
-		panic("could not determine namespace")
-	}
-
-	runner := JobRunner{
-		redisClient: redisClient,
-		//k8client:        k8client,
-		jobClient:       jobClient,
-		serviceClient:   serviceClient,
-		podClient:       podClient,
-		shutdownChan:    shutdownChan,
-		queuePollTicker: queuePollTicker,
-		templateMgr:     templateManager,
-		maxJobs:         maxJobs,
-		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
-	}
 	if runProcessor {
+		ns, getNsErr := GetMyNamespace()
+		jobClient := k8client.BatchV1().Jobs(ns)
+		serviceClient := k8client.CoreV1().Services(ns)
+		podClient := k8client.CoreV1().Pods(ns)
+
+		if getNsErr != nil {
+			log.Printf("ERROR NewJobRunner could not determine current k8s namespace: %s", getNsErr)
+			panic("could not determine namespace")
+		}
+
+		runner := JobRunner{
+			redisClient:     redisClient,
+			jobClient:       jobClient,
+			serviceClient:   serviceClient,
+			podClient:       podClient,
+			shutdownChan:    shutdownChan,
+			queuePollTicker: queuePollTicker,
+			templateMgr:     templateManager,
+			maxJobs:         maxJobs,
+			bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		}
+
 		go runner.requestProcessor()
+		return runner
+	} else {
+		runner := JobRunner{
+			redisClient:     redisClient,
+			jobClient:       nil,
+			serviceClient:   nil,
+			podClient:       nil,
+			shutdownChan:    shutdownChan,
+			queuePollTicker: queuePollTicker,
+			templateMgr:     templateManager,
+			maxJobs:         maxJobs,
+			bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		}
+		return runner
 	}
-	return runner
 }
 
 /**
@@ -76,6 +89,33 @@ func (j *JobRunner) AddJob(container *models.JobContainer) error {
 	result := pushToRequestQueue(j.redisClient, container)
 	log.Printf("Enqueued job for processing: %s", container.Id)
 	return result
+}
+
+/**
+remove any possible step from the given job from the queue
+*/
+func (j *JobRunner) RemoveJob(container *models.JobContainer) error {
+	//remove _every possible_ status for each step, we don't know which ones are there
+	allStatusCount := len(models.ALL_JOB_STATUS)
+	entries := make([]models.JobQueueEntry, len(container.Steps)*allStatusCount)
+	for i, step := range container.Steps {
+		for statusCount, statusValue := range models.ALL_JOB_STATUS {
+			idx := (i * allStatusCount) + statusCount
+			entries[idx] = models.JobQueueEntry{
+				JobId:  container.Id,
+				StepId: step.StepId(),
+				Status: statusValue,
+			}
+		}
+	}
+
+	pipe := j.redisClient.Pipeline()
+	for _, entry := range entries {
+		models.RemoveFromQueue(pipe, models.RUNNING_QUEUE, entry)
+		removeFromRequestQueue(pipe, container)
+	}
+	_, pipeErr := pipe.Exec()
+	return pipeErr
 }
 
 /**

@@ -22,12 +22,12 @@ func getNextJobRunnerRequest(client *redis.Client, queueName models.QueueName) (
 		if getErr.Error() == "redis: nil" { //FIXME: there must be a better way of making this check!
 			return nil, nil
 		}
-		log.Print("ERROR: Could not get next item from job queue: ", getErr)
+		log.Print("ERROR jobrunnerrequestDAO/getNextJobRunnerRequest Could not get next item from job queue: ", getErr)
 		return nil, getErr
 	}
 
 	if content == "" {
-		log.Print("DEBUG: no items in queue right now")
+		log.Print("DEBUG jobrunnerrequestDAO/getNextJobRunnerRequest no items in queue right now")
 		return nil, nil
 	}
 	var rq models.JobContainer
@@ -35,17 +35,17 @@ func getNextJobRunnerRequest(client *redis.Client, queueName models.QueueName) (
 
 	marshalErr := json.Unmarshal([]byte(content), &rq)
 	if marshalErr != nil {
-		log.Print("ERROR: Could not decode item from job queue: ", marshalErr)
+		log.Print("ERROR jobrunnerrequestDAO/getNextJobRunnerRequest Could not decode item from job queue: ", marshalErr)
 		//it's already been removed by the LPOP operation
 		return nil, marshalErr
 	}
 	return &rq, nil
 }
 
-func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
+func pushToRequestQueue(client redis.Cmdable, item *models.JobContainer) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
-		log.Print("Could not encode content for ", item, ": ", marshalErr)
+		log.Print("ERROR jobrunnerrequestDAO/pushToRequestQueue Could not encode content for ", item, ": ", marshalErr)
 		return marshalErr
 	}
 
@@ -53,7 +53,24 @@ func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 
 	result := client.RPush(jobKey, string(encodedContent))
 	if result.Err() != nil {
-		log.Printf("Could not push to list %s: %s", jobKey, result.Err())
+		log.Printf("ERROR jobrunnerrequestDAO/pushToRequestQueue Could not push to list %s: %s", jobKey, result.Err())
+		return result.Err()
+	}
+	return nil
+}
+
+func removeFromRequestQueue(client redis.Cmdable, item *models.JobContainer) error {
+	encodedContent, marshalErr := json.Marshal(*item)
+	if marshalErr != nil {
+		log.Print("ERROR jobrunnerrequestDAO/removeFromRequestQueue Could not encode content for ", item, ": ", marshalErr)
+		return marshalErr
+	}
+
+	jobKey := fmt.Sprintf("mediaflipper:%s", models.REQUEST_QUEUE)
+
+	result := client.LRem(jobKey, 0, string(encodedContent))
+	if result.Err() != nil {
+		log.Printf("ERROR jobrunnerrequestDAO/removeFromRequestQueue Could not push to list %s: %s", jobKey, result.Err())
 		return result.Err()
 	}
 	return nil

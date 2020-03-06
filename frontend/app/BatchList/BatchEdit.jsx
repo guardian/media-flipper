@@ -102,9 +102,14 @@ class BatchEdit extends React.Component {
         }
     }
 
-    async triggerEnqueueItems() {
+    async triggerEnqueueItems(triggeredBy, forState) {
+        if(triggeredBy.className != null && triggeredBy.className.includes("disabled")) {
+            console.log("trigger is disabled");
+            return;
+        }
+
         await this.setStatePromise({loading: true});
-        const response = await fetch("/api/jobrunner/enqueue?forId=" + this.state.batchId, {method:"POST"});
+        const response = await fetch("/api/jobrunner/enqueue?forId=" + this.state.batchId + "&forState=" + forState, {method:"POST"});
         if(response.status===200){
             await response.body.cancel();
             return this.loadExistingData(this.state.batchId);
@@ -249,13 +254,6 @@ class BatchEdit extends React.Component {
         readNextChunk(reader,0);
     }
 
-    // shouldComponentUpdate(nextProps, nextState, nextContext) {
-    //     if(nextState.entriesBackingStore!==this.state.entriesBackingStore){
-    //         return nextState.entries.length-nextState.;
-    //     }
-    //     return true;
-    // }
-
     async componentDidMount() {
         window.addEventListener('scroll', this.listenToScroll);
         const batchId = this.props.match.params.batchId;
@@ -292,6 +290,8 @@ class BatchEdit extends React.Component {
     };
 
     render() {
+        const enqueueButtonClasses = this.state.nonQueuedCount > 0 ? "status-summary-entry button clickable" : "status-summary-entry button disabled";
+        const retryFailedClasses = this.state.errorCount > 0 ? "status-summary-entry button clickable" : "status-summary-entry button disabled";
         return <div>
             <MenuBanner/>
             <h2>Edit Batch</h2>
@@ -334,14 +334,17 @@ class BatchEdit extends React.Component {
                 <span id="actions" className="grid-form-control-stretch">
                     <ul className="status-summary-container">
                         <li className={this.state.removeFilesRunning ? "status-summary-entry button disabled"  : "status-summary-entry button clickable"}
-                            onClick={this.triggerRemoveDotFiles} style={{marginRight:"2em"}}>
+                            onClick={this.triggerRemoveDotFiles}>
                             <FontAwesomeIcon icon="minus-circle" style={{padding: "0.4em"}}/>Remove system files
                         </li>
-                        <li className="status-summary-entry button clickable" onClick={this.maybeTriggerNonTranscodable} style={{marginRight:"2em"}}>
-                            <FontAwesomeIcon icon="minus-circle"  style={{padding: "0.4em"}}/>Remove non-transcodable files
+                        <li className="status-summary-entry button clickable" onClick={this.maybeTriggerNonTranscodable}>
+                            <FontAwesomeIcon icon="minus-circle"  style={{padding: "0.4em"}}/>Remove non-transcodable
                         </li>
-                        <li className="status-summary-entry button clickable" onClick={this.triggerEnqueueItems} style={{marginRight:"2em"}}>
+                        <li className={enqueueButtonClasses} onClick={evt=>this.triggerEnqueueItems(evt.target,"notqueued")}>
                             <FontAwesomeIcon icon="play-circle"  style={{padding: "0.4em"}}/>Start jobs running
+                        </li>
+                        <li className={retryFailedClasses} onClick={evt=>this.triggerEnqueueItems(evt.target,"failed")}>
+                            <FontAwesomeIcon icon="sync-alt"  style={{padding: "0.4em"}}/>Retry failed jobs
                         </li>
                     </ul>
                 </span>

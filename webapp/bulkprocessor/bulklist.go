@@ -164,14 +164,16 @@ func asyncReceiver(itemsChan chan BulkItem, errorChan chan error) ([]BulkItem, e
 		select {
 		case newItem := <-itemsChan:
 			if newItem == nil {
-				log.Printf("Received all items")
+				log.Printf("DEBUG bulklist/asyncReceiver Received all items")
 				return rtn, nil
 			} else {
 				rtn = append(rtn, newItem)
 			}
 		case scanErr := <-errorChan:
-			log.Printf("Receved async error: %s", scanErr)
-			return nil, scanErr
+			if scanErr != nil {
+				log.Printf("ERROR bulklist/asyncReceiverReceved async error: %s", scanErr)
+				return nil, scanErr
+			}
 		}
 	}
 }
@@ -191,7 +193,7 @@ func (list *BulkListImpl) BatchFetchRecords(idList []string, outputChan *chan Bu
 	results, contentErr := pipe.Exec()
 	defer pipe.Close()
 	if contentErr != nil && !strings.Contains(contentErr.Error(), "redis: nil") {
-		log.Printf("Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
+		log.Printf("ERROR BatchFetchRecords Could not retrieve data for some of '%s': %s", strings.Join(idList, ","), contentErr)
 		return contentErr
 	}
 
@@ -357,7 +359,6 @@ func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisCl
 		for {
 			select {
 			case recordId := <-idListChan:
-				log.Printf("received %s", spew.Sdump(recordId))
 				if recordId == nil {
 					terminate = true
 					break
@@ -375,7 +376,8 @@ func (list *BulkListImpl) FilterRecordsByStateAsync(state BulkItemState, redisCl
 		fetchErr := list.BatchFetchRecords(idList, &outputChan, redisClient)
 		if fetchErr != nil {
 			errorChan <- fetchErr
-			return
+		} else {
+			errorChan <- nil
 		}
 		outputChan <- nil
 	}()

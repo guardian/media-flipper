@@ -66,7 +66,17 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		specificItemUuid = &uid
 	}
-	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, specificItemUuid, nil)
+
+	var forState bulkprocessor.BulkItemState
+	forStateString := parsedUrl.Query().Get("forState")
+	if forStateString == "" && specificItemUuid == nil {
+		helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_arguments", "you must specify either forState or forItem"}, w, 400)
+		return
+	}
+
+	forState = bulkprocessor.ItemStateFromString(forStateString)
+
+	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, specificItemUuid, forState, nil)
 
 	if syncMode {
 		log.Printf("INFO: BulkEnqueueHandler running in sync mode, waiting for completion...")

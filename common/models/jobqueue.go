@@ -149,10 +149,12 @@ func RemoveFromQueue(client redis.Cmdable, queueName QueueName, entry JobQueueEn
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
 	removed, err := client.LRem(jobKey, 0, entry.Marshal()).Result()
 	if err != nil {
-		log.Printf("Could not remove %s from %s: %s", entry.Marshal(), jobKey, err)
+		log.Printf("ERROR RemoveFromQueue Could not remove %s from %s: %s", entry.Marshal(), jobKey, err)
 		return err
 	}
-	if removed == 0 {
+	_, isPipeline := client.(*redis.Pipeline)
+
+	if removed == 0 && !isPipeline { //removed always =0 if we are pipelining because the operation has not been run at this point
 		log.Printf("WARNING: Could not find item %s to remove from queue %s", entry.Marshal(), jobKey)
 		return errors.New("could not find item to remove from queue")
 	}
