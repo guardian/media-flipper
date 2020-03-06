@@ -1,6 +1,7 @@
 package jobrunner
 
 import (
+	"errors"
 	"github.com/alicebob/miniredis"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
@@ -50,6 +51,10 @@ type JobRunnerMockRealEnqueue struct {
 
 	AddedContainers []*models.JobContainer
 	WrapperRunner   *JobRunner
+}
+
+func (m *JobRunnerMockRealEnqueue) RemoveJob(container *models.JobContainer) error {
+	return errors.New("mock does not implement RemoveJob")
 }
 
 func (m *JobRunnerMockRealEnqueue) AddJob(container *models.JobContainer) error {

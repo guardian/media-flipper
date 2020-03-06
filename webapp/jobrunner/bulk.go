@@ -29,11 +29,12 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 			case rec := <-records:
 				if rec == nil {
 					if currentPipeline != nil {
-						log.Printf("asyncStoreItemsBulk: got the last item, committing %d pending records...", pendingCount)
+						log.Printf("INFO asyncStoreItemsBulk: got the last item, committing %d pending records...", pendingCount)
 						_, putErr := currentPipeline.Exec()
 						if putErr != nil {
 							log.Printf("ERROR: jobrunner/asyncUpdateItemStatus could not commit all records: %s", putErr)
 						}
+						log.Print("INFO asyncStoreItemsBulk commit done")
 						currentPipeline.Close()
 					}
 					errorChan <- nil
@@ -41,7 +42,7 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 				}
 
 				if currentPipeline == nil {
-					log.Printf("asyncStoreItemsBulk: creating new pipeline")
+					log.Printf("DEBUG asyncStoreItemsBulk creating new pipeline")
 					currentPipeline = client.Pipeline()
 				}
 
@@ -55,7 +56,7 @@ func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkpro
 				if pendingCount >= commitEvery {
 					_, putErr := currentPipeline.Exec()
 					if putErr != nil {
-						log.Printf("ERROR: jobrunner/asyncUpdateItemStatus could not commit all records: %s", putErr)
+						log.Printf("ERROR asyncUpdateItemStatus could not commit all records: %s", putErr)
 					}
 					currentPipeline.Close()
 					currentPipeline = nil

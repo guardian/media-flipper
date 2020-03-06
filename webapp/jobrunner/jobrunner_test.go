@@ -135,3 +135,98 @@ func TestJobRunner_clearCompletedTick_notfound(t *testing.T) {
 		}
 	}
 }
+
+func TestJobRunner_RemoveJob(t *testing.T) {
+	s, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer s.Close()
+
+	testClient := redis.NewClient(&redis.Options{
+		Addr: s.Addr(),
+	})
+
+	fakeJob := models.JobContainer{
+		Id: uuid.MustParse("5ADF754B-B7C3-4325-8B3F-3DCB6E4B4E5B"),
+		Steps: []models.JobStep{
+			models.JobStepAnalysis{
+				JobStepType:            "analysis",
+				JobStepId:              uuid.MustParse("11D21E2A-2570-410A-8DBA-4673746FFD8C"),
+				JobContainerId:         uuid.MustParse("5ADF754B-B7C3-4325-8B3F-3DCB6E4B4E5B"),
+				ContainerData:          nil,
+				StatusValue:            models.JOB_PENDING,
+				ResultId:               uuid.UUID{},
+				LastError:              "",
+				MediaFile:              "",
+				KubernetesTemplateFile: "",
+				StartTime:              nil,
+				EndTime:                nil,
+				ItemType:               "",
+			},
+			models.JobStepCustom{
+				JobStepType:            "custom",
+				JobStepId:              uuid.MustParse("B3B572E0-E515-43E4-AE31-394974F3F33E"),
+				JobContainerId:         uuid.MustParse("5ADF754B-B7C3-4325-8B3F-3DCB6E4B4E5B"),
+				StatusValue:            models.JOB_LOST,
+				LastError:              "",
+				StartTime:              nil,
+				EndTime:                nil,
+				MediaFile:              "",
+				KubernetesTemplateFile: "",
+				ItemType:               "",
+				CustomArguments:        nil,
+			},
+		},
+		CompletedSteps:    0,
+		Status:            0,
+		JobTemplateId:     uuid.UUID{},
+		ErrorMessage:      "",
+		IncomingMediaFile: "",
+		StartTime:         nil,
+		EndTime:           nil,
+		AssociatedBulk:    nil,
+		ItemType:          "",
+		ThumbnailId:       nil,
+		TranscodedMediaId: nil,
+		OutputPath:        "",
+	}
+
+	runner := JobRunner{redisClient: testClient}
+
+	models.AddToQueue(testClient, models.RUNNING_QUEUE, models.JobQueueEntry{
+		JobId:  fakeJob.Id,
+		StepId: fakeJob.Steps[0].StepId(),
+		Status: fakeJob.Steps[0].Status(),
+	})
+	models.AddToQueue(testClient, models.RUNNING_QUEUE, models.JobQueueEntry{
+		JobId:  fakeJob.Id,
+		StepId: fakeJob.Steps[1].StepId(),
+		Status: fakeJob.Steps[1].Status(),
+	})
+
+	queueLen, getQueueLenErr := models.GetQueueLength(testClient, models.RUNNING_QUEUE)
+
+	if getQueueLenErr != nil {
+		t.Error("could not get queue length: ", getQueueLenErr)
+		t.FailNow()
+	}
+	if queueLen != 2 {
+		t.Errorf("adding entries to queue failed, expected 2 items on queue got %d", queueLen)
+		t.FailNow()
+	}
+
+	remErr := runner.RemoveJob(&fakeJob)
+	if remErr != nil {
+		t.Errorf("RemoveJob unexpectedly failed: %s", remErr)
+	} else {
+		queueLenAfter, getLenAfterErr := models.GetQueueLength(testClient, models.RUNNING_QUEUE)
+		if getLenAfterErr != nil {
+			t.Error("could not get queue length after remove: ", getLenAfterErr)
+		} else {
+			if queueLenAfter != 0 {
+				t.Errorf("RemoveJob did not work correctly, expected 0 jobs in queue got %d", queueLenAfter)
+			}
+		}
+	}
+}

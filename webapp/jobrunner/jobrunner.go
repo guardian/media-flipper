@@ -17,7 +17,7 @@ import (
 
 type JobRunnerIF interface {
 	AddJob(container *models.JobContainer) error
-	//EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error
+	RemoveJob(container *models.JobContainer) error
 	clearCompletedTick()
 }
 
@@ -89,6 +89,33 @@ func (j *JobRunner) AddJob(container *models.JobContainer) error {
 	result := pushToRequestQueue(j.redisClient, container)
 	log.Printf("Enqueued job for processing: %s", container.Id)
 	return result
+}
+
+/**
+remove any possible step from the given job from the queue
+*/
+func (j *JobRunner) RemoveJob(container *models.JobContainer) error {
+	//remove _every possible_ status for each step, we don't know which ones are there
+	allStatusCount := len(models.ALL_JOB_STATUS)
+	entries := make([]models.JobQueueEntry, len(container.Steps)*allStatusCount)
+	for i, step := range container.Steps {
+		for statusCount, statusValue := range models.ALL_JOB_STATUS {
+			idx := (i * allStatusCount) + statusCount
+			entries[idx] = models.JobQueueEntry{
+				JobId:  container.Id,
+				StepId: step.StepId(),
+				Status: statusValue,
+			}
+		}
+	}
+
+	pipe := j.redisClient.Pipeline()
+	for _, entry := range entries {
+		models.RemoveFromQueue(pipe, models.RUNNING_QUEUE, entry)
+		removeFromRequestQueue(pipe, container)
+	}
+	_, pipeErr := pipe.Exec()
+	return pipeErr
 }
 
 /**

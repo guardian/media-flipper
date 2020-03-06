@@ -42,7 +42,7 @@ func getNextJobRunnerRequest(client *redis.Client, queueName models.QueueName) (
 	return &rq, nil
 }
 
-func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
+func pushToRequestQueue(client redis.Cmdable, item *models.JobContainer) error {
 	encodedContent, marshalErr := json.Marshal(*item)
 	if marshalErr != nil {
 		log.Print("Could not encode content for ", item, ": ", marshalErr)
@@ -52,6 +52,23 @@ func pushToRequestQueue(client *redis.Client, item *models.JobContainer) error {
 	jobKey := fmt.Sprintf("mediaflipper:%s", models.REQUEST_QUEUE)
 
 	result := client.RPush(jobKey, string(encodedContent))
+	if result.Err() != nil {
+		log.Printf("Could not push to list %s: %s", jobKey, result.Err())
+		return result.Err()
+	}
+	return nil
+}
+
+func removeFromRequestQueue(client redis.Cmdable, item *models.JobContainer) error {
+	encodedContent, marshalErr := json.Marshal(*item)
+	if marshalErr != nil {
+		log.Print("Could not encode content for ", item, ": ", marshalErr)
+		return marshalErr
+	}
+
+	jobKey := fmt.Sprintf("mediaflipper:%s", models.REQUEST_QUEUE)
+
+	result := client.LRem(jobKey, 0, string(encodedContent))
 	if result.Err() != nil {
 		log.Printf("Could not push to list %s: %s", jobKey, result.Err())
 		return result.Err()

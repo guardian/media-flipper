@@ -21,7 +21,7 @@ func NewJobRunnerEndpoints(redisClient *redis.Client, templateMgr *models.JobTem
 		PurgeHandler:  PurgeHandler{redisClient: redisClient},
 		EnqueueBulk:   BulkEnqueueHandler{redisClient: redisClient, templateManager: templateMgr, runner: runner},
 		ManualCleanup: ManualCleanupHandler{redisClient: redisClient, k8clientset: clientset},
-		FailPending:   FailPendingHandler{redisClient: redisClient},
+		FailPending:   FailPendingHandler{redisClient: redisClient, runner: runner},
 	}
 }
 
