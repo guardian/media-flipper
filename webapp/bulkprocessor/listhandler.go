@@ -2,6 +2,7 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -47,7 +48,7 @@ func (h ListHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	results, getErr := ScanBulkList(startAt, endAt, h.redisClient)
+	results, getErr := bulk_models.ScanBulkList(startAt, endAt, h.redisClient)
 	if getErr != nil {
 		log.Printf("ERROR: could not retrieve bulk lists: %s", getErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", getErr.Error()}, w, 500)

@@ -6,6 +6,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/models"
 	v1 "k8s.io/api/batch/v1"
 	"log"
@@ -46,6 +47,26 @@ func TestJobRunner_clearCompletedTick_notfound(t *testing.T) {
 	jobId, stepId := setupFakeQueueEntry(testClient)
 	nowTime := time.Now()
 
+	bulkItemId := uuid.MustParse("F94EE071-FE4B-4B1E-8292-C8EA17DC6F1A")
+	bulkListId := uuid.MustParse("AD2C526D-4694-426C-8D0D-0E1C58EEF399")
+	bulkList := bulk_models.BulkListImpl{
+		BulkListId:      bulkListId,
+		CreationTime:    time.Time{},
+		NickName:        "",
+		VideoTemplateId: uuid.UUID{},
+		AudioTemplateId: uuid.UUID{},
+		ImageTemplateId: uuid.UUID{},
+		BulkListDAO:     nil,
+	}
+	bulkEntry := bulk_models.BulkItemImpl{
+		Id:         bulkItemId,
+		BulkListId: uuid.UUID{},
+		SourcePath: "",
+		Priority:   0,
+		State:      0,
+		Type:       "",
+	}
+
 	testJob := models.JobContainer{
 		Id: jobId,
 		Steps: []models.JobStep{
@@ -71,12 +92,27 @@ func TestJobRunner_clearCompletedTick_notfound(t *testing.T) {
 		IncomingMediaFile: "",
 		StartTime:         &nowTime,
 		EndTime:           nil,
-		AssociatedBulk:    nil,
+		AssociatedBulk: &models.BulkAssociation{
+			Item: bulkEntry.Id,
+			List: bulkList.BulkListId,
+		},
 		ItemType:          "",
 		ThumbnailId:       nil,
 		TranscodedMediaId: nil,
 		OutputPath:        "",
 	}
+
+	itmStorErr := bulkEntry.Store(testClient)
+	if itmStorErr != nil {
+		t.Error("could not store test bulk item: ", itmStorErr)
+		t.FailNow()
+	}
+	lstStoreErr := bulkList.Store(testClient)
+	if lstStoreErr != nil {
+		t.Error("could not store test list: ", lstStoreErr)
+		t.FailNow()
+	}
+
 	storErr := testJob.Store(testClient)
 	if storErr != nil {
 		t.Error("could not store test job: ", storErr)
@@ -132,6 +168,12 @@ func TestJobRunner_clearCompletedTick_notfound(t *testing.T) {
 		}
 		if updatedJob.Status != models.JOB_LOST {
 			t.Errorf("updated job container had incorrect status. Expected %d (JOB_LOST), got %d", models.JOB_LOST, updatedJob.Status)
+		}
+		d := bulk_models.BulkListDAOImpl{}
+		updatedBulk, _ := d.BulkListForId(bulkListId, testClient)
+		updatedItem, _ := updatedBulk.GetSpecificRecordSync(bulkItemId, testClient)
+		if updatedItem.GetState() != bulk_models.ITEM_STATE_LOST {
+			t.Errorf("updated bulk record had incorrect status. Expected %d (ITEM_STATE_LOST), got %d", bulk_models.ITEM_STATE_LOST, updatedItem.GetState())
 		}
 	}
 }

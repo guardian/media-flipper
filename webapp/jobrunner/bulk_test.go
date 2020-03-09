@@ -6,9 +6,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"testing"
 	"time"
 )
@@ -65,8 +65,8 @@ func (m *JobRunnerMockRealEnqueue) AddJob(container *models.JobContainer) error 
 	return nil
 }
 
-func (m *JobRunnerMockRealEnqueue) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulkprocessor.BulkListImpl, testRunner JobRunnerIF) chan error {
-	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, bulkprocessor.ITEM_STATE_NOT_QUEUED, testRunner)
+func (m *JobRunnerMockRealEnqueue) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulk_models.BulkListImpl, testRunner JobRunnerIF) chan error {
+	return m.WrapperRunner.EnqueueContentsAsync(redisClient, templateManager, l, nil, bulk_models.ITEM_STATE_NOT_QUEUED, testRunner)
 }
 
 func (m *JobRunnerMockRealEnqueue) clearCompletedTick() {
@@ -132,7 +132,7 @@ func TestJobRunner_EnqueueContentsAsync(t *testing.T) {
 		queuePollTicker: nil,
 		templateMgr:     nil,
 		maxJobs:         1,
-		bulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		bulkListDAO:     bulk_models.BulkListDAOImpl{},
 	}
 
 	runner := &JobRunnerMockRealEnqueue{
@@ -142,22 +142,22 @@ func TestJobRunner_EnqueueContentsAsync(t *testing.T) {
 		WrapperRunner:           &realRunner,
 	}
 
-	bulk := bulkprocessor.BulkListImpl{
+	bulk := bulk_models.BulkListImpl{
 		BulkListId:      bulkId,
 		CreationTime:    time.Time{},
 		NickName:        "",
 		VideoTemplateId: uuid.UUID{},
 		AudioTemplateId: uuid.UUID{},
 		ImageTemplateId: uuid.UUID{},
-		BulkListDAO:     bulkprocessor.BulkListDAOImpl{},
+		BulkListDAO:     bulk_models.BulkListDAOImpl{},
 	}
 
-	testRecord := bulkprocessor.BulkItemImpl{
+	testRecord := bulk_models.BulkItemImpl{
 		Id:         itemId,
 		BulkListId: bulkId,
 		SourcePath: "path/to/videofile",
 		Priority:   0,
-		State:      bulkprocessor.ITEM_STATE_NOT_QUEUED,
+		State:      bulk_models.ITEM_STATE_NOT_QUEUED,
 		Type:       helpers.ITEM_TYPE_VIDEO,
 	}
 	addErr := bulk.AddRecord(&testRecord, testClient)
@@ -174,8 +174,8 @@ func TestJobRunner_EnqueueContentsAsync(t *testing.T) {
 		if len(actions) != 1 {
 			t.Errorf("Got wrong number of current actions, expected 1 got %d", len(actions))
 		} else {
-			if actions[0] != bulkprocessor.JOBS_QUEUEING {
-				t.Errorf("Got wrong current action, expected %s got %s", bulkprocessor.JOBS_QUEUEING, actions[0])
+			if actions[0] != bulk_models.JOBS_QUEUEING {
+				t.Errorf("Got wrong current action, expected %s got %s", bulk_models.JOBS_QUEUEING, actions[0])
 			}
 		}
 	}

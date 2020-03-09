@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"encoding/json"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"io/ioutil"
 	"log"
@@ -41,7 +42,7 @@ func (h UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bulkList, getErr := BulkListForId(*bulkListId, h.redisClient)
+	bulkList, getErr := bulk_models.BulkListForId(*bulkListId, h.redisClient)
 	if getErr != nil {
 		log.Printf("could not retrieve bulk list for id %s: %s", bulkListId, getErr)
 		if strings.Contains(getErr.Error(), "redis: nil") {

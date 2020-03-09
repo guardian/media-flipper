@@ -1,4 +1,4 @@
-package bulkprocessor
+package bulk_models
 
 import (
 	"bytes"
@@ -22,6 +22,7 @@ const (
 	ITEM_STATE_FAILED
 	ITEM_STATE_ABORTED
 	ITEM_STATE_NOT_QUEUED
+	ITEM_STATE_LOST
 )
 
 var ItemStates = []BulkItemState{
@@ -31,6 +32,7 @@ var ItemStates = []BulkItemState{
 	ITEM_STATE_FAILED,
 	ITEM_STATE_ABORTED,
 	ITEM_STATE_NOT_QUEUED,
+	ITEM_STATE_LOST,
 }
 
 func ItemStateFromString(incoming string) BulkItemState {
@@ -47,6 +49,8 @@ func ItemStateFromString(incoming string) BulkItemState {
 		return ITEM_STATE_ABORTED
 	case "notqueued":
 		return ITEM_STATE_NOT_QUEUED
+	case "lost":
+		return ITEM_STATE_LOST
 	default:
 		return ITEM_STATE_PENDING
 	}

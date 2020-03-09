@@ -1,4 +1,4 @@
-package bulkprocessor
+package bulk_models
 
 import (
 	"github.com/google/uuid"

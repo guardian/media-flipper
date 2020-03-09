@@ -1,4 +1,4 @@
-package bulkprocessor
+package bulk_models
 
 import (
 	"encoding/json"
@@ -25,6 +25,7 @@ const (
 type BulkList interface {
 	GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error)
 	GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error)
+	GetSpecificRecordSync(itemId uuid.UUID, redisClient redis.Cmdable) (BulkItem, error)
 	GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan BulkItem, chan error)
 	FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error)
 	FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error)
@@ -254,6 +255,22 @@ func (list *BulkListImpl) GetSpecificRecordAsync(itemId uuid.UUID, redisClient r
 
 	return outputChan, errChan
 
+}
+
+func (list *BulkListImpl) GetSpecificRecordSync(itemId uuid.UUID, redisClient redis.Cmdable) (BulkItem, error) {
+	recordKey := fmt.Sprintf("mediaflipper:bulkitem:%s", itemId.String())
+
+	stringContent, getErr := redisClient.Get(recordKey).Result()
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	var rec BulkItemImpl
+	marshalErr := json.Unmarshal([]byte(stringContent), &rec)
+	if marshalErr != nil {
+		return nil, marshalErr
+	}
+	return &rec, nil
 }
 
 func (list *BulkListImpl) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {

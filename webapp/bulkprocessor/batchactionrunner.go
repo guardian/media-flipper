@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"log"
 )
 
@@ -10,7 +11,7 @@ import (
 generic function that runs a callback against every member of the given batch
 returns a channel that completes with nil if no error occurred, or an error object describing what went wrong
 */
-func RunAsyncActionForBatch(dao BulkListDAO, batchId uuid.UUID, actionId BulkListAction, redisClient redis.Cmdable, asyncCallback func(chan BulkItem, chan error, chan error, BulkList, redis.Cmdable)) chan error {
+func RunAsyncActionForBatch(dao bulk_models.BulkListDAO, batchId uuid.UUID, actionId bulk_models.BulkListAction, redisClient redis.Cmdable, asyncCallback func(chan bulk_models.BulkItem, chan error, chan error, bulk_models.BulkList, redis.Cmdable)) chan error {
 	competionChan := make(chan error)
 
 	go func() {

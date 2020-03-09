@@ -3,9 +3,9 @@ package jobrunner
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"log"
 	"net/http"
 )
@@ -35,7 +35,7 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		syncMode = true
 	}
 
-	batchList, getErr := bulkprocessor.BulkListForId(*batchId, h.redisClient)
+	batchList, getErr := bulk_models.BulkListForId(*batchId, h.redisClient)
 	if getErr != nil {
 		log.Printf("ERROR: Could not get bulk list for %s: %s", *batchId, getErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{
@@ -45,7 +45,7 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	batchListImplPtr, isok := batchList.(*bulkprocessor.BulkListImpl)
+	batchListImplPtr, isok := batchList.(*bulk_models.BulkListImpl)
 	if !isok {
 		log.Printf("ERROR: BulkEnqueueHandler does not yet support mocked BulkList")
 		return

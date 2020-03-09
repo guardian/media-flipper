@@ -4,9 +4,9 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"log"
 	"time"
 )
@@ -17,7 +17,7 @@ pass in a channel that yields instances of BulkItem, and their status will be up
 be written back to the datastore layer in bulks of `commitEvery` records
 pass a nil to the `records` channel to signal termination; any outstanding records will be written and the writer will terminate.
 */
-func asyncUpdateItemStatus(records chan bulkprocessor.BulkItem, newState bulkprocessor.BulkItemState, l bulkprocessor.BulkList, commitEvery int, client redis.Cmdable) chan error {
+func asyncUpdateItemStatus(records chan bulk_models.BulkItem, newState bulk_models.BulkItemState, l bulk_models.BulkList, commitEvery int, client redis.Cmdable) chan error {
 	errorChan := make(chan error)
 
 	go func() {
@@ -80,14 +80,13 @@ arguments:
 - byState         - the item state that should be enqueued
 - testRunner      - pass in an alternative JobRunner, used for testing
 */
-func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF,
-	l *bulkprocessor.BulkListImpl, maybeSpecificID *uuid.UUID, byState bulkprocessor.BulkItemState, testRunner JobRunnerIF) chan error {
+func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templateManager models.TemplateManagerIF, l *bulk_models.BulkListImpl, maybeSpecificID *uuid.UUID, byState bulk_models.BulkItemState, testRunner JobRunnerIF) chan error {
 	rtnChan := make(chan error, 10)
 
-	l.SetActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
+	l.SetActionRunning(bulk_models.JOBS_QUEUEING, redisClient)
 	l.Store(redisClient)
 
-	var resultsChan chan bulkprocessor.BulkItem
+	var resultsChan chan bulk_models.BulkItem
 	var errChan chan error
 
 	if maybeSpecificID == nil {
@@ -96,8 +95,8 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 		resultsChan, errChan = l.GetSpecificRecordAsync(*maybeSpecificID, redisClient)
 	}
 
-	updateChan := make(chan bulkprocessor.BulkItem, 10)
-	storeErrChan := asyncUpdateItemStatus(updateChan, bulkprocessor.ITEM_STATE_PENDING, l, 50, redisClient)
+	updateChan := make(chan bulk_models.BulkItem, 10)
+	storeErrChan := asyncUpdateItemStatus(updateChan, bulk_models.ITEM_STATE_PENDING, l, 50, redisClient)
 
 	go func() {
 		for {
@@ -117,7 +116,7 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 					}
 
 					log.Printf("INFO EnqueueContentsAsync store completed, exiting")
-					l.ClearActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
+					l.ClearActionRunning(bulk_models.JOBS_QUEUEING, redisClient)
 					l.Store(redisClient)
 					rtnChan <- nil
 					return
@@ -163,7 +162,7 @@ func (runner *JobRunner) EnqueueContentsAsync(redisClient redis.Cmdable, templat
 				}
 			case err := <-errChan:
 				if err != nil {
-					l.ClearActionRunning(bulkprocessor.JOBS_QUEUEING, redisClient)
+					l.ClearActionRunning(bulk_models.JOBS_QUEUEING, redisClient)
 					l.Store(redisClient)
 					rtnChan <- err
 					return

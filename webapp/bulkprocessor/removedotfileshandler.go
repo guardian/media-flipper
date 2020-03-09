@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -12,16 +13,16 @@ import (
 
 type RemoveDotFiles struct {
 	redisClient *redis.Client
-	dao         BulkListDAO
+	dao         bulk_models.BulkListDAO
 }
 
-func removeDotFilesProcessor(itemsChan chan BulkItem, errChan chan error, outputChan chan error, batch BulkList, redisClient redis.Cmdable) {
+func removeDotFilesProcessor(itemsChan chan bulk_models.BulkItem, errChan chan error, outputChan chan error, batch bulk_models.BulkList, redisClient redis.Cmdable) {
 	for {
 		select {
 		case item := <-itemsChan:
 			if item == nil {
 				log.Printf("Remove dotfiles run completed")
-				batch.ClearActionRunning(REMOVE_SYSTEM_FILES, redisClient)
+				batch.ClearActionRunning(bulk_models.REMOVE_SYSTEM_FILES, redisClient)
 				outputChan <- nil
 				return
 			}
@@ -35,7 +36,7 @@ func removeDotFilesProcessor(itemsChan chan BulkItem, errChan chan error, output
 			}
 		case err := <-errChan:
 			log.Printf("ERROR: Could not iterate all items: %s", err)
-			batch.ClearActionRunning(REMOVE_SYSTEM_FILES, redisClient)
+			batch.ClearActionRunning(bulk_models.REMOVE_SYSTEM_FILES, redisClient)
 			outputChan <- err
 		}
 	}
@@ -59,7 +60,7 @@ func (h RemoveDotFiles) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		syncMode = true
 	}
 
-	completionChan := RunAsyncActionForBatch(h.dao, *batchId, REMOVE_SYSTEM_FILES, h.redisClient, removeDotFilesProcessor)
+	completionChan := RunAsyncActionForBatch(h.dao, *batchId, bulk_models.REMOVE_SYSTEM_FILES, h.redisClient, removeDotFilesProcessor)
 
 	if syncMode {
 		<-completionChan

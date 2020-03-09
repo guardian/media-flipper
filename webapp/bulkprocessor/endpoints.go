@@ -2,6 +2,7 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/models"
 	"net/http"
 )
@@ -18,7 +19,7 @@ type BulkEndpoints struct {
 }
 
 func NewBulkEndpoints(redisClient *redis.Client, templateManager *models.JobTemplateManager) BulkEndpoints {
-	dao := BulkListDAOImpl{}
+	dao := bulk_models.BulkListDAOImpl{}
 
 	return BulkEndpoints{
 		GetHandler:            GetHandler{redisClient: redisClient},

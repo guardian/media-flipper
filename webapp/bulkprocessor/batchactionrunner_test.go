@@ -5,6 +5,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"sync"
@@ -24,14 +25,14 @@ func TestRunAsyncActionForBatch_working(t *testing.T) {
 		uuid.MustParse("A7E2506C-842D-4A95-8581-9D7D21315466"),
 	}
 
-	mockRecordList := make([]BulkItem, len(itemIds))
+	mockRecordList := make([]bulk_models.BulkItem, len(itemIds))
 	for i, itemId := range itemIds {
-		mockRecordList[i] = &BulkItemImpl{
+		mockRecordList[i] = &bulk_models.BulkItemImpl{
 			Id:         itemId,
 			BulkListId: listId,
 			SourcePath: fmt.Sprintf("path/to/file%d", i),
 			Priority:   1234,
-			State:      ITEM_STATE_PENDING,
+			State:      bulk_models.ITEM_STATE_PENDING,
 			Type:       helpers.ITEM_TYPE_IMAGE,
 		}
 	}
@@ -47,13 +48,13 @@ func TestRunAsyncActionForBatch_working(t *testing.T) {
 
 	dao := BulkListDAOMock{alwaysRequestedResult: &mockedList}
 
-	returnList := make([]BulkItem, 0)
+	returnList := make([]bulk_models.BulkItem, 0)
 
 	completionChan := RunAsyncActionForBatch(dao,
 		listId,
-		REMOVE_NONTRANSCODABLE_FILES,
+		bulk_models.REMOVE_NONTRANSCODABLE_FILES,
 		nil,
-		func(itemsChan chan BulkItem, errChan chan error, outputChan chan error, list BulkList, redisClient redis.Cmdable) {
+		func(itemsChan chan bulk_models.BulkItem, errChan chan error, outputChan chan error, list bulk_models.BulkList, redisClient redis.Cmdable) {
 			for {
 				select {
 				case item := <-itemsChan:

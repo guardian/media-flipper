@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"sync"
 	"time"
 )
@@ -13,13 +14,13 @@ Mock implementation of BulkListDAO, to inject instances of BulkListMock when doi
 This should get eliminated by DCE (dead code elimination) during compiling/linking
 */
 type BulkListDAOMock struct {
-	alwaysRequestedResult BulkList
+	alwaysRequestedResult bulk_models.BulkList
 	singleRequestError    error
-	scanResults           []*BulkListImpl
+	scanResults           []*bulk_models.BulkListImpl
 	scanRequestError      error
 }
 
-func (dao BulkListDAOMock) BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (BulkList, error) {
+func (dao BulkListDAOMock) BulkListForId(bulkId uuid.UUID, client redis.Cmdable) (bulk_models.BulkList, error) {
 	if dao.singleRequestError != nil {
 		return nil, dao.singleRequestError
 	} else {
@@ -27,7 +28,7 @@ func (dao BulkListDAOMock) BulkListForId(bulkId uuid.UUID, client redis.Cmdable)
 	}
 }
 
-func (dao BulkListDAOMock) ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*BulkListImpl, error) {
+func (dao BulkListDAOMock) ScanBulkList(start int64, stop int64, client redis.Cmdable) ([]*bulk_models.BulkListImpl, error) {
 	if dao.scanRequestError != nil {
 		return nil, dao.scanRequestError
 	} else {
@@ -35,11 +36,11 @@ func (dao BulkListDAOMock) ScanBulkList(start int64, stop int64, client redis.Cm
 	}
 }
 
-func (dao BulkListDAOMock) UpdateById(bulkId uuid.UUID, itemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) error {
+func (dao BulkListDAOMock) UpdateById(bulkId uuid.UUID, itemId uuid.UUID, newState bulk_models.BulkItemState, redisClient redis.Cmdable) error {
 	return errors.New("mock does not implement UpdateById")
 }
 
-func (dao BulkListDAOMock) ReindexRecord(listId uuid.UUID, record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error {
+func (dao BulkListDAOMock) ReindexRecord(listId uuid.UUID, record bulk_models.BulkItem, oldRecord bulk_models.BulkItem, redisClient redis.Cmdable) error {
 	return errors.New("mock does not implement ReindexRecord")
 }
 
@@ -53,7 +54,7 @@ type BulkListMock struct {
 	CallCountMap   map[string]int
 	callCountMutex sync.Mutex
 	CallArgsMap    map[string][][]string
-	allRecordsList []BulkItem
+	allRecordsList []bulk_models.BulkItem
 }
 
 func (l *BulkListMock) DequeueContentsAsync() chan error {
@@ -97,13 +98,13 @@ func (l *BulkListMock) incrementCallCount(funcName string, args []string) {
 	}
 }
 
-func (l *BulkListMock) GetAllRecords(redisClient redis.Cmdable) ([]BulkItem, error) {
+func (l *BulkListMock) GetAllRecords(redisClient redis.Cmdable) ([]bulk_models.BulkItem, error) {
 	return l.allRecordsList, nil
 }
 
-func (l *BulkListMock) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkItem, chan error) {
+func (l *BulkListMock) GetAllRecordsAsync(redisClient redis.Cmdable) (chan bulk_models.BulkItem, chan error) {
 	l.incrementCallCount("GetAllRecordsAsync", []string{})
-	outputChan := make(chan BulkItem, 5)
+	outputChan := make(chan bulk_models.BulkItem, 5)
 	errChan := make(chan error)
 
 	go func() {
@@ -115,41 +116,44 @@ func (l *BulkListMock) GetAllRecordsAsync(redisClient redis.Cmdable) (chan BulkI
 	return outputChan, errChan
 }
 
-func (l *BulkListMock) GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+func (l *BulkListMock) GetSpecificRecordSync(itemId uuid.UUID, redisClient redis.Cmdable) (bulk_models.BulkItem, error) {
+	return nil, errors.New("mock does not implement this")
+}
+func (l *BulkListMock) GetSpecificRecordAsync(itemId uuid.UUID, redisClient redis.Cmdable) (chan bulk_models.BulkItem, chan error) {
 	return nil, l.testNotImplementedAsync()
 }
 
-func (l *BulkListMock) FilterRecordsByState(state BulkItemState, redisClient redis.Cmdable) ([]BulkItem, error) {
+func (l *BulkListMock) FilterRecordsByState(state bulk_models.BulkItemState, redisClient redis.Cmdable) ([]bulk_models.BulkItem, error) {
 	return nil, l.testNotImplementedSync()
 }
-func (l *BulkListMock) FilterRecordsByStateAsync(state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+func (l *BulkListMock) FilterRecordsByStateAsync(state bulk_models.BulkItemState, redisClient redis.Cmdable) (chan bulk_models.BulkItem, chan error) {
 	return nil, l.testNotImplementedAsync()
 }
-func (l *BulkListMock) FilterRecordsByName(name string, redisClient redis.Cmdable) ([]BulkItem, error) {
+func (l *BulkListMock) FilterRecordsByName(name string, redisClient redis.Cmdable) ([]bulk_models.BulkItem, error) {
 	return nil, l.testNotImplementedSync()
 }
-func (l *BulkListMock) FilterRecordsByNameAsync(name string, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+func (l *BulkListMock) FilterRecordsByNameAsync(name string, redisClient redis.Cmdable) (chan bulk_models.BulkItem, chan error) {
 	return nil, l.testNotImplementedAsync()
 }
-func (l *BulkListMock) FilterRecordsByNameAndStateAsync(name string, state BulkItemState, redisClient redis.Cmdable) (chan BulkItem, chan error) {
+func (l *BulkListMock) FilterRecordsByNameAndStateAsync(name string, state bulk_models.BulkItemState, redisClient redis.Cmdable) (chan bulk_models.BulkItem, chan error) {
 	return nil, l.testNotImplementedAsync()
 }
-func (l *BulkListMock) CountForState(state BulkItemState, redisClient redis.Cmdable) (int64, error) {
+func (l *BulkListMock) CountForState(state bulk_models.BulkItemState, redisClient redis.Cmdable) (int64, error) {
 	return 0, nil
 }
-func (l *BulkListMock) CountForAllStates(redisClient redis.Cmdable) (map[BulkItemState]int64, error) {
+func (l *BulkListMock) CountForAllStates(redisClient redis.Cmdable) (map[bulk_models.BulkItemState]int64, error) {
 	return nil, l.testNotImplementedSync()
 }
-func (l *BulkListMock) UpdateState(bulkItemId uuid.UUID, newState BulkItemState, redisClient redis.Cmdable) error {
+func (l *BulkListMock) UpdateState(bulkItemId uuid.UUID, newState bulk_models.BulkItemState, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
-func (l *BulkListMock) AddRecord(record BulkItem, redisClient redis.Cmdable) error {
+func (l *BulkListMock) AddRecord(record bulk_models.BulkItem, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
-func (l *BulkListMock) RemoveRecord(record BulkItem, redisClient redis.Cmdable) error {
+func (l *BulkListMock) RemoveRecord(record bulk_models.BulkItem, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
-func (l *BulkListMock) ReindexRecord(record BulkItem, oldRecord BulkItem, redisClient redis.Cmdable) error {
+func (l *BulkListMock) ReindexRecord(record bulk_models.BulkItem, oldRecord bulk_models.BulkItem, redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
 
@@ -172,16 +176,16 @@ func (l *BulkListMock) Delete(redisClient redis.Cmdable) error {
 	return l.testNotImplementedSync()
 }
 
-func (l *BulkListMock) SetActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error {
+func (l *BulkListMock) SetActionRunning(actionName bulk_models.BulkListAction, redisClient redis.Cmdable) error {
 	l.incrementCallCount("SetActionRunning", []string{string(actionName)})
 	return nil
 }
-func (l *BulkListMock) ClearActionRunning(actionName BulkListAction, redisClient redis.Cmdable) error {
+func (l *BulkListMock) ClearActionRunning(actionName bulk_models.BulkListAction, redisClient redis.Cmdable) error {
 	l.incrementCallCount("ClearActionRunning", []string{string(actionName)})
 	return nil
 }
 
-func (l *BulkListMock) GetActionsRunning(redisClient redis.Cmdable) ([]BulkListAction, error) {
+func (l *BulkListMock) GetActionsRunning(redisClient redis.Cmdable) ([]bulk_models.BulkListAction, error) {
 	return nil, l.testNotImplementedSync()
 }
 

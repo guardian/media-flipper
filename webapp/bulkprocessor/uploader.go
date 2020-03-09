@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
 	"log"
@@ -24,7 +25,7 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	uid, _ := uuid.NewRandom()
-	newBulk := BulkListImpl{
+	newBulk := bulk_models.BulkListImpl{
 		BulkListId:   uid,
 		CreationTime: time.Now(),
 	}
@@ -66,8 +67,8 @@ func (h BulkListUploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 /**
 testing, frontend has been reporting duped uuids; is this in the retrieval or setting? this will tell us.
 */
-func guaranteedGoodItem(linePtr *string, bulkList BulkList, redisClient redis.Cmdable) (BulkItem, error) {
-	newItem := NewBulkItem(*linePtr, -1)
+func guaranteedGoodItem(linePtr *string, bulkList bulk_models.BulkList, redisClient redis.Cmdable) (bulk_models.BulkItem, error) {
+	newItem := bulk_models.NewBulkItem(*linePtr, -1)
 	alreadyExists, existErr := bulkList.ExistsInIndex(newItem.GetId(), redisClient)
 	if existErr != nil {
 		log.Printf("ERROR: unable to check index!")
@@ -84,7 +85,7 @@ func guaranteedGoodItem(linePtr *string, bulkList BulkList, redisClient redis.Cm
 async goroutine that receives data from either a stream of file-lines or its corresponding error channel and adds content
 to the given BulkList
 */
-func asyncInputProcessor(bulkList BulkList, completedChan chan error, rawLinesChan chan *string, rawLinesErrChan chan error, redisClient *redis.Client) {
+func asyncInputProcessor(bulkList bulk_models.BulkList, completedChan chan error, rawLinesChan chan *string, rawLinesErrChan chan error, redisClient *redis.Client) {
 	for {
 		select {
 		case readErr := <-rawLinesErrChan:

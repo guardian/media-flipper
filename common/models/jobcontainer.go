@@ -7,6 +7,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"reflect"
@@ -189,6 +190,52 @@ func (c *JobContainer) FailCurrentStep(msg string) {
 	} else {
 		c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_FAILED, &msg)
 	}
+}
+
+func (c *JobContainer) SetStatusLostAndStore(forStepId uuid.UUID, redisClient *redis.Client) error {
+	jobStep := c.FindStepById(forStepId)
+	if jobStep == nil {
+		log.Printf("ERROR SetStatusLost job entry %s does not have a step with id %s so can't mark as lost", c.Id, forStepId)
+		return errors.New("no step with that id present")
+	}
+
+	errMsg := fmt.Sprintf("could not get any runners for step id %s", forStepId)
+	updatedStep := (*jobStep).WithNewStatus(JOB_LOST, &errMsg)
+	updateErr := c.UpdateStepById(updatedStep.StepId(), updatedStep)
+	if updateErr != nil {
+		log.Printf("ERROR SetStatusLost could not save updated job step: %s", updateErr)
+	}
+
+	c.Status = JOB_LOST
+
+	p := redisClient.Pipeline()
+
+	if c.AssociatedBulk != nil {
+		bulkListDAO := bulk_models.BulkListDAOImpl{}
+
+		bulk, getBulkErr := bulkListDAO.BulkListForId(c.AssociatedBulk.List, redisClient)
+		if getBulkErr != nil {
+			return getBulkErr
+		}
+
+		rec, getRecErr := bulk.GetSpecificRecordSync(c.AssociatedBulk.Item, redisClient)
+		if getRecErr != nil {
+			log.Printf("ERROR SetStatusLost could not get bulk item with id %s from bulk with id %s", c.AssociatedBulk.Item, c.AssociatedBulk.Item)
+			return getRecErr
+		}
+
+		rec.SetState(bulk_models.ITEM_STATE_LOST)
+		rec.Store(p)
+	}
+
+	c.Store(p)
+
+	_, storErr := p.Exec()
+	if storErr != nil {
+		log.Printf("ERROR clearcompletedTick could not store updated job: %s", storErr)
+	}
+
+	return nil
 }
 
 /**

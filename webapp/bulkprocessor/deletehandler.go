@@ -2,6 +2,7 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -11,7 +12,7 @@ type DeleteHandler struct {
 	redisClient *redis.Client
 }
 
-func processItems(itemsChan chan BulkItem, errChan chan error, completionChan chan error, redisClient redis.Cmdable) {
+func processItems(itemsChan chan bulk_models.BulkItem, errChan chan error, completionChan chan error, redisClient redis.Cmdable) {
 	pipe := redisClient.Pipeline()
 	defer pipe.Close()
 	for {
@@ -63,7 +64,7 @@ func (h DeleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bulkList, listGetErr := BulkListForId(*batchId, h.redisClient)
+	bulkList, listGetErr := bulk_models.BulkListForId(*batchId, h.redisClient)
 	if listGetErr != nil {
 		log.Printf("ERROR: could not retrieve batch list for %s: %s", *batchId, listGetErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not retrieve batch list"}, w, 500)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -28,26 +29,26 @@ func (h ContentsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	byStateRequest := parsedUri.Query().Get("state")
 	byNameReqest := parsedUri.Query().Get("name")
 
-	bulkList, bulkListErr := BulkListForId(*bulkListId, h.redisClient)
+	bulkList, bulkListErr := bulk_models.BulkListForId(*bulkListId, h.redisClient)
 	if bulkListErr != nil {
 		log.Printf("ERROR ContentsHandler Could not retrieve bulk list from datastore: %s", bulkListErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not retrieve bulk list"}, w, 500)
 		return
 	}
 
-	var recordsChan chan BulkItem
+	var recordsChan chan bulk_models.BulkItem
 	var errChan chan error
 
 	if byStateRequest == "" && byNameReqest == "" {
 		//no names, retrieve everything
 		recordsChan, errChan = bulkList.GetAllRecordsAsync(h.redisClient)
 	} else if byStateRequest != "" && byNameReqest == "" {
-		s := ItemStateFromString(byStateRequest)
+		s := bulk_models.ItemStateFromString(byStateRequest)
 		recordsChan, errChan = bulkList.FilterRecordsByStateAsync(s, h.redisClient)
 	} else if byStateRequest == "" && byNameReqest != "" {
 		recordsChan, errChan = bulkList.FilterRecordsByNameAsync(byNameReqest, h.redisClient)
 	} else {
-		s := ItemStateFromString(byStateRequest)
+		s := bulk_models.ItemStateFromString(byStateRequest)
 		recordsChan, errChan = bulkList.FilterRecordsByNameAndStateAsync(byNameReqest, s, h.redisClient)
 	}
 

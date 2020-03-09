@@ -3,6 +3,7 @@ package bulkprocessor
 import (
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -10,13 +11,13 @@ import (
 
 type RemoveNonTranscodableHandler struct {
 	redisClient *redis.Client
-	dao         BulkListDAO
+	dao         bulk_models.BulkListDAO
 }
 
 /**
 callback function that removes items from the bulk if there is no transcode setting present for them
 */
-func removeNTProcessor(itemsChan chan BulkItem, errChan chan error, outputChan chan error, batch BulkList, redisClient redis.Cmdable) {
+func removeNTProcessor(itemsChan chan bulk_models.BulkItem, errChan chan error, outputChan chan error, batch bulk_models.BulkList, redisClient redis.Cmdable) {
 	hasImageSetting := batch.GetImageTemplateId() != uuid.UUID{}
 	hasVideoSetting := batch.GetVideoTemplateId() != uuid.UUID{}
 	hasAudioSetting := batch.GetAudioTemplateId() != uuid.UUID{}
@@ -26,7 +27,7 @@ func removeNTProcessor(itemsChan chan BulkItem, errChan chan error, outputChan c
 		case item := <-itemsChan:
 			if item == nil {
 				log.Printf("Remove non-transcodable run completed")
-				batch.ClearActionRunning(REMOVE_NONTRANSCODABLE_FILES, redisClient)
+				batch.ClearActionRunning(bulk_models.REMOVE_NONTRANSCODABLE_FILES, redisClient)
 				outputChan <- nil
 				return
 			}
@@ -54,7 +55,7 @@ func removeNTProcessor(itemsChan chan BulkItem, errChan chan error, outputChan c
 			}
 		case err := <-errChan:
 			log.Printf("ERROR: Could not iterate all items: %s", err)
-			batch.ClearActionRunning(REMOVE_NONTRANSCODABLE_FILES, redisClient)
+			batch.ClearActionRunning(bulk_models.REMOVE_NONTRANSCODABLE_FILES, redisClient)
 			outputChan <- err
 		}
 	}
@@ -78,7 +79,7 @@ func (h RemoveNonTranscodableHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		syncMode = true
 	}
 
-	completionChan := RunAsyncActionForBatch(h.dao, *batchId, REMOVE_NONTRANSCODABLE_FILES, h.redisClient, removeNTProcessor)
+	completionChan := RunAsyncActionForBatch(h.dao, *batchId, bulk_models.REMOVE_NONTRANSCODABLE_FILES, h.redisClient, removeNTProcessor)
 
 	if syncMode {
 		err := <-completionChan

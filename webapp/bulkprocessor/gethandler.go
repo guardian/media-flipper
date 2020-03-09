@@ -2,6 +2,7 @@ package bulkprocessor
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"log"
 	"net/http"
@@ -23,7 +24,7 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	listPtr, getErr := BulkListForId(*bulkId, h.redisClient)
+	listPtr, getErr := bulk_models.BulkListForId(*bulkId, h.redisClient)
 	if getErr != nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not retrieve bulk list"}, w, 500)
 		return
@@ -54,12 +55,12 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		VideoTemplateId: listPtr.GetVideoTemplateId(),
 		AudioTemplateId: listPtr.GetAudioTemplateId(),
 		ImageTemplateId: listPtr.GetImageTemplateId(),
-		PendingCount:    itemStats[ITEM_STATE_PENDING],
-		ActiveCount:     itemStats[ITEM_STATE_ACTIVE],
-		CompletedCount:  itemStats[ITEM_STATE_COMPLETED],
-		ErrorCount:      itemStats[ITEM_STATE_FAILED],
-		AbortedCount:    itemStats[ITEM_STATE_ABORTED],
-		NonQueuedCount:  itemStats[ITEM_STATE_NOT_QUEUED],
+		PendingCount:    itemStats[bulk_models.ITEM_STATE_PENDING],
+		ActiveCount:     itemStats[bulk_models.ITEM_STATE_ACTIVE],
+		CompletedCount:  itemStats[bulk_models.ITEM_STATE_COMPLETED],
+		ErrorCount:      itemStats[bulk_models.ITEM_STATE_FAILED],
+		AbortedCount:    itemStats[bulk_models.ITEM_STATE_ABORTED],
+		NonQueuedCount:  itemStats[bulk_models.ITEM_STATE_NOT_QUEUED],
 		RunningActions:  runningActionsStrings,
 	}
 	helpers.WriteJsonContent(&rsp, w, 200)
