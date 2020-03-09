@@ -2,9 +2,9 @@ package jobrunner
 
 import (
 	"github.com/go-redis/redis/v7"
+	"github.com/guardian/mediaflipper/common/bulk_models"
 	"github.com/guardian/mediaflipper/common/helpers"
 	"github.com/guardian/mediaflipper/common/models"
-	"github.com/guardian/mediaflipper/webapp/bulkprocessor"
 	"log"
 	"net/http"
 )
@@ -24,8 +24,8 @@ returns:
 - a channel that forwards on each record once it has been processed
 - a channel that forwards on any error
 */
-func (h FailPendingHandler) batchRemoveAsync(recordsChan chan bulkprocessor.BulkItem, upstreamErrChan chan error) (chan bulkprocessor.BulkItem, chan error) {
-	recordsOutChan := make(chan bulkprocessor.BulkItem, 10)
+func (h FailPendingHandler) batchRemoveAsync(recordsChan chan bulk_models.BulkItem, upstreamErrChan chan error) (chan bulk_models.BulkItem, chan error) {
+	recordsOutChan := make(chan bulk_models.BulkItem, 10)
 	errorOutChan := make(chan error, 10)
 
 	go func() {
@@ -85,16 +85,16 @@ func (h FailPendingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bulkList, lookupErr := bulkprocessor.BulkListForId(*forId, h.redisClient)
+	bulkList, lookupErr := bulk_models.BulkListForId(*forId, h.redisClient)
 	if lookupErr != nil {
 		log.Printf("ERROR FailPendingHandler could not look up bulk list for %s: %s", *forId, lookupErr)
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"db_error", "could not look up bulk list"}, w, 500)
 		return
 	}
 
-	bulkItemStream, filterErrStream := bulkList.FilterRecordsByStateAsync(bulkprocessor.ITEM_STATE_PENDING, h.redisClient)
+	bulkItemStream, filterErrStream := bulkList.FilterRecordsByStateAsync(bulk_models.ITEM_STATE_PENDING, h.redisClient)
 	removedStream, removeErrStream := h.batchRemoveAsync(bulkItemStream, filterErrStream)
-	updateErrStream := asyncUpdateItemStatus(removedStream, bulkprocessor.ITEM_STATE_FAILED, bulkList, 100, h.redisClient)
+	updateErrStream := asyncUpdateItemStatus(removedStream, bulk_models.ITEM_STATE_FAILED, bulkList, 100, h.redisClient)
 
 	go func() {
 		filterErr := <-removeErrStream

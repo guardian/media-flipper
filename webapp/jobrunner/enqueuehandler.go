@@ -67,14 +67,14 @@ func (h BulkEnqueueHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		specificItemUuid = &uid
 	}
 
-	var forState bulkprocessor.BulkItemState
+	var forState bulk_models.BulkItemState
 	forStateString := parsedUrl.Query().Get("forState")
 	if forStateString == "" && specificItemUuid == nil {
 		helpers.WriteJsonContent(helpers.GenericErrorResponse{"bad_arguments", "you must specify either forState or forItem"}, w, 400)
 		return
 	}
 
-	forState = bulkprocessor.ItemStateFromString(forStateString)
+	forState = bulk_models.ItemStateFromString(forStateString)
 
 	completionChan := h.runner.EnqueueContentsAsync(h.redisClient, h.templateManager, batchListImplPtr, specificItemUuid, forState, nil)
 

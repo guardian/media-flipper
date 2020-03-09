@@ -61,6 +61,7 @@ func (h GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ErrorCount:      itemStats[bulk_models.ITEM_STATE_FAILED],
 		AbortedCount:    itemStats[bulk_models.ITEM_STATE_ABORTED],
 		NonQueuedCount:  itemStats[bulk_models.ITEM_STATE_NOT_QUEUED],
+		LostCount:       itemStats[bulk_models.ITEM_STATE_LOST],
 		RunningActions:  runningActionsStrings,
 	}
 	helpers.WriteJsonContent(&rsp, w, 200)
