@@ -38,7 +38,7 @@ func ParseSettings(rawString string) (models.TranscodeTypeSettings, error) {
 goroutine to monitor the output from the encoding app
 */
 func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan chan bool, jobContainerId uuid.UUID, jobStepId uuid.UUID) {
-	webAppUri := os.Getenv("WEBAPP_BASE") + "/api/transcode/newprogress"
+	//webAppUri := os.Getenv("WEBAPP_BASE") + "/api/transcode/newprogress"
 
 	for {
 		select {
@@ -53,10 +53,12 @@ func monitorOutput(stdOutChan chan string, stdErrChan chan string, closeChan cha
 				} else {
 					parsedProgress.JobContainerId = jobContainerId
 					parsedProgress.JobStepId = jobStepId
-					sendErr := SendToWebapp(webAppUri, parsedProgress, 0, 2)
-					if sendErr != nil {
-						log.Printf("WARNING: Could not update progress in webabb: %s", sendErr)
-					}
+					log.Printf("DEBUG monitorOutput processed %f at %fx", parsedProgress.TimeEncoded, parsedProgress.SpeedFactor)
+					//temporarily removed as we are not using this data at the moment
+					//sendErr := SendToWebapp(webAppUri, parsedProgress, 0, 2)
+					//if sendErr != nil {
+					//	log.Printf("WARNING: Could not update progress in webabb: %s", sendErr)
+					//}
 				}
 			} else {
 				log.Print(line)
