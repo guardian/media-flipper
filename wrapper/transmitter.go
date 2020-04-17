@@ -66,12 +66,13 @@ func PostWithTimeout(url string, contentType string, byteData []byte, timeout ti
 	cancellationContext, callToCancel := context.WithCancel(context.Background())
 
 	byteReader := bytes.NewReader(byteData)
-	rq, buildErr := http.NewRequest(url, contentType, byteReader)
+	rq, buildErr := http.NewRequest("POST", url, byteReader)
 	if buildErr != nil {
 		log.Printf("ERROR: PostWithTimeout could not build request: %s", buildErr)
 		return nil, buildErr
 	}
 
+	rq.Header.Add("Content-Type", "application/json")
 	timer := time.NewTimer(timeout)
 	requestDone := make(chan interface{})
 	var didCancel = false
