@@ -162,5 +162,5 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 		log.Printf("ERROR: Webapp returned a fatal error (got a %d response)", response.StatusCode)
 		log.Printf("ERROR: Server said %s", responseContent)
 	}
-	return errors.New("got a fatal error, see logs")
+	return errors.New(fmt.Sprintf("got a fatal error due to response code %d, see logs", response.StatusCode))
 }

@@ -131,7 +131,7 @@ func FindK8Job(mediaFlipperStepId uuid.UUID, jobclient batchv1.JobInterface) (*b
 
 		idString := mediaFlipperStepId.String()
 		for _, j := range result.Items {
-			log.Printf("DEBUG FindK8Job checking %s with labels %s against %s", j.Name, j.Labels, idString)
+			//log.Printf("DEBUG FindK8Job checking %s with labels %s against %s", j.Name, j.Labels, idString)
 			if j.Labels["mediaflipper.jobStepId"] == idString {
 				log.Printf("DEBUG FindK8Job got job %s for mediaflipper %s", j.Name, idString)
 				//make a copy seperate to the list and return a pointer to that, so entire list can be GC'd promptly
@@ -139,10 +139,10 @@ func FindK8Job(mediaFlipperStepId uuid.UUID, jobclient batchv1.JobInterface) (*b
 				return &rtn, nil
 			}
 		}
-		log.Printf("DEBUG FindK8Job no results found in page %d", p)
+		//log.Printf("DEBUG FindK8Job no results found in page %d", p)
 		p += 1
 		if result.Continue == "" {
-			log.Printf("DEBUG FindK8Job no more pages to check")
+			log.Printf("WARNING FindK8Job no more pages to check, did not find job for %s", idString)
 			return nil, nil
 		}
 		continueToken = result.Continue

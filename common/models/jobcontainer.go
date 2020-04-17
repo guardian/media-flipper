@@ -590,7 +590,7 @@ return replacement
 adds a single entry to the ctime, status and associated item indices
 */
 func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
-	log.Printf("indexing job %s", ent.Id)
+	//log.Printf("DEBUG jobcontainer.indexSingleEntry indexing job %s", ent.Id)
 	p := client.Pipeline()
 
 	p.ZAdd(REDIDX_CTIME, &redis.Z{
@@ -613,7 +613,7 @@ func indexSingleEntry(ent *JobContainer, client redis.Cmdable) error {
 remove the given entry from the ctime, status and associated item inices
 */
 func removeFromIndex(forId uuid.UUID, bulkAssociation *BulkAssociation, client redis.Cmdable) error {
-	log.Printf("removing job %s from index", forId)
+	//log.Printf("DEBUG jobcontainer.removeFromIndex removing job %s from index", forId)
 	p := client.Pipeline()
 
 	p.ZRem(REDIDX_CTIME, forId.String())
