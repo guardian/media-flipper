@@ -4,12 +4,60 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
 )
 
+type TimeoutError struct {
+	what   string
+	expiry time.Duration
+}
+
+func (t TimeoutError) Error() string {
+	return fmt.Sprintf("%s timed out after %s", t.what, t.expiry.String())
+}
+
+func PostWithTimeout(url string, contentType string, body io.Reader, timeout time.Duration) (*http.Response, error) {
+	responseChan := make(chan *http.Response)
+	errChan := make(chan error)
+	timer := time.NewTimer(timeout)
+
+	defer func() {
+		//ensure that all channels are cleaned up
+		close(responseChan)
+		close(errChan)
+		timer.Stop()
+	}()
+
+	go func() {
+		response, err := http.Post(url, contentType, body)
+		if err != nil {
+			errChan <- err
+		} else {
+			responseChan <- response
+		}
+	}()
+
+	select { //we only expect a message on one of the channels
+	case response := <-responseChan:
+		log.Printf("INFO PostWithTimeout http send was successful")
+		return response, nil
+	case err := <-errChan:
+		log.Printf("INFO PostWithTimeout http send failed, see caller for error details")
+		return nil, err
+	case <-timer.C:
+		err := TimeoutError{
+			what:   fmt.Sprintf("http post to %s", url),
+			expiry: timeout,
+		}
+		log.Printf("WARNING: PostWithTimeout failed: %s", err.Error())
+		return nil, err
+	}
+}
 func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) error {
 	byteData, marshalErr := json.Marshal(data)
 	if marshalErr != nil {
