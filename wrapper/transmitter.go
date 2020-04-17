@@ -97,7 +97,7 @@ func PostWithTimeout(url string, contentType string, byteData []byte, timeout ti
 		return PostWithTimeout(url, contentType, byteData, timeout)
 	} else {
 		requestDone <- true
-		log.Printf("DEBUG SendToApp success")
+		log.Printf("DEBUG SendToApp call completed, error was %s", err)
 		return response, err
 	}
 }
