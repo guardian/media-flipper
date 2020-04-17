@@ -67,7 +67,7 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 	}
 
 	byteReader := bytes.NewReader(byteData)
-	response, err := PostWithTimeout(forUrl, "application/json", byteReader, 3*time.Second)
+	response, err := PostWithTimeout(forUrl, "application/json", byteReader, 30*time.Second)
 
 	if err != nil {
 		log.Print("ERROR: Could not send data to webapp: ", err)
@@ -91,7 +91,7 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 		log.Printf("WARNING: server said %s", string(responseContent))
 		log.Printf("WARNING: Webapp is not accessible on attempt %d (got a %d response)", attempt, response.StatusCode)
 		if attempt >= maxTries {
-			return errors.New("Webapp was not accessible")
+			return errors.New("webapp was not accessible")
 		}
 		time.Sleep(1 * time.Second)
 		return SendToWebapp(forUrl, data, attempt+1, maxTries)
@@ -103,5 +103,5 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 		log.Printf("ERROR: Webapp returned a fatal error (got a %d response)", response.StatusCode)
 		log.Printf("ERROR: Server said %s", responseContent)
 	}
-	return errors.New("Got a fatal error, see logs")
+	return errors.New("got a fatal error, see logs")
 }
