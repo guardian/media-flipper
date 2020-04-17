@@ -58,6 +58,7 @@ func PostWithTimeout(url string, contentType string, body io.Reader, timeout tim
 		return nil, err
 	}
 }
+
 func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) error {
 	byteData, marshalErr := json.Marshal(data)
 	if marshalErr != nil {
@@ -66,10 +67,19 @@ func SendToWebapp(forUrl string, data interface{}, attempt int, maxTries int) er
 	}
 
 	byteReader := bytes.NewReader(byteData)
-	response, err := http.Post(forUrl, "application/json", byteReader)
+	response, err := PostWithTimeout(forUrl, "application/json", byteReader, 3*time.Second)
 
 	if err != nil {
 		log.Print("ERROR: Could not send data to webapp: ", err)
+		//backoff and retry if the http request times out
+		if _, isTimeout := err.(TimeoutError); isTimeout {
+			if attempt >= maxTries {
+				return errors.New("Webapp was not accessible")
+			}
+			log.Printf("WARNING: Send to webapp timed out. Retrying after 3s delay...")
+			time.Sleep(3 * time.Second)
+			return SendToWebapp(forUrl, data, attempt+1, maxTries)
+		}
 		return err
 	}
 
