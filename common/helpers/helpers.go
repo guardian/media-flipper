@@ -15,7 +15,7 @@ import (
 func WriteJsonContent(content interface{}, w http.ResponseWriter, statusCode int) {
 	contentBytes, marshalErr := json.Marshal(content)
 	if marshalErr != nil {
-		log.Printf("Could not marshal content for json write: %s", marshalErr)
+		log.Printf("ERROR WriteJsonContent Could not marshal content for json write: %s", marshalErr)
 		return
 	}
 
@@ -24,7 +24,7 @@ func WriteJsonContent(content interface{}, w http.ResponseWriter, statusCode int
 	w.WriteHeader(statusCode)
 	_, writeErr := w.Write(contentBytes)
 	if writeErr != nil {
-		log.Printf("Could not write content to HTTP socket: %s", writeErr)
+		log.Printf("ERROR WriteJsonContent could not write content to HTTP socket: %s", writeErr)
 	}
 }
 
@@ -40,7 +40,7 @@ func ReadJsonBody(from io.Reader, to interface{}) error {
 
 func AssertHttpMethod(request *http.Request, w http.ResponseWriter, method string) bool {
 	if request.Method != method {
-		log.Printf("Got a %s request, expecting %s", request.Method, method)
+		log.Printf("WARNING AssertHttpMethod got a %s request, expecting %s", request.Method, method)
 		WriteJsonContent(GenericErrorResponse{"error", "wrong method type"}, w, 405)
 		return false
 	} else {
@@ -55,8 +55,8 @@ func GetQueryParams(incomingRequestUri string) (*url.Values, error) {
 	requestUri, uriParseErr := url.ParseRequestURI(incomingRequestUri)
 
 	if uriParseErr != nil {
-		log.Printf("Could not understand incoming request URI '%s': %s", incomingRequestUri, uriParseErr)
-		return nil, errors.New("Invalid URI")
+		log.Printf("ERROR helpers.GetQueryParams could not understand incoming request URI '%s': %s", incomingRequestUri, uriParseErr)
+		return nil, errors.New("invalid URI")
 	}
 
 	rtn := requestUri.Query()
@@ -85,7 +85,7 @@ func GetJobIdFromValues(queryParams *url.Values) (*uuid.UUID, *GenericErrorRespo
 
 	jobId, uuidParseErr := uuid.Parse(jobIdString)
 	if uuidParseErr != nil {
-		log.Printf("Could not parse job ID string '%s' into a UUID: %s", jobIdString, uuidParseErr)
+		log.Printf("ERROR GetJobIdFromValues could not parse job ID string '%s' into a UUID: %s", jobIdString, uuidParseErr)
 		return nil, &GenericErrorResponse{
 			Status: "error",
 			Detail: "malformed UUID",

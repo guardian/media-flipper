@@ -120,13 +120,13 @@ func (c JobContainer) Store(redisClient redis.Cmdable) error {
 
 	content, marshalErr := json.Marshal(c)
 	if marshalErr != nil {
-		log.Printf("Could not marshal data for job container %s: %s", c.Id, marshalErr)
+		log.Printf("ERROR JobContainer.Store Could not marshal data for job container %s: %s", c.Id, marshalErr)
 		return marshalErr
 	}
 
 	_, saveErr := redisClient.Set(dbKey, string(content), -1).Result()
 	if saveErr != nil {
-		log.Printf("Could not save data for job container %s: %s", c.Id, saveErr)
+		log.Printf("ERROR JobContainer.Store Could not save data for job container %s: %s", c.Id, saveErr)
 		return saveErr
 	}
 	remErr := removeFromIndex(c.Id, c.AssociatedBulk, redisClient)
@@ -150,13 +150,13 @@ func (c *JobContainer) CurrentStep() JobStep {
 }
 
 func (c *JobContainer) CompleteStepAndMoveOn() JobStep {
-	log.Printf("completing step %d / %d", c.CompletedSteps, len(c.Steps))
+	log.Printf("INFO JobContainer.CompleteStepAndMoveOn completing step %d / %d", c.CompletedSteps, len(c.Steps))
 
 	if len(c.Steps) > c.CompletedSteps {
 		c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_COMPLETED, nil)
 		c.CompletedSteps += 1
 	} else {
-		log.Printf("WARNING: data issue, completedsteps counter is larger than step list length?")
+		log.Printf("WARNING JobContainer.CompleteStepAndMoveOn data issue, completedsteps counter is larger than step list length?")
 	}
 
 	if c.CompletedSteps >= len(c.Steps) {
@@ -185,7 +185,7 @@ func (c *JobContainer) FailCurrentStep(msg string) {
 	c.EndTime = &nowTime
 	c.ErrorMessage = msg
 	if c.CompletedSteps >= len(c.Steps) {
-		log.Printf("ERROR: Trying to fail current step when all steps have already been processed? Offending data was %s", spew.Sdump(c))
+		log.Printf("ERROR JobContainer.FailCurrentStep trying to fail current step when all steps have already been processed? Offending data was %s", spew.Sdump(c))
 	} else {
 		c.Steps[c.CompletedSteps] = c.Steps[c.CompletedSteps].WithNewStatus(JOB_FAILED, &msg)
 	}
@@ -215,7 +215,7 @@ func (c *JobContainer) UpdateStepById(stepId uuid.UUID, updatedStep JobStep) err
 			return nil
 		}
 	}
-	return errors.New("No step found for that ID")
+	return errors.New("no step found for that ID")
 }
 
 /**
@@ -237,11 +237,11 @@ func optionalUuid(from map[string]interface{}, key string, forId string) *uuid.U
 		} else {
 			thumbIdStr, isStr := thumbId.(string)
 			if !isStr {
-				log.Printf("ERROR: thumbnail ID for %s is not a string!", forId)
+				log.Printf("ERROR jobcontainer.optionalUuid thumbnail ID for %s is not a string!", forId)
 			} else {
 				thumbnailUuid, uuidErr := uuid.Parse(thumbIdStr)
 				if uuidErr != nil {
-					log.Printf("ERROR: could not parse thumbnail id %s as a uuid: %s", thumbIdStr, uuidErr)
+					log.Printf("ERROR jobcontainer.optionalUuid could not parse thumbnail id %s as a uuid: %s", thumbIdStr, uuidErr)
 				} else {
 					thumbnailIdPtr = &thumbnailUuid
 				}
@@ -264,8 +264,8 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 	for i, untypedRawStep := range rawSteps {
 		rawStep, isMap := untypedRawStep.(map[string]interface{})
 		if !isMap {
-			log.Printf("ERROR: job data is not valid, had a step that is of type %s not map", reflect.TypeOf(untypedRawStep))
-			log.Printf("Offending job data: %s", spew.Sdump(rawDataMap))
+			log.Printf("ERROR JobContainer.UnmarshalJSON job data is not valid, had a step that is of type %s not map", reflect.TypeOf(untypedRawStep))
+			log.Printf("ERROR JobContainer.UnmarshalJSON Offending job data: %s", spew.Sdump(rawDataMap))
 			continue
 		}
 		stepType, typeIsString := rawStep["stepType"].(string)
@@ -276,33 +276,33 @@ func (c *JobContainer) UnmarshalJSON(data []byte) error {
 		case "analysis":
 			decodedStep, decErr := JobStepAnalysisFromMap(rawStep)
 			if decErr != nil {
-				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				log.Printf("ERROR JobContainer.UnmarshalJSON could not decode %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr
 			}
 			steps[i] = decodedStep
 		case "thumbnail":
 			decodedStep, decErr := JobStepThumbnailFromMap(rawStep)
 			if decErr != nil {
-				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				log.Printf("ERROR JobContainer.UnmarshalJSON could not decode %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr
 			}
 			steps[i] = decodedStep
 		case "transcode":
 			decodedStep, decErr := JobStepTranscodeFromMap(rawStep)
 			if decErr != nil {
-				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				log.Printf("ERROR JobContainer.UnmarshalJSON could not decode %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr
 			}
 			steps[i] = decodedStep
 		case "custom":
 			decodedStep, decErr := JobStepCustomFromMap(rawStep)
 			if decErr != nil {
-				log.Printf("decoding ERROR: %s for %s", decErr, spew.Sdump(rawStep))
+				log.Printf("ERROR JobContainer.UnmarshalJSON could not decode %s for %s", decErr, spew.Sdump(rawStep))
 				return decErr
 			}
 			steps[i] = decodedStep
 		default:
-			log.Printf("WARNING: Did not recognise job step type %s", rawStep["stepType"].(string))
+			log.Printf("WARNING JobContainer.UnmarshalJSON Did not recognise job step type %s", rawStep["stepType"].(string))
 		}
 	}
 
@@ -336,14 +336,14 @@ func JobContainerForId(forId uuid.UUID, redisClient redis.Cmdable) (*JobContaine
 
 	content, getErr := redisClient.Get(dbKey).Result()
 	if getErr != nil {
-		log.Printf("Could not retrieve job container with id %s: %s", forId, getErr)
+		log.Printf("ERROR JobContainerForId could not retrieve job container with id %s: %s", forId, getErr)
 		return nil, getErr
 	}
 
 	var c JobContainer
 	marshalErr := json.Unmarshal([]byte(content), &c)
 	if marshalErr != nil {
-		log.Printf("Could not unmarshal data from store: %s. Offending data was: %s", marshalErr, content)
+		log.Printf("ERROR JobContainerForId could not unmarshal data from store: %s. Offending data was: %s", marshalErr, content)
 		return nil, marshalErr
 	}
 	return &c, nil
@@ -376,10 +376,8 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 		keys, nextCursor, scanErr = redisclient.Scan(cursor, "mediaflipper:JobContainer:*", limit).Result()
 		break
 	case SORT_CTIME:
-		log.Printf("DEBUG: getting revrange on %s", indexName)
 		jobIdList, err := redisclient.ZRevRange(indexName, int64(cursor), limit).Result()
 		scanErr = err
-		log.Printf("DEBUG: index gave a total of %d items with a limit of %d", len(jobIdList), limit)
 		if err == nil {
 			keys = make([]string, len(jobIdList))
 			for i, jobId := range jobIdList {
@@ -403,7 +401,7 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 	}
 
 	if scanErr != nil {
-		log.Printf("Could not scan job containers: %s", scanErr)
+		log.Printf("ERROR ListJobContainersJson could not scan job containers: %s", scanErr)
 		return nil, 0, scanErr
 	}
 
@@ -416,14 +414,13 @@ func ListJobContainersJson(cursor uint64, limit int64, redisclient *redis.Client
 
 	results, _ := pipe.Exec()
 
-	log.Printf("DEBUG: pipelining a total of %d commands", len(cmds))
 	rtn := make([]string, 0)
 	for _, r := range results {
 		cmd := r.(*redis.StringCmd)
 
 		content, getErr := cmd.Result()
 		if getErr != nil {
-			log.Printf("could not %s: %s", cmd.String(), getErr)
+			log.Printf("ERROR ListJobContainersJson could not %s: %s", cmd.String(), getErr)
 		}
 		if content != "" {
 			rtn = append(rtn, content)
@@ -439,7 +436,7 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 	}
 
 	if jsonBlobs == nil {
-		log.Printf("No jobs to list!")
+		log.Printf("INFO ListJobContainers no jobs to list!")
 		rtnList := make([]JobContainer, 0)
 		return &rtnList, 0, nil
 	}
@@ -448,7 +445,7 @@ func ListJobContainers(cursor uint64, limit int64, redisclient *redis.Client, so
 	for i, blob := range *jsonBlobs {
 		marshalErr := json.Unmarshal([]byte(blob), &rtn[i])
 		if marshalErr != nil {
-			log.Printf("Could not unmarshal data for entry %d: %s. Offending data was %s.", i, marshalErr, blob)
+			log.Printf("ERROR ListJobContainers could not unmarshal data for entry %d: %s. Offending data was %s.", i, marshalErr, blob)
 			return nil, 0, marshalErr
 		}
 	}

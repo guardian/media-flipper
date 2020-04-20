@@ -39,13 +39,13 @@ func NewFileEntry(forPath string, jobContainerId uuid.UUID, fileType FileType) (
 	fileTypeInfo, ftErr := filetype.MatchFile(forPath)
 	var mimeType string
 	if ftErr != nil {
-		log.Printf("Could not determine type for %s: %s", forPath, ftErr)
+		log.Printf("WARNING NewFileEntry Could not determine type for %s: %s", forPath, ftErr)
 		mimeType = "application/octet-stream"
 	} else {
 		if fileTypeInfo.MIME.Value != "" {
 			mimeType = fileTypeInfo.MIME.Value
 		} else {
-			log.Printf("Got no MIME type for %s", forPath)
+			log.Printf("WARNING NewFileEntry Got no MIME type for %s", forPath)
 			mimeType = "application/octet-stream"
 		}
 	}
@@ -65,13 +65,13 @@ func (f FileEntry) Store(redisClient *redis.Client) error {
 
 	content, marshalErr := json.Marshal(f)
 	if marshalErr != nil {
-		log.Printf("Could not format content: %s. Offending data was %s", marshalErr, spew.Sdump(f))
+		log.Printf("ERROR FileEntry.Store could not format content: %s. Offending data was %s", marshalErr, spew.Sdump(f))
 		return marshalErr
 	}
 
 	_, setErr := redisClient.Set(dbKey, string(content), -1).Result()
 	if setErr != nil {
-		log.Printf("Could not store content: %s", setErr)
+		log.Printf("ERROR fileentry.Store could not store content: %s", setErr)
 		return setErr
 	}
 
@@ -80,7 +80,7 @@ func (f FileEntry) Store(redisClient *redis.Client) error {
 	indexKey := fmt.Sprintf("mediaflipper:jobfile:%s", f.JobContainerId)
 	_, indexSetErr := redisClient.HSet(indexKey, string(f.FileType), f.Id.String()).Result()
 	if indexSetErr != nil {
-		log.Printf("Could not update index record: %s", indexSetErr)
+		log.Printf("ERROR FileEntry.Store ould not update index record: %s", indexSetErr)
 		return indexSetErr
 	}
 	return nil
@@ -90,7 +90,7 @@ func (f FileEntry) Delete(removeFromDisk bool, redisClient redis.Cmdable) error 
 	if removeFromDisk {
 		deleteErr := os.Remove(f.ServerPath)
 		if deleteErr != nil {
-			log.Printf("WARNING: Could not delete file %s for entry %s: %s", f.ServerPath, f.Id, deleteErr)
+			log.Printf("WARNING FileEntry.Delete could not delete file %s for entry %s: %s", f.ServerPath, f.Id, deleteErr)
 		}
 	}
 	return RemoveFileEntry(f.Id, redisClient)
@@ -104,14 +104,14 @@ func FileEntryForId(forId uuid.UUID, redisClient redis.Cmdable) (*FileEntry, err
 	rawContent, getErr := redisClient.Get(dbKey).Result()
 
 	if getErr != nil {
-		log.Printf("Could not retrieve file entry for %s: %s", forId.String(), getErr)
+		log.Printf("ERROR FileEntryForId Could not retrieve file entry for %s: %s", forId.String(), getErr)
 		return nil, getErr
 	}
 
 	var ent FileEntry
 	marshalErr := json.Unmarshal([]byte(rawContent), &ent)
 	if marshalErr != nil {
-		log.Printf("Corrupted information in the datastore for %s: %s", dbKey, marshalErr)
+		log.Printf("ERROR FileEntryForId Corrupted information in the datastore for %s: %s", dbKey, marshalErr)
 		return nil, marshalErr
 	}
 
@@ -121,7 +121,7 @@ func FileEntryForId(forId uuid.UUID, redisClient redis.Cmdable) (*FileEntry, err
 func RemoveFileEntry(forId uuid.UUID, redisClient redis.Cmdable) error {
 	dbKey := fmt.Sprintf("mediaflipper:fileentry:%s", forId)
 	deletedCount, err := redisClient.Del(dbKey).Result()
-	log.Printf("Deleted %d items for file entry %s", deletedCount, forId)
+	log.Printf("INFO RemoveFileEntry Deleted %d items for file entry %s", deletedCount, forId)
 	return err
 }
 
@@ -134,7 +134,7 @@ func FileIdsForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]uui
 
 	indexResult, indexErr := client.HGetAll(indexKey).Result()
 	if indexErr != nil {
-		log.Printf("Could not retrieve index entries for job %s: %s", jobMasterId.String(), indexErr)
+		log.Printf("ERROR FileIdsForJobContainer could not retrieve index entries for job %s: %s", jobMasterId.String(), indexErr)
 		return nil, indexErr
 	}
 
@@ -144,7 +144,7 @@ func FileIdsForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]uui
 		var uuidErr error
 		uuidList[i], uuidErr = uuid.Parse(idString)
 		if uuidErr != nil {
-			log.Printf("Could not parse uuid from %s: %s", idString, uuidErr)
+			log.Printf("ERROR FileIdsForJobContainer could not parse uuid from %s: %s", idString, uuidErr)
 		}
 		i += 1
 	}
@@ -170,7 +170,7 @@ func FilesForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]FileE
 	}
 	results, err := pipe.Exec()
 	if err != nil {
-		log.Printf("Pipelined GET failed: %s", err)
+		log.Printf("ERROR FilesForJobContainer pipelined GET failed: %s", err)
 		return nil, err
 	}
 
@@ -180,7 +180,7 @@ func FilesForJobContainer(jobMasterId uuid.UUID, client *redis.Client) (*[]FileE
 		getResult := s.Val()
 		marshalErr := json.Unmarshal([]byte(getResult), &entryList[i])
 		if marshalErr != nil {
-			log.Printf("Invalid data for file entry %s: %s. Offending data was: %s", s.Name(), marshalErr, s.Val())
+			log.Printf("ERROR FilesForJobContainer got invalid data for file entry %s: %s. Offending data was: %s", s.Name(), marshalErr, s.Val())
 			failedCtr += 1
 		}
 	}

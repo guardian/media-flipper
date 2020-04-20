@@ -46,14 +46,14 @@ build a new JobTemplateManager
 func NewJobTemplateManager(fromFilePath string, transcodeSettingsMgr *TranscodeSettingsManager) (*JobTemplateManager, error) {
 	content, readErr := ioutil.ReadFile(fromFilePath)
 	if readErr != nil {
-		log.Printf("Could not read job template data from %s: %s", fromFilePath, readErr)
+		log.Printf("ERROR NewJobTemplateManager Could not read job template data from %s: %s", fromFilePath, readErr)
 		return nil, readErr
 	}
 
 	var loadedContent []JobTemplateDefinition
 	marshalErr := yaml.Unmarshal(content, &loadedContent)
 	if marshalErr != nil {
-		log.Printf("Could not understand data from %s: %s", fromFilePath, marshalErr)
+		log.Printf("ERROR NewJobTemplateManager Could not understand data from %s: %s", fromFilePath, marshalErr)
 		return nil, marshalErr
 	}
 

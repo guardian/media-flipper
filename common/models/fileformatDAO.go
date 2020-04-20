@@ -22,14 +22,14 @@ func GetFileFormat(forId uuid.UUID, redisClient redis.Cmdable) (*FileFormatInfo,
 	content, getErr := result.Result()
 
 	if getErr != nil {
-		log.Printf("Could not retrieve file format for %s: %s", forId, getErr)
+		log.Printf("ERROR fileformatDAO.GetFileFormat could not retrieve file format for %s: %s", forId, getErr)
 		return nil, getErr
 	}
 
 	var decoded FileFormatInfo
 	decodErr := json.Unmarshal([]byte(content), &decoded)
 	if decodErr != nil {
-		log.Printf("Could not understand content from datastore for %s, removing it: %s", jobKey, decodErr)
+		log.Printf("ERROR fileformatDAO.GetFileFormat could not understand content from datastore for %s, removing it: %s", jobKey, decodErr)
 		redisClient.Del(jobKey)
 		return nil, decodErr
 	}
@@ -50,7 +50,7 @@ func PutFileFormat(record *FileFormatInfo, redisClient redis.Cmdable) error {
 
 	result := redisClient.Set(jobKey, string(encoded), -1)
 	if result.Err() != nil {
-		log.Printf("Could not save file format entry to datastore: %s", result.Err())
+		log.Printf("ERROR fileformatDAO.PutFileFormat could not save file format entry to datastore: %s", result.Err())
 		return result.Err()
 	} else {
 		return nil
@@ -61,6 +61,6 @@ func RemoveFileFormat(forId uuid.UUID, redisClient redis.Cmdable) error {
 	jobKey := keyForFileId(forId)
 
 	deletedCount, err := redisClient.Del(jobKey).Result()
-	log.Printf("deleted %d records for file format with id %s", deletedCount, forId)
+	log.Printf("INFO fileformatDAO.RemoveFileFormat deleted %d records for file format with id %s", deletedCount, forId)
 	return err
 }

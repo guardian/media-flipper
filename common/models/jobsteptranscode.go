@@ -113,6 +113,6 @@ func JobStepTranscodeFromMap(mapData map[string]interface{}) (*JobStepTranscode,
 		return &rtn, nil
 	}
 
-	log.Printf("WARNING: transcode step %s from job %s has unrecognised settings", rtn.JobStepId, rtn.JobContainerId)
+	log.Printf("WARNING JobStepTranscodeFromMap transcode step %s from job %s has unrecognised settings", rtn.JobStepId, rtn.JobContainerId)
 	return &rtn, nil
 }

@@ -3,7 +3,6 @@ package models
 import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v2"
-	"log"
 	"strings"
 	"testing"
 )
@@ -109,7 +108,6 @@ func TestTranscodeSettingsMarshal(t *testing.T) {
 		t.Error("marshal failed unexpectedly: ", marshalErr)
 	} else {
 		strContent := string(content)
-		log.Printf("DEBUG: %s", strContent)
 		if !strings.Contains(strContent, "21ed49d1-7a79-40db-94b0-2d0080617a62") {
 			t.Error("returned content did not contain the right id!")
 		}

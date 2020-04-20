@@ -83,7 +83,7 @@ func (v VideoSettings) MarshalToArray() []string {
 	}
 	if v.CRF > 0 {
 		if v.CRF < 17 || v.CRF > 28 {
-			log.Printf("WARNING: Provided CRF value %d is outside the recommended range of 17-28. See https://trac.ffmpeg.org/wiki/Encode/H.264", v.CRF)
+			log.Printf("WARNING VideoSettings.MarshalToArray Provided CRF value %d is outside the recommended range of 17-28. See https://trac.ffmpeg.org/wiki/Encode/H.264", v.CRF)
 		}
 		out = append(out, "-crf", strconv.FormatInt(int64(v.CRF), 10))
 	} else {

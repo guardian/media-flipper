@@ -26,7 +26,7 @@ type Config struct {
 func ReadConfig(configFile string) (*Config, error) {
 	configBytes, readErr := ioutil.ReadFile(configFile)
 	if readErr != nil {
-		log.Printf("Could not read config from '%s': %s\n", configFile, readErr)
+		log.Printf("ERROR ReadConfig could not read config from '%s': %s\n", configFile, readErr)
 		return nil, readErr
 	}
 
@@ -34,7 +34,7 @@ func ReadConfig(configFile string) (*Config, error) {
 
 	err := yaml.Unmarshal(configBytes, &conf)
 	if err != nil {
-		log.Printf("Could not understand config from '%s': %s\n", configFile, err)
+		log.Printf("ERROR ReadConfig could not understand config from '%s': %s\n", configFile, err)
 		return nil, err
 	}
 	return &conf, nil

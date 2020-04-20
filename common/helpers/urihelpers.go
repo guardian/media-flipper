@@ -28,7 +28,7 @@ func GetReceiverJobIds(uriString string) (*url.URL, *uuid.UUID, *uuid.UUID, *Gen
 	jobContainerId, uuidErr := uuid.Parse(uuidText)
 
 	if uuidErr != nil {
-		log.Printf("Could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
+		log.Printf("ERROR GetReceiverJobIds could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
 		return requestUrl, nil, nil, &GenericErrorResponse{"error", "Invalid forJob parameter"}
 	}
 
@@ -36,7 +36,7 @@ func GetReceiverJobIds(uriString string) (*url.URL, *uuid.UUID, *uuid.UUID, *Gen
 	jobStepId, uuidErr := uuid.Parse(jobStepText)
 
 	if uuidErr != nil {
-		log.Printf("Could not parse stepId parameter %s into a UUID: %s", jobStepText, uuidErr)
+		log.Printf("ERROR GetReceiverJobIds could not parse stepId parameter %s into a UUID: %s", jobStepText, uuidErr)
 		return requestUrl, &jobContainerId, nil, &GenericErrorResponse{"error", "Invalid stepId parameter"}
 	}
 
@@ -53,7 +53,7 @@ returns:
 func GetForId(uriString string) (*url.URL, *uuid.UUID, *GenericErrorResponse) {
 	requestUrl, urlErr := url.ParseRequestURI(uriString)
 	if urlErr != nil {
-		log.Print("requestURI could not parse, this should not happen: ", urlErr)
+		log.Print("ERROR GetForId requestURI could not parse, this should not happen: ", urlErr)
 		return nil, nil, &GenericErrorResponse{
 			Status: "server_error",
 			Detail: "requestUri could not parse, this should not happen",
@@ -64,7 +64,7 @@ func GetForId(uriString string) (*url.URL, *uuid.UUID, *GenericErrorResponse) {
 	jobContainerId, uuidErr := uuid.Parse(uuidText)
 
 	if uuidErr != nil {
-		log.Printf("Could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
+		log.Printf("ERROR GetForId Could not parse forJob parameter %s into a UUID: %s", uuidText, uuidErr)
 		return requestUrl, nil, &GenericErrorResponse{"error", "Invalid forJob parameter"}
 	}
 

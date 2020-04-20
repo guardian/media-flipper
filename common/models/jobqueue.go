@@ -69,7 +69,7 @@ func GetQueueLength(client redis.Cmdable, queueName QueueName) (int64, error) {
 
 	count, err := result.Result()
 	if err != nil {
-		log.Printf("Could not retrieve queue length for %s: %s", queueName, err)
+		log.Printf("ERROR models.jobqueue.GetQueueLength Could not retrieve queue length for %s: %s", queueName, err)
 	}
 	return count, err
 }
@@ -121,7 +121,7 @@ func PurgeQueue(client redis.Cmdable, queueName QueueName) error {
 /**
 get a 'snapshot' of the queue state at this moment in time.
 it is recommended to acquire the queue lock first and not release it until done,
-so that the snapshot
+so that the snapshot remains consistent
 */
 func SnapshotQueue(client redis.Cmdable, queueName QueueName) ([]JobQueueEntry, error) {
 	jobKey := fmt.Sprintf("mediaflipper:%s", queueName)
@@ -129,7 +129,7 @@ func SnapshotQueue(client redis.Cmdable, queueName QueueName) ([]JobQueueEntry, 
 	rawData, err := client.LRange(jobKey, 0, -1).Result()
 
 	if err != nil {
-		log.Printf("Could not range %s: %s", jobKey, err)
+		log.Printf("ERROR SnapshotQueue Could not range %s: %s", jobKey, err)
 		return nil, err
 	}
 
@@ -180,7 +180,7 @@ func CheckQueueLock(client *redis.Client, queueName QueueName) (bool, error) {
 
 	result, err := client.Exists(jobKey).Result()
 	if err != nil {
-		log.Printf("Could not check lock for %s: %s", jobKey, err)
+		log.Printf("ERROR jobqueue.CheckQueueLock could not check lock for %s: %s", jobKey, err)
 		return true, err
 	}
 	if result > 0 {

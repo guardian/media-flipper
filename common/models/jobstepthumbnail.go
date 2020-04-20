@@ -48,7 +48,7 @@ func JobStepThumbnailFromMap(mapData map[string]interface{}) (*JobStepThumbnail,
 	if haveTranscodeSettings {
 		var transcodeSettingsImg TranscodeImageSettings
 		imErr := CustomisedMapStructureDecode(transcodeSettingsRaw, &transcodeSettingsImg)
-		//log.Printf("DEBUG: attempt at decoding as image: %s %s", spew.Sdump(transcodeSettingsImg), imErr)
+		//log.Printf("DEBUG JobStepThumbnailFromMap attempt at decoding as image: %s %s", spew.Sdump(transcodeSettingsImg), imErr)
 		//log.Printf("settings valid? %t", transcodeSettingsImg.isValid())
 		if imErr == nil && transcodeSettingsImg.IsValid() {
 			rtn.TranscodeSettings = transcodeSettingsImg
