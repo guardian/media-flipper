@@ -16,7 +16,7 @@ var config = {
         extensions: [".js",".jsx",".svg"],
         fallback: {
             util: require.resolve("util/"),
-            crypto: require.resolve("crypto-browserify"),
+            //crypto: require.resolve("crypto-browserify"),
             buffer: require.resolve("buffer/")
         },
     },
