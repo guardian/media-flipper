@@ -20,7 +20,6 @@ require (
 	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/mitchellh/mapstructure v1.1.2
-	github.com/mjibson/appstats v0.0.0-20151004071057-0542d5f0e87e // indirect
 	github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d // indirect
 	github.com/pkg/sftp v1.11.0 // indirect
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
