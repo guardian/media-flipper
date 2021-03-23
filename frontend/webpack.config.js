@@ -12,6 +12,14 @@ var config = {
         path: BUILD_DIR,
         filename: 'bundle.js'
     },
+    resolve: {
+        extensions: [".js",".jsx",".svg"],
+        fallback: {
+            util: require.resolve("util/"),
+            buffer: require.resolve("buffer/")
+        },
+    },
+
     optimization: {
         minimizer: [new TerserPlugin()]
     },
@@ -31,7 +39,9 @@ var config = {
         ]
     },
     plugins: [
-        new ExtractTextPlugin(BUILD_DIR + "styles.css")
+        new webpack.ProvidePlugin({
+            process: "process/browser",
+        }),
     ]
 };
 
