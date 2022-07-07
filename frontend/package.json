@@ -59,7 +59,7 @@
     "identity-obj-proxy": "^3.0.0",
     "js-cookie": "^2.2.0",
     "lodash.omit": "^4.5.0",
-    "moment": "^2.24.0",
+    "moment": "^2.29.4",
     "moment-duration-format": "2.2.2",
     "process": "^0.11.10",
     "raven-js": "^3.24.1",
